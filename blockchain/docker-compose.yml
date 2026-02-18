@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Node 1 - Primary validator with HTTP RPC endpoint
+  node1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blockchain-node1
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "8551:8551"  # Auth RPC
+      - "30303:30303"  # P2P
+    environment:
+      NODE_NAME: "node1"
+      NETWORK_ID: "1337"
+      PORT: "30303"
+      AUTHRPC_PORT: "8551"
+      HTTP_PORT: "8545"
+      MINER_ETHERBASE: "0x1bB3c72918a315d67fac7641e8bf0906577ca263"
+      UNLOCK_ACCOUNT: "0x1bB3c72918a315d67fac7641e8bf0906577ca263"
+      PASSWORD_FILE: "/blockchain/data/password.txt"
+    volumes:
+      - ./genesis.json:/blockchain/genesis.json:ro
+      - ./node1/keystore:/blockchain/data/keystore:ro
+      - ./node1/password.txt:/blockchain/data/password.txt:ro
+      - node1-data:/blockchain/data/geth
+    networks:
+      - blockchain-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "geth", "attach", "--datadir", "/blockchain/data", "-e", "eth.blockNumber"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node 2 - Secondary validator
+  node2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blockchain-node2
+    ports:
+      - "30304:30303"  # P2P
+      - "8552:8551"    # Auth RPC
+    environment:
+      NODE_NAME: "node2"
+      NETWORK_ID: "1337"
+      PORT: "30303"
+      AUTHRPC_PORT: "8551"
+      MINER_ETHERBASE: "0x92173f5df8050332Fee023628835F72e8d4Be471"
+      UNLOCK_ACCOUNT: "0x92173f5df8050332Fee023628835F72e8d4Be471"
+      PASSWORD_FILE: "/blockchain/data/password.txt"
+      BOOTNODES: "enode://YOUR_NODE1_ENODE@node1:30303"  # Set after getting node1's enode
+    volumes:
+      - ./genesis.json:/blockchain/genesis.json:ro
+      - ./node2/keystore:/blockchain/data/keystore:ro
+      - ./node2/password.txt:/blockchain/data/password.txt:ro
+      - node2-data:/blockchain/data/geth
+    networks:
+      - blockchain-net
+    depends_on:
+      node1:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "geth", "attach", "--datadir", "/blockchain/data", "-e", "eth.blockNumber"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node 3 - Tertiary validator
+  node3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blockchain-node3
+    ports:
+      - "30305:30303"  # P2P
+      - "8553:8551"    # Auth RPC
+    environment:
+      NODE_NAME: "node3"
+      NETWORK_ID: "1337"
+      PORT: "30303"
+      AUTHRPC_PORT: "8551"
+      MINER_ETHERBASE: "0x60Ecd1C3590f3BE4BB18D302537c4989A11735E9"
+      UNLOCK_ACCOUNT: "0x60Ecd1C3590f3BE4BB18D302537c4989A11735E9"
+      PASSWORD_FILE: "/blockchain/data/password.txt"
+      BOOTNODES: "enode://YOUR_NODE1_ENODE@node1:30303"  # Set after getting node1's enode
+    volumes:
+      - ./genesis.json:/blockchain/genesis.json:ro
+      - ./node3/keystore:/blockchain/data/keystore:ro
+      - ./node3/password.txt:/blockchain/data/password.txt:ro
+      - node3-data:/blockchain/data/geth
+    networks:
+      - blockchain-net
+    depends_on:
+      node1:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "geth", "attach", "--datadir", "/blockchain/data", "-e", "eth.blockNumber"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  blockchain-net:
+    driver: bridge
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
