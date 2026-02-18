@@ -1,0 +1,36 @@
+# Node data directories - contains private keys and blockchain state
+node1/
+node2/
+node3/
+
+# Geth binary and installation files
+geth-linux-amd64-*/
+geth-darwin-amd64-*/
+geth-windows-amd64-*/
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+*.pid
+myWork.txt

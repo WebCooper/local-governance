@@ -8,11 +8,60 @@ This document serves as the technical specification for the `Reporting.sol` smar
 
 The `Reporting.sol` smart contract is the core operational component of the decentralized local governance framework. It acts as an immutable, transparent ledger for the entire lifecycle of civic issue reports.
 
+### 1.1. Application Flow (Backend Orchestration)
+
+The complete flow for submitting a civic report follows this exact sequence:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. ReportingController Receives Request                      │
+│    - Receives: description, image, mockProof, nullifierHash  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Send to AiOracleService for Approval                     │
+│    - Validates: content moderation, spam detection         │
+│    - Returns: isApproved (boolean), reason (string)         │
+└─────────────────────────────────────────────────────────────┘
+                    ↓               ↓
+            isApproved: true    isApproved: false
+                    ↓               ↓
+        ┌──────────────────┐  ┌──────────────────┐
+        │ CONTINUE         │  │ REJECT           │
+        │ (proceed to 3)   │  │ (throw error)    │
+        └──────────────────┘  └──────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Send to IpfsService for Storage                          │
+│    - Uploads: description, image, metadata                  │
+│    - Returns: IPFS CID (cryptographic hash)                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Send IPFS Hash to BlockchainService                      │
+│    - Calls: submitReportToChain(ipfsCID, nullifierHash)    │
+│    - Submits transaction to Reporting.sol contract          │
+│    - Returns: transactionHash, blockNumber                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Return Success Response to Client                        │
+│    - Returns: message, transactionHash, blockNumber         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Critical Invariant:** AI Oracle approval MUST occur BEFORE IPFS upload. A report is never stored on IPFS or submitted to the blockchain without prior AI moderation clearance.
+
 Its primary responsibilities are:
 
 1. **Secure Record Keeping:** Storing the cryptographic links to off-chain report data (stored on IPFS) and linking them to privacy-preserving unique identifiers (ZKP Nullifiers).
+   - Reports are ONLY recorded on-chain after: (1) AI Oracle approval, (2) IPFS storage, and (3) Relayer submission.
+   
 2. **State Management:** Enforcing a strict Finite State Machine (FSM) that dictates how a report moves from submission to validation, investigation, resolution, and final closure.
+   - Tracks report lifecycle through 7 distinct states (Pending_Validation, Community_Rejected, Open, Pending_Rejection_Review, Pending_Verification, Closed, Reopened).
+   
 3. **Accountability Loops:** Implementing mandatory community voting phases that prevent authorities from arbitrarily dismissing valid issues and requiring community verification before an issue can be marked as officially closed.
+   - Community voting gates all state transitions, ensuring no single authority can unilaterally control outcomes.
 
 ## 2. Design Principles & Architecture
 
@@ -21,6 +70,22 @@ This contract is designed based on the following principles derived from the pro
 * **Separation of Concerns:** The contract does not store large media files. It only stores small, fixed-size data (hashes, status codes, counters). Heavy data resides on IPFS.
 * **Privacy-First:** The contract never handles citizen personally identifiable information (PII). It interacts solely with ZKP Nullifier hashes provided by the trusted backend relayer to ensure uniqueness without revealing identity.
 * **Role-Based Access Control (RBAC):** It utilizes OpenZeppelin's `AccessControl` to strictly define what actions the Backend Relayer and the designated Authority Nodes (Gov/NGO) can perform.
+
+### 2.1. Service Architecture & Dependencies
+
+The smart contract is the final component in a multi-stage validation pipeline:
+
+| Service | Purpose | Output | Downstream |
+| --- | --- | --- | --- |
+| **AiOracleService** | Content moderation & spam detection | `isApproved: boolean` | IpfsService (only if approved) |
+| **IpfsService** | Distributed storage for evidence | `ipfsCID: string` | BlockchainService |
+| **BlockchainService** | Blockchain submission wrapper | `transactionHash: string` | Reporting.sol (via RELAYER_ROLE) |
+| **Reporting.sol** | Immutable ledger & FSM enforcement | `reportId: uint256` | Community voting & authority actions |
+
+**Gateway Pattern:** Each service acts as a gate to the next:
+- Reports rejected by AiOracleService NEVER reach IPFS.
+- Reports not on IPFS NEVER reach the blockchain.
+- Reports not on the blockchain NEVER enter the community voting phase.
 
 ## 3. Roles and Permissions
 
@@ -114,16 +179,24 @@ The contract will have hardcoded thresholds (which could be made governable late
 
 #### `createReport(string memory _ipfsCID, bytes32 _submissionNullifier)`
 
+* **Caller Chain:** ReportingController → BlockchainService → Reporting.sol
+* **Pre-requisites:** 
+  1. Content MUST be approved by AiOracleService
+  2. Content MUST be uploaded to IPFS and return a valid CID
+  3. Only then can BlockchainService call this function
+
 * **Role:** `RELAYER_ROLE` only.
 * **Pre-conditions:**
-* `_submissionNullifier` must not exist in `submissionNullifiers` mapping.
-
+  * `_submissionNullifier` must not exist in `submissionNullifiers` mapping.
+  * `_ipfsCID` must be a valid IPFS hash (provided by IpfsService).
 
 * **Logic:**
-1. Mark `_submissionNullifier` as used.
-2. Increment `nextReportId`.
-3. Create new `Report` struct with status `Pending_Validation`.
-4. Emit `ReportCreated` event.
+  1. Mark `_submissionNullifier` as used.
+  2. Increment `nextReportId`.
+  3. Create new `Report` struct with status `Pending_Validation`.
+  4. Emit `ReportCreated` event.
+
+* **Post-event:** The report is now on-chain and enters the community validation phase.
 
 
 

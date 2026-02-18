@@ -1,0 +1,12 @@
+node1/geth/
+node2/geth/
+node3/geth/
+node1/history
+node2/history
+node3/history
+.git
+.gitignore
+.vscode
+README.md
+myWork.txt
+create_extradata.py
