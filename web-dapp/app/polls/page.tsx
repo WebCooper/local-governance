@@ -1,152 +1,249 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getPolls, voteOnPoll, type Poll } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Vote, Clock, Loader2, CheckCircle2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useAdmin } from "@/context/AdminContext";
+import { useCitizen } from "@/context/CitizenContext";
+import { getPollingContract } from "@/lib/contracts/polling";
+import { ethers } from "ethers";
+import axios from "axios";
+import Link from "next/link";
 
-export default function PollsPage() {
-  const [polls, setPolls] = useState<Poll[]>([]);
+interface PollStructure {
+  id: number;
+  title: string;
+  description: string;
+  options: string[];
+  pollType: number;
+  deadline: number;
+  isActive: boolean;
+  results?: number[];
+  images?: { originalName: string; mimeType: string; data: string }[];
+}
+
+export default function PollsFeedPage() {
+  const { provider, isAuthority } = useAdmin();
+  const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
+
+  const [polls, setPolls] = useState<PollStructure[]>([]);
   const [loading, setLoading] = useState(true);
-  const [votingId, setVotingId] = useState<string | null>(null);
-  const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
+  const [votingMap, setVotingMap] = useState<Record<number, boolean>>({});
 
-  useEffect(() => {
-    async function fetchPolls() {
-      const data = await getPolls();
-      setPolls(data);
+  const fetchActiveSlate = async () => {
+    if (!provider) return;
+    try {
+      setLoading(true);
+      const contract = getPollingContract(provider);
+      const chainCount = await contract.pollCount();
+      const loadedPolls: PollStructure[] = [];
+
+      for (let i = 1; i <= Number(chainCount); i++) {
+        const chainPoll = await contract.polls(i);
+
+        let metaTitle = "Unknown Poll";
+        let metaDesc = "Could not fetch metadata details from the IPFS gateway.";
+        let metaOptions: string[] = ["False", "True"];
+        let metaImages = [];
+
+        try {
+          // Fetch the structured envelope from the IPFS backend service
+          const ipfsRes = await axios.get(`http://localhost:4000/api/ipfs/poll/${chainPoll.ipfsMetadataCid}`);
+          if (ipfsRes.data) {
+            metaTitle = ipfsRes.data.title;
+            metaDesc = ipfsRes.data.description;
+            metaOptions = ipfsRes.data.options;
+            metaImages = ipfsRes.data.images || [];
+          }
+        } catch (e) {
+          console.error(`Failed to resolve IPFS node envelope for index: ${i}`, e);
+        }
+
+        const optionCount = Number(chainPoll.pollType) === 0 ? 2 : metaOptions.length;
+        const freshTally = await contract.getPollResults(i, optionCount);
+
+        loadedPolls.push({
+          id: i,
+          title: metaTitle,
+          description: metaDesc,
+          options: metaOptions,
+          pollType: Number(chainPoll.pollType),
+          deadline: Number(chainPoll.deadline),
+          isActive: chainPoll.isActive,
+          results: freshTally.map((votes: any) => Number(votes)),
+          images: metaImages
+        });
+      }
+      setPolls(loadedPolls.reverse()); // Newest polls first
+    } catch (err) {
+      console.error("Failed loading ballot indices natively:", err);
+    } finally {
       setLoading(false);
     }
-    fetchPolls();
-  }, []);
+  };
 
-  const handleVote = async (pollId: string, optionId: string) => {
-    if (votedPolls.has(pollId)) return;
-    setVotingId(optionId);
-    
-    const success = await voteOnPoll(pollId, optionId);
-    if (success) {
-      setPolls(polls.map(poll => {
-        if (poll.id === pollId) {
-          return {
-            ...poll,
-            totalVotes: poll.totalVotes + 1,
-            options: poll.options.map(opt => 
-              opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
-            )
-          };
-        }
-        return poll;
-      }));
-      setVotedPolls(new Set([...Array.from(votedPolls), pollId]));
+  useEffect(() => {
+    if (provider) fetchActiveSlate();
+  }, [provider]);
+
+  const handleCastVote = async (pollId: number, optionIndex: number) => {
+    if (!wallet) {
+      alert("Please log in with your Citizen credentials first.");
+      return;
     }
-    setVotingId(null);
+    if (availableTicketsCount === 0) {
+      alert("You have run out of ZKP action tickets in your session! Please request more.");
+      return;
+    }
+
+    setVotingMap(prev => ({ ...prev, [pollId]: true }));
+    try {
+      // Pop the first ticket from the current available batch
+      const activeTicket = consumeTicket();
+      if (!activeTicket) throw new Error("Ticket acquisition error");
+
+      // Generate deterministic unique vote nullifier: H(Wallet Seed Secret + Poll ID)
+      // This matches the validation pattern required in your refactored backend controller
+      const secretEntropy = wallet.privateKey;
+      const rawNullifier = ethers.solidityPackedKeccak256(
+        ["bytes32", "uint256"],
+        [secretEntropy, pollId]
+      );
+
+      const response = await axios.post("http://localhost:4000/polling/vote", {
+        pollId,
+        optionIndex,
+        nullifier: rawNullifier
+      }, {
+        headers: {
+          "x-zkp-ticket-id": activeTicket.ticketId,
+          "x-zkp-signature": activeTicket.signature
+        }
+      });
+
+      if (response.data.success) {
+        alert("Your anonymous ballot option has been successfully recorded on-chain!");
+        await fetchActiveSlate(); // Reload the results
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(`Ballot rejected: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setVotingMap(prev => ({ ...prev, [pollId]: false }));
+    }
   };
 
-  const calculatePercentage = (votes: number, total: number) => {
-    if (total === 0) return 0;
-    return Math.round((votes / total) * 100);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p className="text-xl animate-pulse">Resolving IPFS Envelopes & Fetching On-Chain State...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-12 px-4 max-w-5xl">
-      <div className="mb-10 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">Civic Opinion Polling</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Participate securely in local decision-making. Blockchain polling ensures 100% transparency while protecting your anonymity.
-        </p>
-      </div>
+    <main className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-pulse flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-            <p className="text-muted-foreground">Synchronizing ledger polls...</p>
+        {/* Header section with contextual controls */}
+        <div className="flex justify-between items-center border-b border-gray-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-extrabold text-green-500">Official Local Polls</h1>
+            <p className="text-sm text-gray-400 mt-1">Anonymized voting parameters guarded by ZK action tickets.</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            {isAuthority && (
+              <Link href="/polls/create" className="bg-green-600 hover:bg-green-500 text-black font-bold px-4 py-2 rounded-lg transition text-sm">
+                + Create New Poll
+              </Link>
+            )}
+            {wallet && (
+              <div className="bg-gray-950 border border-gray-800 px-4 py-2 rounded-lg text-right">
+                <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider">ZK Tickets Remaining</span>
+                <span className="text-lg font-mono text-green-400">{availableTicketsCount} Available</span>
+              </div>
+            )}
           </div>
         </div>
-      ) : polls.length === 0 ? (
-        <div className="text-center py-20 bg-card rounded-xl border">
-          <Vote className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-lg text-muted-foreground">No active polls available at the moment.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {polls.map(poll => {
-            const hasVoted = votedPolls.has(poll.id);
-            const isExpired = new Date(poll.endDate) < new Date();
-            
-            return (
-              <Card key={poll.id} className="flex flex-col border-border/60 shadow-md hover:shadow-lg transition-shadow bg-card">
-                <CardHeader>
-                  <div className="flex justify-between items-start mb-2">
-                    <Badge variant={isExpired ? "secondary" : "default"}>
-                      {isExpired ? "Closed" : "Active"}
-                    </Badge>
-                    <div className="flex items-center text-xs text-muted-foreground font-medium">
-                      <Clock className="h-3.5 w-3.5 mr-1" />
-                      {isExpired ? "Ended" : "Ends"} {new Date(poll.endDate).toLocaleDateString()}
+
+        {polls.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No active polling metrics currently recorded on-chain.</p>
+        ) : (
+          <div className="grid gap-8">
+            {polls.map((poll) => {
+              const totalVotes = poll.results?.reduce((a, b) => a + b, 0) || 0;
+              const isExpired = Math.floor(Date.now() / 1000) >= poll.deadline;
+              const isOpen = poll.isActive && !isExpired;
+
+              return (
+                <div key={poll.id} className="bg-gray-950 border border-gray-800 rounded-xl p-6 space-y-4 shadow-xl">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-400 font-bold">
+                        Poll #{poll.id} — {poll.pollType === 0 ? "True / False Split" : "Multi-Choice Selection"}
+                      </span>
+                      <h2 className="text-2xl font-bold mt-2 text-white">{poll.title}</h2>
                     </div>
-                  </div>
-                  <CardTitle className="text-2xl pt-2">{poll.title}</CardTitle>
-                  <CardDescription className="text-base pt-2">{poll.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4">
-                  {poll.options.map(option => {
-                    const percentage = calculatePercentage(option.votes, poll.totalVotes);
-                    const isVoting = votingId === option.id;
-                    
-                    return (
-                      <div key={option.id} className="space-y-2">
-                        <div className="flex justify-between text-sm font-medium">
-                          <span>{option.text}</span>
-                          <span className="text-muted-foreground">{percentage}% ({option.votes})</span>
-                        </div>
-                        <div className="relative h-10 w-full overflow-hidden rounded-md bg-muted/50 border border-border/50 group">
-                          {/* Progress bar background */}
-                          <div 
-                            className="absolute left-0 top-0 h-full bg-primary/20 transition-all duration-1000 ease-out"
-                            style={{ width: `${percentage}%` }}
-                          />
-                          
-                          {/* Vote button overlapping */}
-                          <button
-                            onClick={() => handleVote(poll.id, option.id)}
-                            disabled={hasVoted || isExpired || isVoting}
-                            className={`absolute inset-0 flex items-center justify-center font-semibold transition-colors
-                              ${hasVoted ? "cursor-default text-foreground/80" : 
-                                isExpired ? "cursor-default text-muted-foreground" : 
-                                "hover:bg-primary/10 text-primary opacity-0 group-hover:opacity-100"}`}
-                          >
-                            {isVoting ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : hasVoted ? (
-                              <></>
-                            ) : (
-                              "Cast Vote"
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-                <CardFooter className="bg-muted/10 border-t flex justify-between rounded-b-xl py-4">
-                  <span className="text-sm font-medium text-muted-foreground flex items-center">
-                    <Vote className="h-4 w-4 mr-2" /> {poll.totalVotes.toLocaleString()} total votes cast
-                  </span>
-                  {hasVoted && (
-                    <span className="text-sm font-bold text-success flex items-center">
-                      <CheckCircle2 className="h-4 w-4 mr-1.5" /> Voted
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded uppercase ${isOpen ? "bg-green-950 text-green-400 border border-green-800" : "bg-red-950 text-red-400 border border-red-800"}`}>
+                      {isOpen ? "Open for Voting" : "Closed / Finalized"}
                     </span>
+                  </div>
+
+                  <p className="text-gray-300 text-sm leading-relaxed">{poll.description}</p>
+
+                  {/* Render Images if nested inside the metadata envelope */}
+                  {poll.images && poll.images.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {poll.images.map((img, index) => (
+                        <img
+                          key={index}
+                          src={`data:${img.mimeType};base64,${img.data}`}
+                          alt={img.originalName}
+                          className="w-24 h-24 object-cover border border-gray-800 rounded-lg hover:scale-105 transition-all duration-200"
+                        />
+                      ))}
+                    </div>
                   )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+
+                  {/* Options & Progress Visualization Block */}
+                  <div className="space-y-3 pt-2">
+                    {poll.options.map((option, idx) => {
+                      const voteCount = poll.results?.[idx] || 0;
+                      const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+
+                      return (
+                        <div key={idx} className="relative flex flex-col justify-center bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-hidden">
+                          {/* Animated Progress Bar background tracking metrics */}
+                          <div className="absolute top-0 left-0 bottom-0 bg-green-500/10 transition-all duration-700 ease-out" style={{ width: `${percentage}%` }} />
+
+                          <div className="relative z-10 flex justify-between items-center w-full">
+                            <div className="flex items-center space-x-3">
+                              {isOpen && wallet && (
+                                <button disabled={votingMap[poll.id]} onClick={() => handleCastVote(poll.id, idx)}
+                                  className="text-xs bg-green-600 hover:bg-green-500 text-black font-extrabold px-3 py-1.5 rounded transition disabled:opacity-50">
+                                  Vote
+                                </button>
+                              )}
+                              <span className="font-semibold text-sm">{option}</span>
+                            </div>
+                            <div className="text-sm font-mono text-gray-400 space-x-3">
+                              <span>{voteCount} votes</span>
+                              <span className="text-green-400 font-bold">({percentage}%)</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-xs text-gray-500 font-medium pt-3 border-t border-gray-900 flex justify-between">
+                    <span>Aggregate Verified Ballots: {totalVotes}</span>
+                    <span>Closing Window: {new Date(poll.deadline * 1000).toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
