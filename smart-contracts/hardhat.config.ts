@@ -9,13 +9,13 @@ export default defineConfig({
       default: {
         version: "0.8.28",
         settings: {
-          evmVersion: "cancun",
+          evmVersion: "london",
         },
       },
       production: {
         version: "0.8.28",
         settings: {
-          evmVersion: "cancun", // FIX: Updated from "london" to "cancun" for OpenZeppelin v5 compatibility
+          evmVersion: "london", 
           optimizer: {
             enabled: true,
             runs: 200,

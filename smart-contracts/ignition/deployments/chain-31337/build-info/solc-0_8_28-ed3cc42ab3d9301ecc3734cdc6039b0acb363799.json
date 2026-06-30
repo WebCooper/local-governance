@@ -1,11 +1,11 @@
 {
   "_format": "hh3-sol-build-info-1",
-  "id": "solc-0_8_28-e5880b3ba3a38a4d192dbab87a15da1c9ce35055",
+  "id": "solc-0_8_28-ed3cc42ab3d9301ecc3734cdc6039b0acb363799",
   "solcVersion": "0.8.28",
   "solcLongVersion": "0.8.28+commit.7893614a",
   "compilerType": "solc",
   "toolVersions": {
-    "hardhat": "3.4.5"
+    "hardhat": "3.9.0"
   },
   "userSourceNameMap": {
     "contracts/Reporting.sol": "project/contracts/Reporting.sol"
