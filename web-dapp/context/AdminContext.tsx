@@ -131,21 +131,36 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
-        if (accounts.length > 0) {
-          connectWallet(); 
-        } else {
-          setAccount(null);
-          setIsSuperAdmin(false);
-          setIsAuthority(false);
-          setContract(null);
-          setReportingContract(null);
-          setSuperAdminsList([]);
-          setAuthoritiesList([]);
+    const autoConnect = async () => {
+      if (typeof window !== "undefined" && (window as any).ethereum) {
+        try {
+          const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+          // Check if there are any connected accounts already
+          const accounts = await browserProvider.send("eth_accounts", []);
+          if (accounts.length > 0) {
+            await connectWallet();
+          }
+        } catch (error) {
+          console.error("Auto-connect failed", error);
         }
-      });
-    }
+
+        (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
+          if (accounts.length > 0) {
+            connectWallet(); 
+          } else {
+            setAccount(null);
+            setIsSuperAdmin(false);
+            setIsAuthority(false);
+            setContract(null);
+            setReportingContract(null);
+            setSuperAdminsList([]);
+            setAuthoritiesList([]);
+          }
+        });
+      }
+    };
+
+    autoConnect();
   }, []);
 
   return (

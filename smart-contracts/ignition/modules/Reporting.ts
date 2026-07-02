@@ -15,7 +15,6 @@ export default buildModule("ReportingAndMultiSig", (m) => {
     "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",//4
     "0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc" //5
 
-
   ];
 
   const authorityMultiSig = m.contract("AuthorityMultiSig", [initialSuperAdmins, reporting]);
