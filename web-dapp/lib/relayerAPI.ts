@@ -1,5 +1,3 @@
-// Add this to lib/api.ts
-
 export interface CastVotePayload {
   reportId: number;
   votePhase: 'validation' | 'verification' | 'rejectionReview';
