@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const ipfsUrl = `${process.env.NEXT_PUBLIC_IPFS_URL || "http://localhost:4000"}/api/ipfs/poll/store`;
+    const ipfsUrl = `${process.env.NEXT_PUBLIC_IPFS_URL || "http://51.210.111.188:4000"}/api/ipfs/poll/store`;
     
     const response = await fetch(ipfsUrl, {
       method: "POST",

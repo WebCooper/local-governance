@@ -46,7 +46,8 @@ export default function PollsFeedPage() {
 
         try {
           // Fetch the structured envelope from the IPFS backend service
-          const ipfsRes = await axios.get(`http://localhost:4000/api/ipfs/poll/${chainPoll.ipfsMetadataCid}`);
+          const ipfsBaseUrl = process.env.NEXT_PUBLIC_IPFS_URL || "http://51.210.111.188:4000";
+          const ipfsRes = await axios.get(`${ipfsBaseUrl}/api/ipfs/poll/${chainPoll.ipfsMetadataCid}`);
           if (ipfsRes.data) {
             metaTitle = ipfsRes.data.title;
             metaDesc = ipfsRes.data.description;
