@@ -70,10 +70,17 @@ export class PollingService implements OnModuleInit {
                 throw new BadRequestException("Authorities are not permitted to vote in citizen opinion polls.");
             }
 
+            // 4. Compute unique anonymous nullifier for the citizen per poll
+            const domainSalt = process.env.PSEUDONYM_DOMAIN_SALT;
+            const voteNullifier = ethers.solidityPackedKeccak256(
+                ['address', 'uint256', 'string'],
+                [citizenPubKey, pollId, domainSalt]
+            );
+
             this.logger.log(`Vote crypto-verification passed for poll ${pollId}`);
 
-            // 4. Submit to Blockchain
-            return await this.blockchainService.castPollVoteOnChain(pollId, optionIndex, zkpTicketId);
+            // 5. Submit to Blockchain using the computed voteNullifier
+            return await this.blockchainService.castPollVoteOnChain(pollId, optionIndex, voteNullifier);
         } catch (error: any) {
             this.logger.error(`Poll vote pipeline failed: ${error.message}`);
             if (error.status) throw error;
