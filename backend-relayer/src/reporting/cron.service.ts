@@ -9,7 +9,7 @@ export class CronService {
   constructor(private readonly blockchainService: BlockchainService) {}
 
   // Runs every hour. Adjust to CronExpression.EVERY_DAY_AT_MIDNIGHT if preferred.
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleVotingWindowFinalizations() {
     this.logger.log('CRON: Scanning for expired voting windows...');
     
