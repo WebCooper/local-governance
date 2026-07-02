@@ -28,6 +28,7 @@ export default function PollsFeedPage() {
 
   const [polls, setPolls] = useState<PollStructure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
   const [votingMap, setVotingMap] = useState<Record<number, boolean>>({});
 
   // Navigation states
@@ -35,10 +36,28 @@ export default function PollsFeedPage() {
   const [filter, setFilter] = useState<"all" | "open" | "closed">("all");
   const pollsPerPage = 5;
 
+  // Local storage votes tracking to show the citizen's own voted option locally (preserving anonymity)
+  const [userVotes, setUserVotes] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    if (wallet) {
+      const stored = localStorage.getItem(`citizen_poll_votes_${wallet.publicKey}`);
+      if (stored) {
+        try {
+          setUserVotes(JSON.parse(stored));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    } else {
+      setUserVotes({});
+    }
+  }, [wallet]);
+
   const fetchActiveSlate = async () => {
     if (!provider) return;
     try {
-      setLoading(true);
+      if (firstLoad) setLoading(true);
       const contract = getPollingContract(provider);
       const chainCount = Number(await contract.pollCount());
 
@@ -88,6 +107,7 @@ export default function PollsFeedPage() {
       toast.error("Unable to fetch polls from the blockchain network.");
     } finally {
       setLoading(false);
+      setFirstLoad(false);
     }
   };
 
@@ -140,6 +160,14 @@ export default function PollsFeedPage() {
 
       if (response.data.success) {
         toast.success("Your anonymous ballot has been recorded on-chain!", { id: loadingToast });
+        
+        // Save vote to local state & localStorage
+        const updatedVotes = { ...userVotes, [pollId]: optionIndex };
+        setUserVotes(updatedVotes);
+        if (wallet) {
+          localStorage.setItem(`citizen_poll_votes_${wallet.publicKey}`, JSON.stringify(updatedVotes));
+        }
+
         await fetchActiveSlate();
       }
     } catch (error: any) {
@@ -343,8 +371,15 @@ export default function PollsFeedPage() {
                         textColorClass = choiceStyle.text;
                       }
 
+                      const citizenVotedOnThisPoll = userVotes[poll.id] !== undefined;
+                      const hasVotedThisOption = userVotes[poll.id] === idx;
+
                       return (
-                        <div key={idx} className="relative flex flex-col justify-center bg-slate-50 border border-slate-100 rounded-xl p-4 overflow-hidden">
+                        <div key={idx} className={`relative flex flex-col justify-center rounded-xl p-4 overflow-hidden border transition-all ${
+                          hasVotedThisOption 
+                            ? "bg-blue-50/20 border-blue-300 ring-1 ring-blue-300 shadow-sm" 
+                            : "bg-slate-50 border-slate-100"
+                        }`}>
                           {/* Animated Progress Bar background tracking metrics — only shown if poll is closed */}
                           {!isOpen && (
                             <div className={`absolute top-0 left-0 bottom-0 ${barColorClass} transition-all duration-700 ease-out`} style={{ width: `${percentage}%` }} />
@@ -352,7 +387,7 @@ export default function PollsFeedPage() {
 
                           <div className="relative z-10 flex justify-between items-center w-full">
                             <div className="flex items-center gap-3">
-                              {isOpen && wallet ? (
+                              {isOpen && wallet && !citizenVotedOnThisPoll ? (
                                 // Clickable icon buttons for active citizen voting
                                 poll.pollType === 0 ? (
                                   idx === 0 ? (
@@ -385,7 +420,7 @@ export default function PollsFeedPage() {
                                   </button>
                                 )
                               ) : (
-                                // Static display icons if closed / not authenticated as citizen
+                                // Static display icons if closed / not authenticated as citizen / already voted
                                 (poll.pollType === 0 && (
                                   idx === 0 
                                     ? <ThumbsDown className="w-5 h-5 text-rose-400 shrink-0" />
@@ -399,6 +434,11 @@ export default function PollsFeedPage() {
                                   ? "Agree / Yes" 
                                   : option}
                               </span>
+                              {hasVotedThisOption && (
+                                <span className="inline-block text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 shadow-sm">
+                                  Your Vote
+                                </span>
+                              )}
                             </div>
                             
                             {!isOpen ? (
