@@ -19,6 +19,7 @@ import {
   Landmark,
   Shield,
 } from "lucide-react";
+import { useCitizen } from "@/context/CitizenContext";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -178,6 +179,7 @@ function consensusPct(up: number, down: number) {
   return Math.round((up / total) * 100);
 }
 
+
 // ── Page ──────────────────────────────────────────────────────────
 export default function IssueDetailPage({
   params,
@@ -187,11 +189,59 @@ export default function IssueDetailPage({
   const router = useRouter();
 
   const { id } = use(params);
+  const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
 
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voted, setVoted] = useState<"legitimate" | "spam" | null>(null);
+  
+  const handleCastVote = async (decision: boolean) => {
+    if (!wallet) return alert("Please connect your wallet first.");
+
+    setIsSubmitting(true);
+    try {
+      // 1. Get Ticket (Assuming you have a way to consume/get a voting ticket)
+      const currentTicket = consumeTicket(); 
+      if (!currentTicket) throw new Error("No valid ZKP ticket for voting.");
+
+      // 2. Create the message hash (MUST match backend order exactly)
+      // Backend uses: ['uint256', 'string', 'bool', 'string']
+      const messageHash = ethers.solidityPackedKeccak256(
+        ["uint256", "string", "bool", "string"],
+        [Number(report?.id), "validation", decision, currentTicket.ticketId]
+      );
+
+      // 3. Sign the hash
+      const ethersWallet = new ethers.Wallet(wallet.privateKey);
+      const signature = await ethersWallet.signMessage(ethers.getBytes(messageHash));
+
+      // 4. Submit to Relayer
+      const response = await fetch("https://relayer.internalbuildtools.online/report/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: Number(report?.id),
+          votePhase: "validation",
+          decision,
+          zkpTicketId: currentTicket.ticketId,
+          zkpSignature: currentTicket.signature,
+          citizenPubKey: wallet.publicKey,
+          signature,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      alert("Vote cast successfully!");
+    } catch (err: any) {
+      console.error("Voting error:", err);
+      alert(err.message || "Failed to cast vote.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -449,7 +499,7 @@ export default function IssueDetailPage({
           <div className="flex flex-col gap-6">
 
             {/* HERO */}
-            <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-slate-100 shadow-sm">
+            <div className="relative w-full h-85 rounded-2xl overflow-hidden bg-slate-100 shadow-sm">
 
               {hasImages ? (
                 <img
@@ -646,4 +696,8 @@ export default function IssueDetailPage({
       </div>
     </>
   );
+}
+
+function setIsSubmitting(arg0: boolean) {
+  throw new Error("Function not implemented.");
 }
