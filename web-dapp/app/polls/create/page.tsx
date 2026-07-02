@@ -62,7 +62,7 @@ export default function CreatePollPage() {
                 formData.append("images", img);
             });
 
-            const response = await axios.post("http://localhost:4000/polling/create", formData, {
+            const response = await axios.post("http://localhost:3001/polling/create", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
