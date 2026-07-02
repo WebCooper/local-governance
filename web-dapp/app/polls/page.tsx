@@ -180,7 +180,7 @@ export default function PollsFeedPage() {
             <p className="text-sm text-gray-400 mt-1">Anonymized voting parameters guarded by ZK action tickets.</p>
           </div>
           <div className="flex items-center space-x-4">
-            {isAuthority && (
+            {isAuthority && !wallet && (
               <Link href="/polls/create" className="bg-green-600 hover:bg-green-500 text-black font-bold px-4 py-2 rounded-lg transition text-sm">
                 + Create New Poll
               </Link>
@@ -213,7 +213,7 @@ export default function PollsFeedPage() {
                       <h2 className="text-2xl font-bold text-white">{poll.title}</h2>
                     </div>
                     <div className="flex items-center space-x-3">
-                      {isAuthority && poll.isActive && isExpired && (
+                      {isAuthority && !wallet && poll.isActive && isExpired && (
                         <button onClick={() => handleClosePoll(poll.id)} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1.5 rounded transition text-xs">
                           Finalize Poll
                         </button>
