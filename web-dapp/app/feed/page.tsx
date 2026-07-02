@@ -30,7 +30,47 @@ const FILTERS = ["All Issues", "Infrastructure", "Parks", "Safety"];
 const SORT_OPTIONS = ["Most Recent", "Most Voted", "Oldest"];
 
 const PUBLIC_REPORTING_ABI = [
-  "function getAllReports(uint256 offset, uint256 limit) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes)[] page, uint256 total)",
+  {
+    "type": "function",
+    "name": "getAllReports",
+    "inputs": [
+      { "name": "offset", "type": "uint256" },
+      { "name": "limit", "type": "uint256" }
+    ],
+    "outputs": [
+      {
+        "name": "page",
+        "type": "tuple[]",
+        "components": [
+          { "name": "id", "type": "uint256" },
+          { "name": "ipfsCid", "type": "string" },
+          { "name": "reportHash", "type": "bytes32" },
+          { "name": "submissionNullifier", "type": "bytes32" },
+          { "name": "citizenPseudonym", "type": "bytes32" },
+          { "name": "submittedByRelayer", "type": "address" },
+          { "name": "status", "type": "uint8" },
+          { "name": "createdAt", "type": "uint256" },
+          { "name": "updatedAt", "type": "uint256" },
+          { "name": "phaseDeadline", "type": "uint256" },
+          { "name": "assignedAuthority", "type": "address" },
+          {
+            "name": "votes",
+            "type": "tuple",
+            "components": [
+              { "name": "validationUpvotes", "type": "uint256" },
+              { "name": "validationDownvotes", "type": "uint256" },
+              { "name": "verificationAcceptVotes", "type": "uint256" },
+              { "name": "verificationRejectVotes", "type": "uint256" },
+              { "name": "rejectionUpholdVotes", "type": "uint256" },
+              { "name": "rejectionAppealVotes", "type": "uint256" }
+            ]
+          }
+        ]
+      },
+      { "name": "total", "type": "uint256" }
+    ],
+    "stateMutability": "view"
+  }
 ];
 
 const LIMIT = 20;
@@ -294,7 +334,7 @@ export default function FeedPage() {
         process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
 
       const CONTRACT_ADDRESS =
-        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x43491d6850cef4B2E2D0d5CaCdF59B014B4A49ba";
 
       if (!CONTRACT_ADDRESS) {
         throw new Error("Smart contract address is not configured.");
@@ -310,6 +350,9 @@ export default function FeedPage() {
 
       const [pageArray, totalReports] =
         await contract.getAllReports(offset, LIMIT);
+
+      console.log("Raw Response Page:", pageArray);
+      console.log("Total Reports:", totalReports);
 
       const baseReports: PublicReport[] = pageArray.map((r: any) => ({
         id: r.id.toString(),

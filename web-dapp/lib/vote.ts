@@ -1,0 +1,100 @@
+import { ethers } from "ethers";
+import type { CastVotePayload } from "./relayerAPI";
+import type { CitizenWallet } from "@/lib/walletUtils";
+import type { ZkpTicket } from "@/context/CitizenContext";
+
+export type VotePhase = CastVotePayload["votePhase"];
+
+export interface VoteDecisionCopy {
+  positiveLabel: string;
+  negativeLabel: string;
+  positiveHint: string;
+  negativeHint: string;
+}
+
+export const VOTE_PHASE_OPTIONS: Array<{
+  value: VotePhase;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "validation",
+    label: "Validation",
+    description: "Initial community check for legitimacy.",
+  },
+  {
+    value: "verification",
+    label: "Verification",
+    description: "Confirm the issue details after validation.",
+  },
+  {
+    value: "rejectionReview",
+    label: "Rejection Review",
+    description: "Review an earlier rejection decision.",
+  },
+];
+
+const VOTE_DECISION_COPY: Record<VotePhase, VoteDecisionCopy> = {
+  validation: {
+    positiveLabel: "Legitimate",
+    negativeLabel: "Spam/Invalid",
+    positiveHint: "Support the report as valid.",
+    negativeHint: "Mark the report as invalid.",
+  },
+  verification: {
+    positiveLabel: "Verify",
+    negativeLabel: "Reject",
+    positiveHint: "Confirm the report should advance.",
+    negativeHint: "Reject the report from verification.",
+  },
+  rejectionReview: {
+    positiveLabel: "Uphold Rejection",
+    negativeLabel: "Overturn Rejection",
+    positiveHint: "Keep the rejection decision in place.",
+    negativeHint: "Send the rejection back for review.",
+  },
+};
+
+export function getVoteDecisionCopy(phase: VotePhase): VoteDecisionCopy {
+  return VOTE_DECISION_COPY[phase];
+}
+
+export function buildVoteMessageHash(
+  reportId: number,
+  votePhase: VotePhase,
+  decision: boolean,
+  zkpTicketId: string,
+) {
+  return ethers.solidityPackedKeccak256(
+    ["uint256", "string", "bool", "string"],
+    [reportId, votePhase, decision, zkpTicketId],
+  );
+}
+
+export async function buildSignedVotePayload({
+  wallet,
+  reportId,
+  votePhase,
+  decision,
+  ticket,
+}: {
+  wallet: CitizenWallet;
+  reportId: number;
+  votePhase: VotePhase;
+  decision: boolean;
+  ticket: ZkpTicket;
+}): Promise<CastVotePayload> {
+  const messageHash = buildVoteMessageHash(reportId, votePhase, decision, ticket.ticketId);
+  const ethersWallet = new ethers.Wallet(wallet.privateKey);
+  const signature = await ethersWallet.signMessage(ethers.getBytes(messageHash));
+
+  return {
+    reportId,
+    votePhase,
+    decision,
+    zkpTicketId: ticket.ticketId,
+    zkpSignature: ticket.signature,
+    citizenPubKey: wallet.publicKey,
+    signature,
+  };
+}
