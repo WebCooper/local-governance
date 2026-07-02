@@ -114,4 +114,50 @@ export class BlockchainService implements OnModuleInit {
       throw new InternalServerErrorException('Failed to record report on-chain.');
     }
   }
+
+  // Add this inside BlockchainService class in src/blockchain/blockchain.service.ts
+
+  async castVoteOnChain(reportId: number, phase: 'validation' | 'verification' | 'rejectionReview', nullifier: string, decision: boolean) {
+    if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain disabled');
+
+    try {
+      const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
+      this.logger.log(`Casting ${phase} vote for report ${reportId}`);
+      
+      let tx;
+      if (phase === 'validation') {
+        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision);
+      } else if (phase === 'verification') {
+        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision);
+      } else if (phase === 'rejectionReview') {
+        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision);
+      }
+
+      const receipt = await tx.wait();
+      return { success: true, transactionHash: tx.hash, blockNumber: receipt.blockNumber };
+    } catch (error: any) {
+      this.logger.error(`Vote submission failed: ${error.message}`);
+      throw new InternalServerErrorException('Failed to cast vote on-chain.');
+    }
+  }
+
+  async batchFinalizeOnChain(reportIds: number[]) {
+    if (!this.blockchainEnabled || reportIds.length === 0) return;
+    try {
+      this.logger.log(`Running batch finalization for ${reportIds.length} reports...`);
+      const tx = await this.reportingContract.batchFinalizeVotingWindows(reportIds);
+      await tx.wait();
+      this.logger.log(`Batch finalization successful: ${tx.hash}`);
+    } catch (error: any) {
+      this.logger.error(`Batch finalization failed: ${error.message}`);
+    }
+  }
+
+  // Helper method to read reports for the Cron Job
+  async getLatestReportsForCron(limit: number = 50): Promise<any[]> {
+    if (!this.blockchainEnabled) return [];
+    // Assuming you have reportCount public variable or getAllReports implemented
+    const [reports] = await this.reportingContract.getAllReports(0, limit); 
+    return reports;
+  }
 }

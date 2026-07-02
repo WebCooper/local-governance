@@ -4,9 +4,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { ReportingModule } from './reporting/reporting.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [ConfigModule.forRoot(), BlockchainModule, ReportingModule],
+  imports: [ConfigModule.forRoot(), BlockchainModule, ReportingModule, ScheduleModule.forRoot()],
   controllers: [AppController],
   providers: [AppService],
 })

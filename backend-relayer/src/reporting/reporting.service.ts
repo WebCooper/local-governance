@@ -10,7 +10,8 @@ import { ethers } from 'ethers';
 import { AiOracleService } from '../ai-oracle/ai-oracle.service';
 import { BlockchainService } from 'src/blockchain/blockchain.service';
 import { IpfsService } from '../ipfs/ipfs.service';
-
+  // Add this inside ReportingService in src/reporting/reporting.service.ts
+  import { CastVoteDto } from './dto/cast-vote.dto';
 export interface SubmitReportPayload {
   description: string;
   category: string;
@@ -209,5 +210,52 @@ export class ReportingService implements OnModuleInit {
     this.logger.log(`Pseudonym derived for ${citizenAddress}: ${pseudonym}`);
 
     return { pseudonym };
+  }
+
+
+
+  async castVote(payload: CastVoteDto) {
+    const { reportId, votePhase, decision, zkpTicketId, zkpSignature, citizenPubKey, signature } = payload;
+
+    try {
+      // 1. Verify Government Ticket (Nullifier)
+      const recoveredGovAddress = ethers.verifyMessage(ethers.getBytes(zkpTicketId), zkpSignature);
+      if (recoveredGovAddress.toLowerCase() !== this.govPublicKey.toLowerCase()) {
+        throw new UnauthorizedException('Invalid government ticket for voting');
+      }
+
+      // 2. Verify Citizen Signature
+      // Reconstruct the message the citizen signed on the frontend
+      const messageHash = ethers.solidityPackedKeccak256(
+        ['uint256', 'string', 'bool', 'string'],
+        [reportId, votePhase, decision, zkpTicketId]
+      );
+
+      const recoveredCitizenAddress = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
+      
+      if (recoveredCitizenAddress.toLowerCase() !== citizenPubKey.toLowerCase()) {
+        throw new UnauthorizedException('Invalid citizen signature on vote payload.');
+      }
+
+      this.logger.log(`Vote crypto-verification passed for report ${reportId}`);
+
+      // 3. Submit to Blockchain
+      const txResult = await this.blockchainService.castVoteOnChain(
+        reportId,
+        votePhase,
+        zkpTicketId, // Using the ticket as the vote nullifier
+        decision
+      );
+
+      return {
+        success: true,
+        message: 'Vote successfully cast.',
+        transactionHash: txResult.transactionHash
+      };
+    } catch (error: any) {
+      this.logger.error(`Vote pipeline failed: ${error.message}`);
+      if (error.status) throw error;
+      throw new BadRequestException('Vote verification or blockchain submission failed');
+    }
   }
 }

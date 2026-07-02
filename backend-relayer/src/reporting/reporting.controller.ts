@@ -14,6 +14,7 @@ import { ReportingService } from './reporting.service';
 import type { SubmitReportPayload } from './reporting.service';
 import { CitizenAuthGuard } from './guards/citizen-auth.guard';
 import type {AuthenticatedRequest} from './guards/citizen-auth.guard';
+import { CastVoteDto } from './dto/cast-vote.dto';
 
 
 
@@ -53,5 +54,11 @@ export class ReportingController {
       `Pseudonym requested by authenticated citizen: ${req.citizen.address}`,
     );
     return this.reportingService.getPseudonym(req.citizen.address);
+  }
+
+  @Post('vote')
+  async castVote(@Body() payload: CastVoteDto) {
+    this.logger.log(`Received vote for report ${payload.reportId} in phase ${payload.votePhase}`);
+    return await this.reportingService.castVote(payload);
   }
 }
