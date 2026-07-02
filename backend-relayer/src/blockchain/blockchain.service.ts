@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 
@@ -216,6 +216,20 @@ export class BlockchainService implements OnModuleInit {
       return { success: true, transactionHash: tx.hash };
     } catch (error: any) {
       this.logger.error(`On-chain vote broadcast failure: ${error.message}`);
+      
+      const errStr = error.message || '';
+      const errData = error.data || '';
+      
+      if (errStr.includes('AlreadyVotedWithNullifier') || errData.includes('0xc73a9589')) {
+        throw new BadRequestException('You have already cast your ballot for this poll.');
+      }
+      if (errStr.includes('PollInactiveOrClosed') || errData.includes('0x78045ee6')) {
+        throw new BadRequestException('This poll has closed or is inactive.');
+      }
+      if (errStr.includes('PollDoesNotExist') || errData.includes('0x8acdc765')) {
+        throw new BadRequestException('The specified poll does not exist.');
+      }
+      
       throw new InternalServerErrorException('Contract rejected voting payload.');
     }
   }
