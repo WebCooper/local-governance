@@ -5,6 +5,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { getPollingContract } from "@/lib/contracts/polling";
+import toast from "react-hot-toast";
 
 export default function CreatePollPage() {
     const { isAuthority, isConnecting, account, provider } = useAdmin();
@@ -20,7 +21,7 @@ export default function CreatePollPage() {
 
     useEffect(() => {
         if (!isConnecting && !isAuthority && account !== null) {
-            alert("Unauthorized Access. Authorities Only.");
+            toast.error("Unauthorized Access. Authorities Only.");
             router.push("/polls");
         }
     }, [isAuthority, isConnecting, account, router]);
@@ -48,11 +49,12 @@ export default function CreatePollPage() {
         e.preventDefault();
         
         if (!provider) {
-            alert("Web3 Provider not found. Please connect your wallet.");
+            toast.error("Web3 Provider not found. Please connect your wallet.");
             return;
         }
 
         setSubmitting(true);
+        const loadingToast = toast.loading("Uploading metadata and creating poll...");
 
         try {
             const unixDeadline = Math.floor(new Date(deadline).getTime() / 1000);
@@ -69,7 +71,6 @@ export default function CreatePollPage() {
                 formData.append("images", img);
             });
 
-            // Upload directly to Next.js API endpoint proxying to IPFS
             const response = await axios.post("/api/polls/upload", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
@@ -77,19 +78,20 @@ export default function CreatePollPage() {
             if (response.data.success) {
                 const ipfsCid = response.data.cid;
 
-                // Directly interact with the blockchain from the dapp
+                toast.loading("Signing and broadcasting transaction...", { id: loadingToast });
+
                 const signer = await provider.getSigner();
                 const contract = getPollingContract(signer);
 
                 const tx = await contract.createOfficialPoll(ipfsCid, unixDeadline, pollType);
                 await tx.wait();
 
-                alert(`Poll created and broadcasted successfully on-chain! CID: ${ipfsCid}`);
-                router.push("/polls");
+                toast.success("Poll successfully created and broadcasted on-chain!", { id: loadingToast });
+                setTimeout(() => router.push("/polls"), 1500);
             }
         } catch (error: any) {
             console.error(error);
-            alert(`Submission failure: ${error.response?.data?.message || error.message}`);
+            toast.error(`Submission failure: ${error.response?.data?.message || error.message}`, { id: loadingToast });
         } finally {
             setSubmitting(false);
         }
@@ -97,74 +99,78 @@ export default function CreatePollPage() {
 
     if (isConnecting || (!isAuthority && account === null)) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-black text-white">
-                <p className="text-xl">Authenticating Local Authority Context...</p>
+            <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-800 p-4">
+                <div className="flex flex-col items-center space-y-4">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-slate-500 font-semibold animate-pulse">Authenticating Local Authority Context...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen bg-black text-white p-8">
-            <div className="max-w-xl mx-auto border border-gray-800 bg-gray-950 p-6 rounded-xl">
-                <h1 className="text-2xl font-bold text-green-500 mb-6">Create Official Government Poll</h1>
+        <main className="min-h-screen bg-[#f8fafc] text-slate-800 p-4 md:p-8 flex items-center justify-center">
+            <div className="w-full max-w-2xl bg-white border border-slate-200 p-6 md:p-8 rounded-2xl shadow-sm">
+                <h1 className="text-3xl font-extrabold text-blue-600 mb-1 tracking-tight">Create Poll</h1>
+                <p className="text-sm text-slate-500 mb-6">Initialize a new decentralized opinion poll representing authority directives.</p>
 
-                <form onSubmit={handleFormSubmit} className="space-y-4">
+                <form onSubmit={handleFormSubmit} className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-400">Poll Title</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Poll Title</label>
                         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required
-                            className="w-full bg-gray-900 border border-gray-800 p-2 rounded text-white focus:outline-none focus:border-green-500" />
+                            className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm" />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-400">Strategic Context / Description</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Strategic Context / Description</label>
                         <textarea value={description} onChange={(e) => setDescription(e.target.value)} required rows={4}
-                            className="w-full bg-gray-900 border border-gray-800 p-2 rounded text-white focus:outline-none focus:border-green-500" />
+                            className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm" />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-400">Ballot Class Mechanics</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Ballot Mechanics</label>
                         <select value={pollType} onChange={(e) => setPollType(parseInt(e.target.value))}
-                            className="w-full bg-gray-900 border border-gray-800 p-2 rounded text-white focus:outline-none focus:border-green-500">
+                            className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm">
                             <option value={0}>True / False Binary Split</option>
                             <option value={1}>Multiple Choice Slate</option>
                         </select>
                     </div>
 
                     {pollType === 1 && (
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-400">Slated Options</label>
+                        <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-slate-500">Slated Options</label>
                             {options.map((option, index) => (
                                 <div key={index} className="flex items-center space-x-2">
                                     <input type="text" value={option} onChange={(e) => handleOptionChange(index, e.target.value)} required placeholder={`Choice Option #${index + 1}`}
-                                        className="flex-1 bg-gray-900 border border-gray-800 p-2 rounded text-white focus:outline-none focus:border-green-500" />
+                                        className="flex-1 bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm" />
                                     {options.length > 2 && (
-                                        <button type="button" onClick={() => removeOptionField(index)} className="text-red-500 hover:text-red-400 px-2">
+                                        <button type="button" onClick={() => removeOptionField(index)} className="text-red-500 hover:text-red-600 font-semibold px-2 text-sm transition">
                                             Remove
                                         </button>
                                     )}
                                 </div>
                             ))}
-                            <button type="button" onClick={addOptionField} className="text-sm bg-gray-800 text-gray-200 px-3 py-1.5 rounded hover:bg-gray-700">
+                            <button type="button" onClick={addOptionField} className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold px-3 py-2 rounded-xl transition border border-slate-200">
                                 + Append Option Field
                             </button>
                         </div>
                     )}
 
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-400">Voting Window Deadline Expiry</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Voting Window Deadline Expiry</label>
                         <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} required
-                            className="w-full bg-gray-900 border border-gray-800 p-2 rounded text-white focus:outline-none focus:border-green-500" />
+                            className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm" />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-400">Supplemental Reference Visuals (Max 5)</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Supplemental Reference Visuals (Max 5)</label>
                         <input type="file" multiple accept="image/*" onChange={handleFileChange}
-                            className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-800 file:text-green-400 hover:file:bg-gray-700" />
+                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border file:border-slate-200 file:text-xs file:font-bold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100 transition" />
                     </div>
 
                     <button type="submit" disabled={submitting}
-                        className="w-full font-bold bg-green-600 hover:bg-green-500 text-black p-3 rounded-lg transition disabled:opacity-50">
-                        {submitting ? "Broadcasting State & Pinning Assets..." : "Sign & Create Ballot Tracker"}
+                        className="w-full font-bold bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition disabled:opacity-50 shadow-sm shadow-blue-500/10">
+                        {submitting ? "Broadcasting State & Pinning Assets..." : "Sign & Create Poll"}
                     </button>
                 </form>
             </div>

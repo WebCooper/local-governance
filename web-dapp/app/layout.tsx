@@ -5,6 +5,7 @@ import { TopAppBar } from "@/components/layout/TopAppBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { CitizenProvider } from "@/context/CitizenContext";
 import { AdminProvider } from "@/context/AdminContext";
+import { ClientToaster } from "@/components/layout/ClientToaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-slate-50 flex flex-col md:flex-row`}>
         <CitizenProvider>
           <AdminProvider>
+            <ClientToaster />
             {/* Mobile Top App Bar */}
             <TopAppBar className="md:hidden" />
             
