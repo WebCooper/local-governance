@@ -20,8 +20,16 @@ contract AuthorityMultiSig {
         uint256 id;
         address target;
         ActionType actionType;
-        uint256 votes;
+        uint256 yesVotes;
+        uint256 noVotes;
+        uint256 deadline;
         bool executed;
+    }
+
+    struct VoteInfo {
+        bool hasVoted;
+        bool support; // true for yes, false for no
+        uint8 changes;
     }
 
     // ─── State Variables ─────────────────────────────────────────────────────
@@ -34,7 +42,7 @@ contract AuthorityMultiSig {
 
     uint256 public proposalCount;
     mapping(uint256 => Proposal) public proposals;
-    mapping(uint256 => mapping(address => bool)) public hasVoted;
+    mapping(uint256 => mapping(address => VoteInfo)) public voteInfo;
 
     IReporting public reportingContract;
 
@@ -81,9 +89,11 @@ contract AuthorityMultiSig {
      * @notice Submit a new proposal to add/remove a super admin or authority.
      * @param target The address to apply the action to.
      * @param actionType The type of action (0: AddSuperAdmin, 1: RemoveSuperAdmin, 2: AddAuthority, 3: RemoveAuthority).
+     * @param durationInDays Number of days until the proposal expires.
      */
-    function submitProposal(address target, ActionType actionType) external onlySuperAdmin returns (uint256) {
+    function submitProposal(address target, ActionType actionType, uint256 durationInDays) external onlySuperAdmin returns (uint256) {
         require(target != address(0), "Invalid target address");
+        require(durationInDays > 0, "Duration must be > 0");
         
         // Logical checks before creating proposal
         if (actionType == ActionType.AddSuperAdmin) {
@@ -100,36 +110,62 @@ contract AuthorityMultiSig {
             id: proposalId,
             target: target,
             actionType: actionType,
-            votes: 0,
+            yesVotes: 0,
+            noVotes: 0,
+            deadline: block.timestamp + (durationInDays * 1 days),
             executed: false
         });
         
         emit ProposalSubmitted(proposalId, target, actionType, msg.sender);
         
-        // Automatically cast a vote for the proposer
-        vote(proposalId);
+        // Automatically cast a yes vote for the proposer
+        vote(proposalId, true);
         
         return proposalId;
     }
 
     /**
-     * @notice Vote in favor of a proposal.
+     * @notice Vote on a proposal.
      * @param proposalId The ID of the proposal to vote on.
+     * @param support True for Yes, False for No.
      */
-    function vote(uint256 proposalId) public onlySuperAdmin {
+    function vote(uint256 proposalId, bool support) public onlySuperAdmin {
         Proposal storage proposal = proposals[proposalId];
         require(proposal.id == proposalId, "Proposal does not exist");
         require(!proposal.executed, "Proposal already executed");
-        require(!hasVoted[proposalId][msg.sender], "Already voted");
+        require(block.timestamp <= proposal.deadline, "Proposal expired");
         
-        hasVoted[proposalId][msg.sender] = true;
-        proposal.votes++;
+        VoteInfo storage info = voteInfo[proposalId][msg.sender];
+        
+        if (!info.hasVoted) {
+            info.hasVoted = true;
+            info.support = support;
+            if (support) {
+                proposal.yesVotes++;
+            } else {
+                proposal.noVotes++;
+            }
+        } else {
+            require(info.support != support, "Already cast this vote");
+            require(info.changes < 3, "Max vote changes reached");
+            
+            info.changes++;
+            info.support = support;
+            
+            if (support) {
+                proposal.noVotes--;
+                proposal.yesVotes++;
+            } else {
+                proposal.yesVotes--;
+                proposal.noVotes++;
+            }
+        }
         
         emit VoteCast(proposalId, msg.sender);
         
         // Execute automatically if majority reached
         uint256 requiredVotes = (superAdminCount / 2) + 1;
-        if (proposal.votes >= requiredVotes) {
+        if (proposal.yesVotes >= requiredVotes) {
             executeProposal(proposalId);
         }
     }
@@ -144,7 +180,7 @@ contract AuthorityMultiSig {
         require(!proposal.executed, "Proposal already executed");
         
         uint256 requiredVotes = (superAdminCount / 2) + 1;
-        require(proposal.votes >= requiredVotes, "Not enough votes");
+        require(proposal.yesVotes >= requiredVotes, "Not enough yes votes");
         
         proposal.executed = true;
         

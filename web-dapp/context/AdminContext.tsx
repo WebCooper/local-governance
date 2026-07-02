@@ -4,8 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
 
-export const MULTISIG_ADDRESS = "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82";
-export const REPORTING_ADDRESS = "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0";
+export const MULTISIG_ADDRESS = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1";
+export const REPORTING_ADDRESS = "0x0B306BF915C4d645ff596e518fAf3F9669b97016";
 
 interface AdminContextType {
   account: string | null;
@@ -130,21 +130,36 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
-        if (accounts.length > 0) {
-          connectWallet(); 
-        } else {
-          setAccount(null);
-          setIsSuperAdmin(false);
-          setIsAuthority(false);
-          setContract(null);
-          setReportingContract(null);
-          setSuperAdminsList([]);
-          setAuthoritiesList([]);
+    const autoConnect = async () => {
+      if (typeof window !== "undefined" && (window as any).ethereum) {
+        try {
+          const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+          // Check if there are any connected accounts already
+          const accounts = await browserProvider.send("eth_accounts", []);
+          if (accounts.length > 0) {
+            await connectWallet();
+          }
+        } catch (error) {
+          console.error("Auto-connect failed", error);
         }
-      });
-    }
+
+        (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
+          if (accounts.length > 0) {
+            connectWallet(); 
+          } else {
+            setAccount(null);
+            setIsSuperAdmin(false);
+            setIsAuthority(false);
+            setContract(null);
+            setReportingContract(null);
+            setSuperAdminsList([]);
+            setAuthoritiesList([]);
+          }
+        });
+      }
+    };
+
+    autoConnect();
   }, []);
 
   return (
