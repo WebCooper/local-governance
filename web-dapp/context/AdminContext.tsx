@@ -32,8 +32,8 @@ const AdminContext = createContext<AdminContextType>({
   reportingContract: null,
   superAdminsList: [],
   authoritiesList: [],
-  connectWallet: async () => {},
-  fetchLists: async () => {},
+  connectWallet: async () => { },
+  fetchLists: async () => { },
 });
 
 export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
@@ -63,7 +63,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
   }, [contract, reportingContract]);
 
   const checkAdminStatus = async (
-    userAddress: string, 
+    userAddress: string,
     multiSigContract: ethers.Contract,
     reportingContract: ethers.Contract
   ) => {
@@ -109,10 +109,10 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
         const accounts = await browserProvider.send("eth_requestAccounts", []);
         const signer = await browserProvider.getSigner();
-        
+
         const multiSig = new ethers.Contract(MULTISIG_ADDRESS, AuthorityMultiSigABI, signer);
         const reporting = new ethers.Contract(REPORTING_ADDRESS, ReportingABI, signer);
-        
+
         setProvider(browserProvider);
         setAccount(accounts[0]);
         setContract(multiSig);
@@ -146,7 +146,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
 
         (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
           if (accounts.length > 0) {
-            connectWallet(); 
+            connectWallet();
           } else {
             setAccount(null);
             setIsSuperAdmin(false);
