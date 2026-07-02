@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { getPollingContract } from "@/lib/contracts/polling";
 
 export default function CreatePollPage() {
-    const { isAuthority, isConnecting, account } = useAdmin();
+    const { isAuthority, isConnecting, account, provider } = useAdmin();
     const router = useRouter();
 
     const [title, setTitle] = useState("");
@@ -45,6 +46,12 @@ export default function CreatePollPage() {
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!provider) {
+            alert("Web3 Provider not found. Please connect your wallet.");
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -62,12 +69,22 @@ export default function CreatePollPage() {
                 formData.append("images", img);
             });
 
-            const response = await axios.post("http://localhost:3001/polling/create", formData, {
+            // Upload directly to Next.js API endpoint proxying to IPFS
+            const response = await axios.post("/api/polls/upload", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
             if (response.data.success) {
-                alert(`Poll pinned and broadcasted successfully! CID: ${response.data.data.pollCID}`);
+                const ipfsCid = response.data.cid;
+
+                // Directly interact with the blockchain from the dapp
+                const signer = await provider.getSigner();
+                const contract = getPollingContract(signer);
+
+                const tx = await contract.createOfficialPoll(ipfsCid, unixDeadline, pollType);
+                await tx.wait();
+
+                alert(`Poll created and broadcasted successfully on-chain! CID: ${ipfsCid}`);
                 router.push("/polls");
             }
         } catch (error: any) {

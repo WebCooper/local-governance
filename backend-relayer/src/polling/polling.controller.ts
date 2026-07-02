@@ -26,10 +26,6 @@ export class PollingController {
     @Post('vote')
     @UseGuards(CitizenAuthGuard) // Protects endpoint using your core auth logic
     async vote(@Body() castVoteDto: CastVoteDto) {
-        return await this.pollingService.vote(
-            castVoteDto.pollId,
-            castVoteDto.optionIndex,
-            castVoteDto.nullifier
-        );
+        return await this.pollingService.vote(castVoteDto);
     }
 }

@@ -219,4 +219,14 @@ export class BlockchainService implements OnModuleInit {
       throw new InternalServerErrorException('Contract rejected voting payload.');
     }
   }
+
+  async isAuthority(address: string): Promise<boolean> {
+    if (!this.blockchainEnabled) return false;
+    try {
+      return await this.reportingContract.authorizedAuthorities(address);
+    } catch (error: any) {
+      this.logger.error(`Failed to check authority status for address ${address}: ${error.message}`);
+      return false;
+    }
+  }
 }

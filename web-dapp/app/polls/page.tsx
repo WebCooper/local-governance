@@ -100,22 +100,33 @@ export default function PollsFeedPage() {
       const activeTicket = consumeTicket();
       if (!activeTicket) throw new Error("Ticket acquisition error");
 
-      // Generate deterministic unique vote nullifier: H(Wallet Seed Secret + Poll ID)
-      // This matches the validation pattern required in your refactored backend controller
-      const secretEntropy = wallet.privateKey;
-      const rawNullifier = ethers.solidityPackedKeccak256(
-        ["bytes32", "uint256"],
-        [secretEntropy, pollId]
-      );
+      // Generate secure signer wallet for the citizen
+      const ethersWallet = new ethers.Wallet(wallet.privateKey);
+      const timestamp = Date.now();
 
-      const response = await axios.post("http://localhost:4000/polling/vote", {
+      // 1. Generate challenge for CitizenAuthGuard validation
+      const authChallenge = `get-pseudonym:${wallet.publicKey}:${timestamp}`;
+      const authSignature = await ethersWallet.signMessage(authChallenge);
+
+      // 2. Generate citizen's signature over the vote payload itself
+      const voteMessageHash = ethers.solidityPackedKeccak256(
+        ["uint256", "uint256", "string"],
+        [pollId, optionIndex, activeTicket.ticketId]
+      );
+      const voteSignature = await ethersWallet.signMessage(ethers.getBytes(voteMessageHash));
+
+      // Post secure payload to NestJS backend relayer (port 3001)
+      const RELAYER_URL = process.env.NEXT_PUBLIC_RELAYER_URL || "http://localhost:3001";
+      const response = await axios.post(`${RELAYER_URL}/polling/vote`, {
         pollId,
         optionIndex,
-        nullifier: rawNullifier
+        zkpTicketId: activeTicket.ticketId,
+        zkpSignature: activeTicket.signature,
+        citizenPubKey: wallet.publicKey,
+        signature: voteSignature
       }, {
         headers: {
-          "x-zkp-ticket-id": activeTicket.ticketId,
-          "x-zkp-signature": activeTicket.signature
+          Authorization: `${wallet.publicKey}:${timestamp}:${authSignature}`
         }
       });
 
@@ -128,6 +139,25 @@ export default function PollsFeedPage() {
       alert(`Ballot rejected: ${error.response?.data?.message || error.message}`);
     } finally {
       setVotingMap(prev => ({ ...prev, [pollId]: false }));
+    }
+  };
+
+  const handleClosePoll = async (pollId: number) => {
+    if (!provider) {
+      alert("Web3 Provider not found. Please connect your wallet.");
+      return;
+    }
+    try {
+      const signer = await provider.getSigner();
+      const contract = getPollingContract(signer);
+      const tx = await contract.finalizePoll(pollId);
+      alert("Finalization transaction submitted. Waiting for confirmation...");
+      await tx.wait();
+      alert("Poll successfully finalized on-chain!");
+      await fetchActiveSlate();
+    } catch (err: any) {
+      console.error(err);
+      alert(`Deactivation failure: ${err.message}`);
     }
   };
 
@@ -176,15 +206,22 @@ export default function PollsFeedPage() {
               return (
                 <div key={poll.id} className="bg-gray-950 border border-gray-800 rounded-xl p-6 space-y-4 shadow-xl">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="space-y-2">
                       <span className="text-xs bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-400 font-bold">
                         Poll #{poll.id} — {poll.pollType === 0 ? "True / False Split" : "Multi-Choice Selection"}
                       </span>
-                      <h2 className="text-2xl font-bold mt-2 text-white">{poll.title}</h2>
+                      <h2 className="text-2xl font-bold text-white">{poll.title}</h2>
                     </div>
-                    <span className={`px-2.5 py-1 text-xs font-bold rounded uppercase ${isOpen ? "bg-green-950 text-green-400 border border-green-800" : "bg-red-950 text-red-400 border border-red-800"}`}>
-                      {isOpen ? "Open for Voting" : "Closed / Finalized"}
-                    </span>
+                    <div className="flex items-center space-x-3">
+                      {isAuthority && poll.isActive && isExpired && (
+                        <button onClick={() => handleClosePoll(poll.id)} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1.5 rounded transition text-xs">
+                          Finalize Poll
+                        </button>
+                      )}
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded uppercase ${isOpen ? "bg-green-950 text-green-400 border border-green-800" : "bg-red-950 text-red-400 border border-red-800"}`}>
+                        {isOpen ? "Open for Voting" : "Closed / Finalized"}
+                      </span>
+                    </div>
                   </div>
 
                   <p className="text-gray-300 text-sm leading-relaxed">{poll.description}</p>
@@ -211,8 +248,10 @@ export default function PollsFeedPage() {
 
                       return (
                         <div key={idx} className="relative flex flex-col justify-center bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-hidden">
-                          {/* Animated Progress Bar background tracking metrics */}
-                          <div className="absolute top-0 left-0 bottom-0 bg-green-500/10 transition-all duration-700 ease-out" style={{ width: `${percentage}%` }} />
+                          {/* Animated Progress Bar background tracking metrics — only shown if poll is closed */}
+                          {!isOpen && (
+                            <div className="absolute top-0 left-0 bottom-0 bg-green-500/10 transition-all duration-700 ease-out" style={{ width: `${percentage}%` }} />
+                          )}
 
                           <div className="relative z-10 flex justify-between items-center w-full">
                             <div className="flex items-center space-x-3">
@@ -224,10 +263,15 @@ export default function PollsFeedPage() {
                               )}
                               <span className="font-semibold text-sm">{option}</span>
                             </div>
-                            <div className="text-sm font-mono text-gray-400 space-x-3">
-                              <span>{voteCount} votes</span>
-                              <span className="text-green-400 font-bold">({percentage}%)</span>
-                            </div>
+                            
+                            {!isOpen ? (
+                              <div className="text-sm font-mono text-gray-400 space-x-3">
+                                <span>{voteCount} votes</span>
+                                <span className="text-green-400 font-bold">({percentage}%)</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-500 italic">Results hidden until closed</span>
+                            )}
                           </div>
                         </div>
                       );
@@ -235,7 +279,7 @@ export default function PollsFeedPage() {
                   </div>
 
                   <div className="text-xs text-gray-500 font-medium pt-3 border-t border-gray-900 flex justify-between">
-                    <span>Aggregate Verified Ballots: {totalVotes}</span>
+                    <span>Aggregate Verified Ballots: {isOpen ? "Hidden" : totalVotes}</span>
                     <span>Closing Window: {new Date(poll.deadline * 1000).toLocaleString()}</span>
                   </div>
                 </div>
