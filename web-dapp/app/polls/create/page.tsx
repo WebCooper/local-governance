@@ -128,11 +128,11 @@ export default function CreatePollPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Ballot Mechanics</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-500">Poll Type</label>
                         <select value={pollType} onChange={(e) => setPollType(parseInt(e.target.value))}
                             className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-sm">
-                            <option value={0}>True / False Binary Split</option>
-                            <option value={1}>Multiple Choice Slate</option>
+                            <option value={0}>Yes / No Decision</option>
+                            <option value={1}>Multiple Choice Poll</option>
                         </select>
                     </div>
 

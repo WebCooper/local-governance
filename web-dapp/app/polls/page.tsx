@@ -30,6 +30,7 @@ export default function PollsFeedPage() {
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
   const [votingMap, setVotingMap] = useState<Record<number, boolean>>({});
+  const [activeImage, setActiveImage] = useState<{ data: string; mimeType: string } | null>(null);
 
   // Navigation states
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,7 +104,7 @@ export default function PollsFeedPage() {
       }
       setPolls(loadedPolls);
     } catch (err) {
-      console.error("Failed loading ballot indices natively:", err);
+      console.error("Failed loading opinion polls natively:", err);
       toast.error("Unable to fetch polls from the blockchain network.");
     } finally {
       setLoading(false);
@@ -126,7 +127,7 @@ export default function PollsFeedPage() {
     }
 
     setVotingMap(prev => ({ ...prev, [pollId]: true }));
-    const loadingToast = toast.loading("Verifying cryptographies and casting ballot...");
+    const loadingToast = toast.loading("Verifying credentials and casting your vote...");
     
     try {
       const activeTicket = consumeTicket();
@@ -159,7 +160,7 @@ export default function PollsFeedPage() {
       });
 
       if (response.data.success) {
-        toast.success("Your anonymous ballot has been recorded on-chain!", { id: loadingToast });
+        toast.success("Your anonymous vote has been successfully cast on-chain!", { id: loadingToast });
         
         // Save vote to local state & localStorage
         const updatedVotes = { ...userVotes, [pollId]: optionIndex };
@@ -173,7 +174,7 @@ export default function PollsFeedPage() {
     } catch (error: any) {
       console.error(error);
       const errMsg = error.response?.data?.message || error.message || "Relayer communication failure.";
-      toast.error(`Ballot rejected: ${errMsg}`, { id: loadingToast });
+      toast.error(`Vote failed: ${errMsg}`, { id: loadingToast });
     } finally {
       setVotingMap(prev => ({ ...prev, [pollId]: false }));
     }
@@ -228,8 +229,20 @@ export default function PollsFeedPage() {
     );
   }
 
+  // Derive status counts for the filter tabs
+  const allCount = polls.length;
+  const activeCount = polls.filter((p) => {
+    const isExpired = Math.floor(Date.now() / 1000) >= p.deadline;
+    return p.isActive && !isExpired;
+  }).length;
+  const completedCount = polls.filter((p) => {
+    const isExpired = Math.floor(Date.now() / 1000) >= p.deadline;
+    return !p.isActive || isExpired;
+  }).length;
+
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-slate-800 p-4 md:p-8">
+    <>
+      <main className="min-h-screen bg-[#f8fafc] text-slate-800 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
 
         {/* Responsive Header Section */}
@@ -254,36 +267,45 @@ export default function PollsFeedPage() {
         </div>
 
         {/* Filters and Controls */}
-        <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start max-w-xs shadow-inner">
+        <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start shadow-inner">
           <button
             onClick={() => { setFilter("all"); setCurrentPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${
               filter === "all"
                 ? "bg-white text-blue-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            All Polls
+            <span>All Polls</span>
+            <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "all" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
+              {allCount}
+            </span>
           </button>
           <button
             onClick={() => { setFilter("open"); setCurrentPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${
               filter === "open"
                 ? "bg-white text-blue-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            Open
+            <span>Active</span>
+            <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "open" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
+              {activeCount}
+            </span>
           </button>
           <button
             onClick={() => { setFilter("closed"); setCurrentPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${
               filter === "closed"
                 ? "bg-white text-blue-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            Closed
+            <span>Completed</span>
+            <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "closed" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
+              {completedCount}
+            </span>
           </button>
         </div>
 
@@ -302,10 +324,7 @@ export default function PollsFeedPage() {
                 <div key={poll.id} className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 space-y-5 shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                     <div className="space-y-1">
-                      <span className="inline-block text-[10px] bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md text-slate-500 font-bold uppercase tracking-wider">
-                        Poll #{poll.id} — {poll.pollType === 0 ? "True/False" : "Multi-Choice Selection"}
-                      </span>
-                      <h2 className="text-2xl font-bold tracking-tight mt-1 text-slate-800">{poll.title}</h2>
+                      <h2 className="text-2xl font-bold tracking-tight text-slate-800">{poll.title}</h2>
                     </div>
                     <div className="flex items-center gap-3 self-start sm:self-auto">
                       {isAuthority && !wallet && poll.isActive && isExpired && (
@@ -327,15 +346,32 @@ export default function PollsFeedPage() {
 
                   {/* Render Images if nested inside the metadata envelope */}
                   {poll.images && poll.images.length > 0 && (
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      {poll.images.map((img, index) => (
-                        <img
-                          key={index}
-                          src={`data:${img.mimeType};base64,${img.data}`}
-                          alt={img.originalName}
-                          className="w-24 h-24 object-cover border border-slate-200 rounded-xl hover:scale-105 transition-all duration-200 shadow-sm"
-                        />
-                      ))}
+                    <div className="pt-2">
+                      {poll.images.length === 1 ? (
+                        // Single Image: Beautiful full-width or large responsive layout
+                        <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 shadow-sm hover:opacity-90 transition-opacity">
+                          <img
+                            src={`data:${poll.images[0].mimeType};base64,${poll.images[0].data}`}
+                            alt={poll.images[0].originalName}
+                            onClick={() => setActiveImage(poll.images![0])}
+                            className="w-full max-h-64 object-cover cursor-pointer"
+                          />
+                        </div>
+                      ) : (
+                        // Multiple Images: Grid of 2 or 3 responsive columns
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {poll.images.map((img, index) => (
+                            <div key={index} className="overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:opacity-90 transition-opacity aspect-video">
+                              <img
+                                src={`data:${img.mimeType};base64,${img.data}`}
+                                alt={img.originalName}
+                                onClick={() => setActiveImage(img)}
+                                className="w-full h-full object-cover cursor-pointer"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -456,7 +492,7 @@ export default function PollsFeedPage() {
                   </div>
 
                   <div className="text-xs text-slate-400 font-medium pt-3 border-t border-slate-100 flex justify-between">
-                    <span>Total Ballots Cast: {isOpen ? "Hidden" : totalVotes}</span>
+                    <span>Total Votes Cast: {isOpen ? "Hidden" : totalVotes}</span>
                     <span>Deadline: {new Date(poll.deadline * 1000).toLocaleString()}</span>
                   </div>
                 </div>
@@ -489,5 +525,26 @@ export default function PollsFeedPage() {
         )}
       </div>
     </main>
+    {activeImage && (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300"
+        onClick={() => setActiveImage(null)}
+      >
+        <div className="relative max-w-4xl max-h-[85vh] w-full h-full flex items-center justify-center">
+          <img 
+            src={`data:${activeImage.mimeType};base64,${activeImage.data}`} 
+            alt="Fullscreen preview" 
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl transition-transform"
+          />
+          <button 
+            onClick={() => setActiveImage(null)}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full px-3 py-1.5 text-xs font-bold backdrop-blur-sm transition cursor-pointer"
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
