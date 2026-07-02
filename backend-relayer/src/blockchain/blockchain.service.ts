@@ -41,7 +41,7 @@ export class BlockchainService implements OnModuleInit {
     const contractAddress = this.configService.get<string>('CONTRACT_ADDRESS');
     const pollingAddress = this.configService.get<string>('POLLING_CONTRACT_ADDRESS');
 
-    if (!rpcUrl || !privateKey || !contractAddress) {
+    if (!rpcUrl || !privateKey || !contractAddress || !pollingAddress) {
       this.logger.error('Critical Web3 configuration missing from .env');
       return;
     }

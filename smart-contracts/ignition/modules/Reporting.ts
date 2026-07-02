@@ -4,9 +4,9 @@ export default buildModule("ReportingAndMultiSig", (m) => {
   const reporting = m.contract("Reporting");
 
   const initialSuperAdmins = [
-    "0xda90b18Df16955Da5352C21D00d3ac4CDb52125b", // User's main wallet
-    "0x07414EcB953F6867B702e651A8480e8cBB254cf6", // Super Admin 2
-    "0xeDCB60f47CEeaFDeD70113701F6BD4BDe7C1f90f", // Super Admin 3
+    "0x51F279FC45e8bD2E66501391Df378Da045Cd3d45", // User's main wallet
+    "0x2f82af1eDf8ddA7C6f87AFdc1B60Dc5cA4C76B23", // Super Admin 2
+    "0xD019C08F95B5450F36Fcb8D1d4Ba8AB73B64fDA7", // Super Admin 3
     // //defaults hardhat users for test purposes
     "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", // 0
     "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", // 1

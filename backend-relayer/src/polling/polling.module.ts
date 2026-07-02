@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { PollingController } from './polling.controller';
 import { PollingService } from './polling.service';
-import { AiOracleModule } from '../ai-oracle/ai-oracle.module'; // Import to access AiOracleService
+import { IpfsService } from 'src/ipfs/ipfs.service';
+import { CitizenAuthGuard } from './guards/citizen-auth.guard';
+import { BlockchainModule } from 'src/blockchain/blockchain.module';
+
 
 @Module({
-  imports: [AiOracleModule],
+  imports: [BlockchainModule],
   controllers: [PollingController],
-  providers: [PollingService],
+  providers: [PollingService, IpfsService, CitizenAuthGuard],
 })
 export class PollingModule { }
