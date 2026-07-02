@@ -8,6 +8,7 @@ import { ethers } from "ethers";
 import axios from "axios";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { ThumbsUp, ThumbsDown, CheckCircle2 } from "lucide-react";
 
 interface PollStructure {
   id: number;
@@ -29,9 +30,9 @@ export default function PollsFeedPage() {
   const [loading, setLoading] = useState(true);
   const [votingMap, setVotingMap] = useState<Record<number, boolean>>({});
 
-  // Pagination states
+  // Navigation states
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [filter, setFilter] = useState<"all" | "open" | "closed">("all");
   const pollsPerPage = 5;
 
   const fetchActiveSlate = async () => {
@@ -40,16 +41,12 @@ export default function PollsFeedPage() {
       setLoading(true);
       const contract = getPollingContract(provider);
       const chainCount = Number(await contract.pollCount());
-      
-      const computedTotalPages = Math.max(1, Math.ceil(chainCount / pollsPerPage));
-      setTotalPages(computedTotalPages);
 
       const loadedPolls: PollStructure[] = [];
-      const startIndex = chainCount - (currentPage - 1) * pollsPerPage;
-      const endIndex = Math.max(1, startIndex - pollsPerPage + 1);
 
       if (chainCount > 0) {
-        for (let i = startIndex; i >= endIndex; i--) {
+        // Fetch all polls newest first
+        for (let i = chainCount; i >= 1; i--) {
           const chainPoll = await contract.polls(i);
 
           let metaTitle = "Opinion Poll";
@@ -96,7 +93,7 @@ export default function PollsFeedPage() {
 
   useEffect(() => {
     if (provider) fetchActiveSlate();
-  }, [provider, currentPage]);
+  }, [provider]);
 
   const handleCastVote = async (pollId: number, optionIndex: number) => {
     if (!wallet) {
@@ -174,6 +171,24 @@ export default function PollsFeedPage() {
     }
   };
 
+  // Derived client-side filters
+  const filteredPolls = polls.filter((poll) => {
+    const isExpired = Math.floor(Date.now() / 1000) >= poll.deadline;
+    const isOpen = poll.isActive && !isExpired;
+
+    if (filter === "open") return isOpen;
+    if (filter === "closed") return !isOpen;
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredPolls.length / pollsPerPage));
+  const activePage = Math.min(currentPage, totalPages);
+
+  const paginatedPolls = filteredPolls.slice(
+    (activePage - 1) * pollsPerPage,
+    activePage * pollsPerPage
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center p-4">
@@ -210,13 +225,47 @@ export default function PollsFeedPage() {
           </div>
         </div>
 
-        {polls.length === 0 ? (
+        {/* Filters and Controls */}
+        <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start max-w-xs shadow-inner">
+          <button
+            onClick={() => { setFilter("all"); setCurrentPage(1); }}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              filter === "all"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            All Polls
+          </button>
+          <button
+            onClick={() => { setFilter("open"); setCurrentPage(1); }}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              filter === "open"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Open
+          </button>
+          <button
+            onClick={() => { setFilter("closed"); setCurrentPage(1); }}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              filter === "closed"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Closed
+          </button>
+        </div>
+
+        {paginatedPolls.length === 0 ? (
           <div className="text-center bg-white border border-slate-200 rounded-2xl py-16 px-4 shadow-sm">
-            <p className="text-slate-500 font-medium">No opinion polls are currently recorded on-chain.</p>
+            <p className="text-slate-500 font-medium">No opinion polls match the selected filter category.</p>
           </div>
         ) : (
           <div className="space-y-8">
-            {polls.map((poll) => {
+            {paginatedPolls.map((poll) => {
               const totalVotes = poll.results?.reduce((a, b) => a + b, 0) || 0;
               const isExpired = Math.floor(Date.now() / 1000) >= poll.deadline;
               const isOpen = poll.isActive && !isExpired;
@@ -303,16 +352,53 @@ export default function PollsFeedPage() {
 
                           <div className="relative z-10 flex justify-between items-center w-full">
                             <div className="flex items-center gap-3">
-                              {isOpen && wallet && (
-                                <button 
-                                  disabled={votingMap[poll.id]} 
-                                  onClick={() => handleCastVote(poll.id, idx)}
-                                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded-lg transition disabled:opacity-50 shadow-sm"
-                                >
-                                  Vote
-                                </button>
+                              {isOpen && wallet ? (
+                                // Clickable icon buttons for active citizen voting
+                                poll.pollType === 0 ? (
+                                  idx === 0 ? (
+                                    <button 
+                                      disabled={votingMap[poll.id]} 
+                                      onClick={() => handleCastVote(poll.id, idx)}
+                                      className="p-2 hover:bg-rose-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
+                                      title="Vote No"
+                                    >
+                                      <ThumbsDown className="w-5 h-5 text-rose-500 hover:-rotate-12 hover:scale-110 transition-transform" />
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      disabled={votingMap[poll.id]} 
+                                      onClick={() => handleCastVote(poll.id, idx)}
+                                      className="p-2 hover:bg-emerald-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
+                                      title="Vote Yes"
+                                    >
+                                      <ThumbsUp className="w-5 h-5 text-emerald-500 hover:rotate-12 hover:scale-110 transition-transform" />
+                                    </button>
+                                  )
+                                ) : (
+                                  <button 
+                                    disabled={votingMap[poll.id]} 
+                                    onClick={() => handleCastVote(poll.id, idx)}
+                                    className="p-2 hover:bg-blue-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
+                                    title="Vote Option"
+                                  >
+                                    <CheckCircle2 className="w-5 h-5 text-blue-600 hover:scale-110 transition-transform" />
+                                  </button>
+                                )
+                              ) : (
+                                // Static display icons if closed / not authenticated as citizen
+                                (poll.pollType === 0 && (
+                                  idx === 0 
+                                    ? <ThumbsDown className="w-5 h-5 text-rose-400 shrink-0" />
+                                    : <ThumbsUp className="w-5 h-5 text-emerald-400 shrink-0" />
+                                ))
                               )}
-                              <span className="font-semibold text-sm text-slate-700">{option}</span>
+                              <span className="font-semibold text-sm text-slate-700">
+                                {option.trim().toLowerCase() === "false" 
+                                  ? "Disagree / No" 
+                                  : option.trim().toLowerCase() === "true" 
+                                  ? "Agree / Yes" 
+                                  : option}
+                              </span>
                             </div>
                             
                             {!isOpen ? (
@@ -341,17 +427,17 @@ export default function PollsFeedPage() {
             {totalPages > 1 && (
               <div className="flex justify-center items-center space-x-4 pt-6">
                 <button
-                  disabled={currentPage === 1}
+                  disabled={activePage === 1}
                   onClick={() => setCurrentPage(prev => prev - 1)}
                   className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
                 >
                   Previous
                 </button>
                 <span className="text-sm font-medium text-slate-500">
-                  Page {currentPage} of {totalPages}
+                  Page {activePage} of {totalPages}
                 </span>
                 <button
-                  disabled={currentPage === totalPages}
+                  disabled={activePage === totalPages}
                   onClick={() => setCurrentPage(prev => prev + 1)}
                   className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
                 >
