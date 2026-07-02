@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Lock } from "lucide-react";
-import { ethers } from "ethers";
+import { deriveCitizenWallet } from "@/lib/walletUtils";
+import { useCitizen } from "@/context/CitizenContext";
 
 export default function AuthPage() {
   const router = useRouter();
+  const { login } = useCitizen();
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [govId, setGovId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +35,7 @@ export default function AuthPage() {
     setIsGenerating(true);
     
     try {
-      const response = await fetch("http://localhost:5000/api/govid/verify-citizen", {
+      const response = await fetch("https://zkp.internalbuildtools.online/api/govid/verify-citizen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ govId, password }),
@@ -32,21 +43,19 @@ export default function AuthPage() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Authentication failed");
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Authentication failed");
       }
 
-      // Generate Ephemeral Wallet (Abstract Wallet)
-      const ephemeralWallet = ethers.Wallet.createRandom();
-      localStorage.setItem("ephemeral_pk", ephemeralWallet.privateKey);
-      localStorage.setItem("ephemeral_address", ephemeralWallet.address);
+      if (!Array.isArray(data.ticketBatch) || data.ticketBatch.length === 0) {
+        throw new Error("Failed to generate ZKP tickets. Please try again.");
+      }
 
-      // Store ticketId and signature (simulate ZKP token)
-      localStorage.setItem("zk_ticketId", data.ticketId);
-      localStorage.setItem("zk_signature", data.signature);
+      const citizenWallet = deriveCitizenWallet(data.citizenSeed);
+      login(citizenWallet, data.ticketBatch);
       
       // Simulate slight delay for "Proof Generating" animation effect
-      setTimeout(() => {
+      redirectTimeoutRef.current = setTimeout(() => {
         router.push("/feed");
       }, 1500);
 

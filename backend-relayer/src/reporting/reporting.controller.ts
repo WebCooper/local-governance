@@ -2,74 +2,63 @@ import {
   Controller,
   Post,
   Body,
-  UploadedFile,
   UseInterceptors,
-  BadRequestException,
+  UploadedFiles,
   Logger,
+  Get,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { CreateReportDto } from './dto/create-report.dto';
-import { BlockchainService } from '../blockchain/blockchain.service';
-// import { IpfsService } from '../ipfs/ipfs.service';
-// import { AiOracleService } from '../ai-oracle/ai-oracle.service';
+import { ExpressAdapter, FilesInterceptor } from '@nestjs/platform-express';
+import { ReportingService } from './reporting.service';
+import type { SubmitReportPayload } from './reporting.service';
+import { CitizenAuthGuard } from './guards/citizen-auth.guard';
+import type {AuthenticatedRequest} from './guards/citizen-auth.guard';
+import { CastVoteDto } from './dto/cast-vote.dto';
 
-@Controller('reporting')
+
+
+@Controller('report')
 export class ReportingController {
   private readonly logger = new Logger(ReportingController.name);
 
-  constructor(
-    private readonly blockchainService: BlockchainService,
-    // private readonly ipfsService: IpfsService,
-    // private readonly aiOracleService: AiOracleService,
-  ) {}
+  constructor(private readonly reportingService: ReportingService) {}
 
-  @Post('submit')
-  @UseInterceptors(FileInterceptor('image')) // Expects a file field named "image"
-  async submitReport(
-    @Body() createReportDto: CreateReportDto,
-    @UploadedFile() image: Express.Multer.File,
+  @Post()
+  // Changed to FilesInterceptor to accept an array of up to 5 files under the field 'images'
+  @UseInterceptors(FilesInterceptor('images', 5))
+  async createReport(
+    @Body() payload: SubmitReportPayload,
+    @UploadedFiles() images?: Express.Multer.File[],
   ) {
-    // STEP 0: Validation
-    if (!image) {
-      throw new BadRequestException('Visual evidence (image) is required');
+    this.logger.log(`Received report creation request for ticket: ${payload.zkpTicketId}`);
+    
+    if (images?.length) {
+      this.logger.log(`Received ${images.length} image(s) with the report.`);
     }
 
-    // Check if mockProof is structurally valid (basic simulation check)
-    if (!createReportDto.mockProof.startsWith('zkp_valid_proof_')) {
-      throw new BadRequestException('Invalid citizen identity proof');
-    }
-
-    this.logger.log(
-      `Received report submission request for nullifier: ${createReportDto.nullifierHash}`,
-    );
-    this.logger.log(`Image uploaded: ${image.filename} (${image.size} bytes)`);
-
-    // STEP 1: Storage (IPFS)
-    // Create a JSON object combining the text data and the image
-    // const ipfsCID = await this.ipfsService.uploadEvidence(createReportDto, image.buffer);
-    const ipfsCID = 'ipfs://QmMockHashForNow12345'; // Mocked until IPFS service is built
-    this.logger.log(`IPFS upload mocked: ${ipfsCID}`);
-
-    // STEP 2: AI Moderation
-    // Send the text and image to your teammate's AI Oracle node
-    // const aiVerdict = await this.aiOracleService.moderateContent(createReportDto.description, image.buffer);
-    // if (!aiVerdict.isApproved) {
-    //   throw new BadRequestException('Content rejected by AI moderation: ' + aiVerdict.reason);
-    // }
-    this.logger.log('AI moderation mocked: content approved');
-
-    // STEP 3: Blockchain Submission
-    // If IPFS and AI are successful, use the Relayer to submit to Geth
-    const txResult = await this.blockchainService.submitReportToChain(
-      ipfsCID,
-      createReportDto.nullifierHash,
-    );
-
-    this.logger.log(`Report submitted successfully: ${txResult.transactionHash}`);
+    // Offload all the complex logic to the service layer
+    const reportResult = await this.reportingService.createReport(payload, images);
 
     return {
-      message: 'Report successfully validated and recorded on the blockchain.',
-      data: txResult,
+      success: true,
+      message: 'Report successfully validated and accepted.',
+      data: reportResult,
     };
+  }
+
+  @Get('my-pseudonym')
+  @UseGuards(CitizenAuthGuard)
+  getMyPseudonym(@Req() req: AuthenticatedRequest) {
+    this.logger.log(
+      `Pseudonym requested by authenticated citizen: ${req.citizen.address}`,
+    );
+    return this.reportingService.getPseudonym(req.citizen.address);
+  }
+
+  @Post('vote')
+  async castVote(@Body() payload: CastVoteDto) {
+    this.logger.log(`Received vote for report ${payload.reportId} in phase ${payload.votePhase}`);
+    return await this.reportingService.castVote(payload);
   }
 }

@@ -1,0 +1,169 @@
+{
+  "test_id": "AI-S05",
+  "name": "Non-civic irrelevant text",
+  "expected_http_status": 200,
+  "expected_decision": "REJECT",
+  "actual_http_status": 200,
+  "actual_decision": "ACCEPT",
+  "passed": false,
+  "elapsed_ms_client": 1814.58,
+  "processing_time_ms_server": 146.05,
+  "request_hash_local": "d067521e7061fa632010cfe42ed26a58ae8081e3be2fa73bdc9191f1173789a1",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S05-a69b0838-e86a-4a28-9dbd-1952439575d1",
+    "text": "I watched a movie yesterday and the food at the restaurant was very tasty.",
+    "category": "Other",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S05-a69b0838-e86a-4a28-9dbd-1952439575d1",
+    "text_hash": "ad58340d0ad8769c33c41a0093ddf3b80d748f340ef7b489fd954e52eccd0218",
+    "media_hashes": [],
+    "category": "Other",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-05-12T12:13:58.777402+00:00",
+    "nonce": "9f598e14-aa2b-4cc7-8ad1-0076d28e793f"
+  },
+  "file_summaries": [],
+  "response": {
+    "final_decision": "ACCEPT",
+    "final_confidence": 0.9682,
+    "risk_level": "LOW",
+    "report_hash": "35aaf788a34b709a89adf46924c0e62c59c3a8d73ed29e1c9d9d943dc4e87c3c",
+    "request_hash": "d067521e7061fa632010cfe42ed26a58ae8081e3be2fa73bdc9191f1173789a1",
+    "decision_hash": "1c0539ec761b954c53b1ffb9a27d7f63632555384ecedfba10b4e994cb730b22",
+    "aggregator_signature": "284dd89753763a74a25f2861db0b31c333256461558bd31f889d19ac8cb0c13d374dcfc7f8cd8a3cd63f6a2d52c8b0311f6f1eaa9b69d465bb4caa803692d9961c",
+    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
+    "oracle_votes": [
+      {
+        "oracle_id": "ORACLE_1_SAFETY",
+        "vote": "ACCEPT",
+        "confidence": 0.9993,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
+        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
+        "model_version": "1.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_result": {
+            "safe": true,
+            "confidence": 0.9993,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
+            "details": {
+              "scores": {
+                "toxic": 0.0006790128536522388,
+                "obscene": 0.00018720421940088272,
+                "insult": 0.0001818605960579589,
+                "identity_hate": 0.00015138235175982118,
+                "severe_toxic": 0.00012455368414521217,
+                "threat": 0.00011618571443250403
+              },
+              "mode": "unitary/toxic-bert"
+            }
+          },
+          "image_result": {
+            "safe": true,
+            "confidence": 1.0,
+            "critical_violation": false,
+            "explanation_code": "NO_IMAGE_PROVIDED",
+            "details": {
+              "images": []
+            }
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_2_SPAM_ABUSE",
+        "vote": "ACCEPT",
+        "confidence": 0.937,
+        "explanation_code": "NO_SPAM_DETECTED",
+        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "decision_logic": {
+            "ai_strong_spam_threshold": 0.85,
+            "ai_supporting_spam_threshold": 0.65,
+            "rule_reject_threshold": 0.6,
+            "rule_support_threshold": 0.25,
+            "rejection_reasons": []
+          },
+          "ai_analysis": {
+            "model_used": true,
+            "available": true,
+            "label": "LABEL_0",
+            "predicted_score": 0.937,
+            "spam_probability": 0.063,
+            "non_spam_probability": 0.937,
+            "raw_output": {
+              "label": "LABEL_0",
+              "score": 0.9370315074920654
+            },
+            "error": null
+          },
+          "rule_based_analysis": {
+            "spam_score": 0.0,
+            "word_count": 14,
+            "url_count": 0,
+            "matched_spam_phrases": [],
+            "matched_promotional_words": [],
+            "repeated_character_pattern": false,
+            "excessive_symbols": false,
+            "reasons": []
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
+        "vote": "REJECT",
+        "confidence": 0.9285,
+        "explanation_code": "LOW_SEMANTIC_CIVIC_RELEVANCE",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_relevance": {
+            "civic_relevant": false,
+            "confidence": 0.9285,
+            "explanation_code": "LOW_SEMANTIC_CIVIC_RELEVANCE",
+            "details": {
+              "mode": "semantic_similarity",
+              "selected_category": "Other",
+              "overall_best_match": {
+                "category": "Waste Management",
+                "reference_text": "A public sanitation complaint related to trash accumulation, waste disposal, or garbage collection failure.",
+                "similarity": 0.0715
+              },
+              "selected_category_best_match": null,
+              "text_relevance_threshold": 0.38,
+              "category_match_threshold": 0.4,
+              "keyword_support": {
+                "category_matches": {},
+                "all_matches": []
+              }
+            }
+          },
+          "image_relevance": {
+            "image_relevance": "NO_IMAGE_PROVIDED",
+            "confidence": 1.0,
+            "details": []
+          }
+        }
+      }
+    ],
+    "security": {
+      "relayer_signature_verified": true,
+      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "timestamp_validated": true,
+      "nonce_accepted": true
+    },
+    "processing_time_ms": 146.05
+  }
+}

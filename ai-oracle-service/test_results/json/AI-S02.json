@@ -1,0 +1,186 @@
+{
+  "test_id": "AI-S02",
+  "name": "Valid civic text report - waste management",
+  "expected_http_status": 200,
+  "expected_decision": "ACCEPT",
+  "actual_http_status": 200,
+  "actual_decision": "ACCEPT",
+  "passed": true,
+  "elapsed_ms_client": 1725.39,
+  "processing_time_ms_server": 170.77,
+  "request_hash_local": "d66ed8980a4c6fa23cfd62a762b8e7fcfc0fbde9caaefc5d1cd8a7d05375eae3",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S02-28f73af1-1261-49c5-a7fd-f52c561083e4",
+    "text": "Garbage has not been collected near the public market for three days.",
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S02-28f73af1-1261-49c5-a7fd-f52c561083e4",
+    "text_hash": "c486365976e06f327c83feccb32d75874ab91e8e99fba5a4f757b14f279a845c",
+    "media_hashes": [],
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-05-12T12:13:53.744071+00:00",
+    "nonce": "b440afed-3805-4208-83a7-4b4793ef0d75"
+  },
+  "file_summaries": [],
+  "response": {
+    "final_decision": "ACCEPT",
+    "final_confidence": 0.793,
+    "risk_level": "LOW",
+    "report_hash": "a84bb74e510a3dfcfd1d08eeaa962e9842eec7b30bb4814012b3b9b7537e0aae",
+    "request_hash": "d66ed8980a4c6fa23cfd62a762b8e7fcfc0fbde9caaefc5d1cd8a7d05375eae3",
+    "decision_hash": "70aed20e698ec402c5eff93f0ac83ff640f71565460330a6021ce11b1b480a70",
+    "aggregator_signature": "af32d385bd048ea2acf5272a556226758dcfc917816b50df3388e4cb6d0edafc56f56e71e6746868e3ec615b00864072a6d24643b38709c6580dcdde95474be11c",
+    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
+    "oracle_votes": [
+      {
+        "oracle_id": "ORACLE_1_SAFETY",
+        "vote": "ACCEPT",
+        "confidence": 0.9019,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
+        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
+        "model_version": "1.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_result": {
+            "safe": true,
+            "confidence": 0.9019,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
+            "details": {
+              "scores": {
+                "toxic": 0.09810912609100342,
+                "obscene": 0.0021972928661853075,
+                "insult": 0.0020815241150557995,
+                "identity_hate": 0.0010023299837484956,
+                "threat": 0.0002821443194989115,
+                "severe_toxic": 0.00020341164781711996
+              },
+              "mode": "unitary/toxic-bert"
+            }
+          },
+          "image_result": {
+            "safe": true,
+            "confidence": 1.0,
+            "critical_violation": false,
+            "explanation_code": "NO_IMAGE_PROVIDED",
+            "details": {
+              "images": []
+            }
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_2_SPAM_ABUSE",
+        "vote": "ACCEPT",
+        "confidence": 0.9352,
+        "explanation_code": "NO_SPAM_DETECTED",
+        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "decision_logic": {
+            "ai_strong_spam_threshold": 0.85,
+            "ai_supporting_spam_threshold": 0.65,
+            "rule_reject_threshold": 0.6,
+            "rule_support_threshold": 0.25,
+            "rejection_reasons": []
+          },
+          "ai_analysis": {
+            "model_used": true,
+            "available": true,
+            "label": "LABEL_0",
+            "predicted_score": 0.9352,
+            "spam_probability": 0.0648,
+            "non_spam_probability": 0.9352,
+            "raw_output": {
+              "label": "LABEL_0",
+              "score": 0.9352268576622009
+            },
+            "error": null
+          },
+          "rule_based_analysis": {
+            "spam_score": 0.0,
+            "word_count": 12,
+            "url_count": 0,
+            "matched_spam_phrases": [],
+            "matched_promotional_words": [],
+            "repeated_character_pattern": false,
+            "excessive_symbols": false,
+            "reasons": []
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
+        "vote": "ACCEPT",
+        "confidence": 0.5419,
+        "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_relevance": {
+            "civic_relevant": true,
+            "confidence": 0.5419,
+            "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+            "details": {
+              "mode": "semantic_similarity",
+              "selected_category": "Waste Management",
+              "overall_best_match": {
+                "category": "Waste Management",
+                "reference_text": "A civic report about uncollected garbage, waste dumping, overflowing bins, or rubbish on public streets.",
+                "similarity": 0.5419
+              },
+              "selected_category_best_match": {
+                "category": "Waste Management",
+                "reference_text": "A civic report about uncollected garbage, waste dumping, overflowing bins, or rubbish on public streets.",
+                "similarity": 0.5419
+              },
+              "text_relevance_threshold": 0.38,
+              "category_match_threshold": 0.4,
+              "keyword_support": {
+                "category_matches": {
+                  "Waste Management": [
+                    "garbage"
+                  ],
+                  "Public Property Damage": [
+                    "public"
+                  ],
+                  "General Civic Issue": [
+                    "public"
+                  ]
+                },
+                "all_matches": [
+                  "garbage",
+                  "public"
+                ]
+              }
+            }
+          },
+          "image_relevance": {
+            "image_relevance": "NO_IMAGE_PROVIDED",
+            "confidence": 1.0,
+            "details": []
+          }
+        }
+      }
+    ],
+    "security": {
+      "relayer_signature_verified": true,
+      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "timestamp_validated": true,
+      "nonce_accepted": true
+    },
+    "processing_time_ms": 170.77
+  }
+}

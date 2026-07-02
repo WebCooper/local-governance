@@ -1,0 +1,218 @@
+{
+  "test_id": "AI-S08",
+  "name": "Valid civic text with safe garbage image",
+  "expected_http_status": 200,
+  "expected_decision": "ACCEPT",
+  "actual_http_status": 200,
+  "actual_decision": "ACCEPT",
+  "passed": true,
+  "elapsed_ms_client": 3154.51,
+  "processing_time_ms_server": 533.82,
+  "request_hash_local": "871856620a8bd83315f2a897dd0d524e1b1a1912c5cea6788fe507df4331dddc",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S08-defd0b70-98e0-4be2-8397-a7cb10663667",
+    "text": "Garbage has been dumped near the public road and it is causing a bad smell.",
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S08-defd0b70-98e0-4be2-8397-a7cb10663667",
+    "text_hash": "88f03d4890dff9d5694291f7410fc38297c15458d84d2e1941f9efc3c6303989",
+    "media_hashes": [
+      "919bffbfe8667da6224213e6d1ec911f0647f12f98cbc271c1360fe7ed2df3e3"
+    ],
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-05-12T12:14:02.737459+00:00",
+    "nonce": "e47c04ca-3fa9-404c-99cb-f0a40910c6de"
+  },
+  "file_summaries": [
+    {
+      "file_name": "garbage_street.png",
+      "mime_type": "image/png",
+      "size_bytes": 182608,
+      "sha256": "919bffbfe8667da6224213e6d1ec911f0647f12f98cbc271c1360fe7ed2df3e3"
+    }
+  ],
+  "response": {
+    "final_decision": "ACCEPT",
+    "final_confidence": 0.7438,
+    "risk_level": "LOW",
+    "report_hash": "e9bc61e83feded0f14f0ebc2c811c92f3a614fd4c9c5201543acef878a44d0db",
+    "request_hash": "871856620a8bd83315f2a897dd0d524e1b1a1912c5cea6788fe507df4331dddc",
+    "decision_hash": "bfcd5d876383e8aad86cc4fc372ee6541cebb513270a1ffac6d4eb4224b976c5",
+    "aggregator_signature": "0ee82ad2e3baa6c141043e8262a5ddf3f0c1ede90252a01989f1942dba164dab0975cd38228af2a3966e8134f91406e7dabcf1168777669a9de51a75efbec9811c",
+    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
+    "oracle_votes": [
+      {
+        "oracle_id": "ORACLE_1_SAFETY",
+        "vote": "ACCEPT",
+        "confidence": 0.6454,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
+        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
+        "model_version": "1.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_result": {
+            "safe": true,
+            "confidence": 0.6454,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
+            "details": {
+              "scores": {
+                "toxic": 0.35459089279174805,
+                "insult": 0.008598011918365955,
+                "obscene": 0.0059726950712502,
+                "identity_hate": 0.0032717615831643343,
+                "threat": 0.0005223151529207826,
+                "severe_toxic": 0.00044192266068421304
+              },
+              "mode": "unitary/toxic-bert"
+            }
+          },
+          "image_result": {
+            "safe": true,
+            "confidence": 0.9999,
+            "critical_violation": false,
+            "explanation_code": "IMAGES_SAFE",
+            "details": {
+              "images": [
+                {
+                  "file_name": "garbage_street.png",
+                  "labels": {
+                    "normal": 0.9998524188995361,
+                    "nsfw": 0.0001476139441365376
+                  },
+                  "nsfw_score": 0.0001476139441365376,
+                  "safe": true,
+                  "mode": "Falconsai/nsfw_image_detection"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_2_SPAM_ABUSE",
+        "vote": "ACCEPT",
+        "confidence": 0.9353,
+        "explanation_code": "NO_SPAM_DETECTED",
+        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "decision_logic": {
+            "ai_strong_spam_threshold": 0.85,
+            "ai_supporting_spam_threshold": 0.65,
+            "rule_reject_threshold": 0.6,
+            "rule_support_threshold": 0.25,
+            "rejection_reasons": []
+          },
+          "ai_analysis": {
+            "model_used": true,
+            "available": true,
+            "label": "LABEL_0",
+            "predicted_score": 0.9353,
+            "spam_probability": 0.0647,
+            "non_spam_probability": 0.9353,
+            "raw_output": {
+              "label": "LABEL_0",
+              "score": 0.9353136420249939
+            },
+            "error": null
+          },
+          "rule_based_analysis": {
+            "spam_score": 0.0,
+            "word_count": 15,
+            "url_count": 0,
+            "matched_spam_phrases": [],
+            "matched_promotional_words": [],
+            "repeated_character_pattern": false,
+            "excessive_symbols": false,
+            "reasons": []
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
+        "vote": "ACCEPT",
+        "confidence": 0.6506,
+        "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_relevance": {
+            "civic_relevant": true,
+            "confidence": 0.6506,
+            "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+            "details": {
+              "mode": "semantic_similarity",
+              "selected_category": "Waste Management",
+              "overall_best_match": {
+                "category": "Waste Management",
+                "reference_text": "A civic report about uncollected garbage, waste dumping, overflowing bins, or rubbish on public streets.",
+                "similarity": 0.6506
+              },
+              "selected_category_best_match": {
+                "category": "Waste Management",
+                "reference_text": "A civic report about uncollected garbage, waste dumping, overflowing bins, or rubbish on public streets.",
+                "similarity": 0.6506
+              },
+              "text_relevance_threshold": 0.38,
+              "category_match_threshold": 0.4,
+              "keyword_support": {
+                "category_matches": {
+                  "Road Damage": [
+                    "road"
+                  ],
+                  "Waste Management": [
+                    "garbage",
+                    "dump"
+                  ],
+                  "Public Property Damage": [
+                    "public"
+                  ],
+                  "General Civic Issue": [
+                    "public"
+                  ]
+                },
+                "all_matches": [
+                  "dump",
+                  "garbage",
+                  "public",
+                  "road"
+                ]
+              }
+            }
+          },
+          "image_relevance": {
+            "image_relevance": "NOT_EVALUATED_TEXT_PRIMARY",
+            "confidence": 0.7,
+            "details": [
+              {
+                "file_name": "garbage_street.png",
+                "mode": "image_relevance_disabled",
+                "note": "Civic image relevance is not evaluated in this version. Image safety is handled by the Safety Oracle."
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "security": {
+      "relayer_signature_verified": true,
+      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "timestamp_validated": true,
+      "nonce_accepted": true
+    },
+    "processing_time_ms": 533.82
+  }
+}

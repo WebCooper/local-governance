@@ -1,0 +1,182 @@
+{
+  "test_id": "AI-S03",
+  "name": "Spam promotional text",
+  "expected_http_status": 200,
+  "expected_decision": "REJECT",
+  "actual_http_status": 200,
+  "actual_decision": "REJECT",
+  "passed": true,
+  "elapsed_ms_client": 1619.36,
+  "processing_time_ms_server": 172.99,
+  "request_hash_local": "6f95f51b199387ee80d824cddc129854997c54a9f0c3ba2a31a6655406cdac0f",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S03-cd54c401-0a98-458d-b07a-674f8fb64243",
+    "text": "BUY NOW FREE MONEY CLICK HERE LIMITED OFFER SUBSCRIBE NOW!!!!",
+    "category": "Other",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S03-cd54c401-0a98-458d-b07a-674f8fb64243",
+    "text_hash": "48048e5983c783ca79c0eb8f747da5902c0b09472494563ba7792ed5ac980a1d",
+    "media_hashes": [],
+    "category": "Other",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-05-12T12:13:55.479492+00:00",
+    "nonce": "d58ca1c3-ca6b-4178-916b-ce1997d852ed"
+  },
+  "file_summaries": [],
+  "response": {
+    "final_decision": "REJECT",
+    "final_confidence": 0.9797,
+    "risk_level": "MEDIUM",
+    "report_hash": "b1bce08f70ac71263cf861922b73611382f1091501f066ac8424651ffa9a56f4",
+    "request_hash": "6f95f51b199387ee80d824cddc129854997c54a9f0c3ba2a31a6655406cdac0f",
+    "decision_hash": "f3fc183abda001ffeb095d10af9fab1c58c8ffa05af67a4f5f395495cc052422",
+    "aggregator_signature": "ffbaa44ec3bf629d5c2904803f3a904e57ff53955e61db3049691fde68cab0c73101d5604a8eb904a5efceeb9be8ed9dccf6deeea088d475a1752a9870d3c17f1b",
+    "summary_explanation": "Report rejected because the oracle votes did not reach acceptance majority.",
+    "oracle_votes": [
+      {
+        "oracle_id": "ORACLE_1_SAFETY",
+        "vote": "ACCEPT",
+        "confidence": 0.9976,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
+        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
+        "model_version": "1.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_result": {
+            "safe": true,
+            "confidence": 0.9976,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
+            "details": {
+              "scores": {
+                "toxic": 0.002380846068263054,
+                "obscene": 0.0002251484984299168,
+                "insult": 0.0002201717725256458,
+                "identity_hate": 0.00015552375407423824,
+                "threat": 0.00013078538177069277,
+                "severe_toxic": 9.07252833712846e-05
+              },
+              "mode": "unitary/toxic-bert"
+            }
+          },
+          "image_result": {
+            "safe": true,
+            "confidence": 1.0,
+            "critical_violation": false,
+            "explanation_code": "NO_IMAGE_PROVIDED",
+            "details": {
+              "images": []
+            }
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_2_SPAM_ABUSE",
+        "vote": "REJECT",
+        "confidence": 1.0,
+        "explanation_code": "SPAM_OR_LOW_QUALITY_DETECTED",
+        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "decision_logic": {
+            "ai_strong_spam_threshold": 0.85,
+            "ai_supporting_spam_threshold": 0.65,
+            "rule_reject_threshold": 0.6,
+            "rule_support_threshold": 0.25,
+            "rejection_reasons": [
+              "RULE_BASED_SPAM_DETECTION"
+            ]
+          },
+          "ai_analysis": {
+            "model_used": true,
+            "available": true,
+            "label": "LABEL_0",
+            "predicted_score": 0.8995,
+            "spam_probability": 0.1005,
+            "non_spam_probability": 0.8995,
+            "raw_output": {
+              "label": "LABEL_0",
+              "score": 0.8995397686958313
+            },
+            "error": null
+          },
+          "rule_based_analysis": {
+            "spam_score": 1.0,
+            "word_count": 10,
+            "url_count": 0,
+            "matched_spam_phrases": [
+              "buy now",
+              "free money",
+              "click here",
+              "limited offer",
+              "subscribe now"
+            ],
+            "matched_promotional_words": [
+              "offer"
+            ],
+            "repeated_character_pattern": false,
+            "excessive_symbols": false,
+            "reasons": [
+              "SPAM_PHRASE_DETECTED",
+              "PROMOTIONAL_LANGUAGE_DETECTED"
+            ]
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
+        "vote": "REJECT",
+        "confidence": 0.9594,
+        "explanation_code": "LOW_SEMANTIC_CIVIC_RELEVANCE",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_relevance": {
+            "civic_relevant": false,
+            "confidence": 0.9594,
+            "explanation_code": "LOW_SEMANTIC_CIVIC_RELEVANCE",
+            "details": {
+              "mode": "semantic_similarity",
+              "selected_category": "Other",
+              "overall_best_match": {
+                "category": "Environmental Issue",
+                "reference_text": "A civic report about pollution, smoke, chemical discharge, noise pollution, dirty rivers, or environmental harm.",
+                "similarity": 0.0406
+              },
+              "selected_category_best_match": null,
+              "text_relevance_threshold": 0.38,
+              "category_match_threshold": 0.4,
+              "keyword_support": {
+                "category_matches": {},
+                "all_matches": []
+              }
+            }
+          },
+          "image_relevance": {
+            "image_relevance": "NO_IMAGE_PROVIDED",
+            "confidence": 1.0,
+            "details": []
+          }
+        }
+      }
+    ],
+    "security": {
+      "relayer_signature_verified": true,
+      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "timestamp_validated": true,
+      "nonce_accepted": true
+    },
+    "processing_time_ms": 172.99
+  }
+}

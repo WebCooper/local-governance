@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import db from '../database/db';
 
 // Database Schema Interface
@@ -5,6 +6,7 @@ export interface Citizen {
   id: number;
   govId: string;
   password: string;
+  citizenSeed: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -129,15 +131,17 @@ const isUniqueConstraintError = (error: unknown): boolean => {
 
 const createCitizen = (newCitizen: NewCitizenInput): Omit<Citizen, 'password'> => {
   const status = newCitizen.status || 'Active';
+  const citizenSeed = crypto.randomBytes(32).toString('hex');
 
   db.prepare(
     `
-      INSERT INTO citizens (govId, password, name, email, phone, address, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO citizens (govId, password, citizenSeed, name, email, phone, address, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).run(
     newCitizen.govId,
     newCitizen.password,
+    citizenSeed,
     newCitizen.name,
     newCitizen.email || null,
     newCitizen.phone || null,
@@ -146,7 +150,7 @@ const createCitizen = (newCitizen: NewCitizenInput): Omit<Citizen, 'password'> =
   );
 
   const insertedCitizen = db
-    .prepare('SELECT id, govId, name, email, phone, address, status, createdAt, updatedAt FROM citizens WHERE govId = ?')
+    .prepare('SELECT id, govId, citizenSeed, name, email, phone, address, status, createdAt, updatedAt FROM citizens WHERE govId = ?')
     .get(newCitizen.govId) as Omit<Citizen, 'password'> | undefined;
 
   if (!insertedCitizen) {

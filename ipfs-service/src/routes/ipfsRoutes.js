@@ -17,6 +17,8 @@ import {
   getComplaintImage,
 } from "../controllers/complaintController.js";
 
+import { storePoll, getPoll } from "../controllers/pollController.js";
+
 const router = express.Router();
 
 router.get("/health", healthCheck);
@@ -35,6 +37,9 @@ router.post(
   complaintUpload.array("images", 5),
   storeComplaint,
 );
+router.post("/poll/store", complaintUpload.array("images", 5), storePoll);
+
+router.get("/poll/:cid", getPoll);
 router.get("/complaint/:cid", getComplaint);
 router.get("/complaint/:cid/image/:index", getComplaintImage);
 

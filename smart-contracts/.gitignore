@@ -1,5 +1,5 @@
 # Node modules
-node_modules
+/node_modules
 
 # Compilation output
 /dist
@@ -16,5 +16,16 @@ node_modules
 # Typechain output
 /types
 
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Hardhat coverage reports
 /coverage
+
+# Gas snapshot files
+/.gas-snapshot
+
+# Snapshot cheatcodes output
+/snapshots

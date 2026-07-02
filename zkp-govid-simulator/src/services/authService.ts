@@ -6,8 +6,8 @@ import { createIssuedTicket, getCitizenByGovId } from '../models/citizen';
 interface AuthResult {
   success: boolean;
   error?: string;
-  ticketId?: string;
-  signature?: string;
+  ticketBatch?: Array<{ ticketId: string; signature: string }>;
+  citizenSeed?: string;
 }
 
 const getTicketExpiry = (): string | null => {
@@ -24,7 +24,21 @@ const getTicketExpiry = (): string | null => {
   return new Date(Date.now() + ttlSeconds * 1000).toISOString();
 };
 
-// Authenticate citizen and issue signed Ticket_ID
+const getTicketBatchSize = (): number => {
+  const batchRaw = process.env.TICKET_BATCH_SIZE;
+  if (!batchRaw) {
+    return 10;
+  }
+
+  const parsed = Number(batchRaw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 10;
+  }
+
+  return Math.floor(parsed);
+};
+
+// Authenticate citizen and issue signed Ticket_ID batch
 const authenticateAndGenerateProof = async (
   govId: string,
   password: string
@@ -39,17 +53,27 @@ const authenticateAndGenerateProof = async (
     };
   }
 
-  const rawUuid = uuidv4();
-  const ticketId = ethers.id(rawUuid);
-  const signature = await getGovWallet().signMessage(ethers.getBytes(ticketId));
+  const ticketBatch: Array<{ ticketId: string; signature: string }> = [];
+  const batchSize = getTicketBatchSize();
 
-  createIssuedTicket(ticketId, signature, citizen.id, getTicketExpiry());
+  for (let i = 0; i < batchSize; i += 1) {
+    const rawUuid = uuidv4();
+    const ticketId = ethers.id(rawUuid);
+    const signature = await getGovWallet().signMessage(ethers.getBytes(ticketId));
+
+    createIssuedTicket(ticketId, signature, citizen.id, getTicketExpiry());
+    ticketBatch.push({ ticketId, signature });
+  }
 
   return {
     success: true,
-    ticketId,
-    signature
+    ticketBatch,
+    citizenSeed: citizen.citizenSeed
   };
 };
 
-export { authenticateAndGenerateProof };
+const getAuthorityPublicKey = (): string => {
+  return getGovWallet().address;
+};
+
+export { authenticateAndGenerateProof,getAuthorityPublicKey };
