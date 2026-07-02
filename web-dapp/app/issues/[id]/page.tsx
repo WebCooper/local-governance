@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ethers } from "ethers";
@@ -10,7 +9,6 @@ import {
   MapPin,
   Clock,
   ThumbsUp,
-  ShieldCheck,
   RotateCw,
   AlertCircle,
   ImageIcon,
@@ -18,8 +16,12 @@ import {
   Settings,
   Landmark,
   Shield,
+  Info,
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
+import { castVoteOnRelayer } from "@/lib/relayerAPI";
+import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
+import { VoteControls } from "@/components/VoteControls";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -194,50 +196,54 @@ export default function IssueDetailPage({
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [voted, setVoted] = useState<"legitimate" | "spam" | null>(null);
+  const [selectedDecision, setSelectedDecision] = useState<boolean | null>(null);
+  const [votePhase, setVotePhase] = useState<VotePhase>("validation");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voteMessage, setVoteMessage] = useState<string | null>(null);
+
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "Unknown error";
   
   const handleCastVote = async (decision: boolean) => {
-    if (!wallet) return alert("Please connect your wallet first.");
+    setVoteMessage(null);
+
+    if (!wallet) {
+      setVoteMessage("Please connect your wallet first.");
+      return;
+    }
+
+    if (!report) {
+      setVoteMessage("Report data is not ready yet.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      // 1. Get Ticket (Assuming you have a way to consume/get a voting ticket)
-      const currentTicket = consumeTicket(); 
-      if (!currentTicket) throw new Error("No valid ZKP ticket for voting.");
+      const currentTicket = consumeTicket();
 
-      // 2. Create the message hash (MUST match backend order exactly)
-      // Backend uses: ['uint256', 'string', 'bool', 'string']
-      const messageHash = ethers.solidityPackedKeccak256(
-        ["uint256", "string", "bool", "string"],
-        [Number(report?.id), "validation", decision, currentTicket.ticketId]
-      );
+      if (!currentTicket) {
+        throw new Error("No valid ZKP ticket for voting.");
+      }
 
-      // 3. Sign the hash
-      const ethersWallet = new ethers.Wallet(wallet.privateKey);
-      const signature = await ethersWallet.signMessage(ethers.getBytes(messageHash));
-
-      // 4. Submit to Relayer
-      const response = await fetch("https://relayer.internalbuildtools.online/report/vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId: Number(report?.id),
-          votePhase: "validation",
-          decision,
-          zkpTicketId: currentTicket.ticketId,
-          zkpSignature: currentTicket.signature,
-          citizenPubKey: wallet.publicKey,
-          signature,
-        }),
+      const payload = await buildSignedVotePayload({
+        wallet,
+        reportId: Number(report.id),
+        votePhase,
+        decision,
+        ticket: currentTicket,
       });
 
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message);
+      const data = await castVoteOnRelayer(payload);
 
-      alert("Vote cast successfully!");
-    } catch (err: any) {
-      console.error("Voting error:", err);
-      alert(err.message || "Failed to cast vote.");
+      if (!data?.success) {
+        throw new Error(data?.message || "Failed to cast vote.");
+      }
+
+      setSelectedDecision(decision);
+      setVoteMessage("Vote cast successfully.");
+    } catch (error: unknown) {
+      console.error("Voting error:", error);
+      setVoteMessage(getErrorMessage(error) || "Failed to cast vote.");
     } finally {
       setIsSubmitting(false);
     }
@@ -310,9 +316,9 @@ export default function IssueDetailPage({
             }
           }
         }
-      } catch (err: any) {
+      } catch (error: unknown) {
         if (!cancelled) {
-          setError(err.message || "Failed to load report.");
+          setError(getErrorMessage(error) || "Failed to load report.");
         }
       } finally {
         if (!cancelled) {
@@ -390,6 +396,17 @@ export default function IssueDetailPage({
         }`
       : null;
 
+  const voteControls = (
+    <VoteControls
+      phase={votePhase}
+      selectedDecision={selectedDecision}
+      onPhaseChange={setVotePhase}
+      onVote={handleCastVote}
+      isSubmitting={isSubmitting}
+      availableTicketsCount={availableTicketsCount}
+    />
+  );
+
   return (
     <>
       {/* MOBILE */}
@@ -465,6 +482,15 @@ export default function IssueDetailPage({
               </span>
             </div>
           </div>
+
+          {voteControls}
+
+          {voteMessage && (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{voteMessage}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -617,18 +643,26 @@ export default function IssueDetailPage({
           {/* RIGHT */}
           <div className="flex flex-col gap-5 sticky top-8 self-start">
 
-            {/* Voting */}
+            {voteControls}
+
+            {voteMessage && (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{voteMessage}</span>
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
 
               <h3 className="text-lg font-bold text-slate-900 mb-5">
-                Democratic Voting
+                Community Consensus
               </h3>
 
               <div className="mb-4">
 
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-slate-500 font-medium">
-                    Community Consensus
+                    Current support
                   </span>
 
                   <span className="text-2xl font-extrabold text-blue-600">
@@ -647,24 +681,6 @@ export default function IssueDetailPage({
                   <ThumbsUp className="h-3 w-3" />
                   {report.upvotes} upvotes · {report.downvotes} downvotes
                 </p>
-              </div>
-
-              <div className="flex flex-col gap-3 mt-4">
-
-                <button
-                  onClick={() => setVoted("legitimate")}
-                  className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-sm"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Legitimate
-                </button>
-
-                <button
-                  onClick={() => setVoted("spam")}
-                  className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all"
-                >
-                  ⚠ Spam/Invalid
-                </button>
               </div>
             </div>
 
@@ -696,8 +712,4 @@ export default function IssueDetailPage({
       </div>
     </>
   );
-}
-
-function setIsSubmitting(arg0: boolean) {
-  throw new Error("Function not implemented.");
 }
