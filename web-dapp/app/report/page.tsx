@@ -134,6 +134,11 @@ export default function ReportPage() {
       return;
     }
 
+    if (!location) {
+      setStatusMessage({ type: "error", text: "You must provide a location." });
+      return;
+    }
+
     if (!description.trim() || description.length > MAX_DESC_LENGTH) {
       setStatusMessage({ type: "error", text: "Please provide a valid description within the character limit." });
       return;

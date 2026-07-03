@@ -11,11 +11,41 @@ import {
 } from "lucide-react";
 
 const REPORTING_ABI = [
-  "function getReportsByCitizen(bytes32 pseudonym, uint256 offset, uint256 limit) view returns (tuple(uint256 id, string description, string category, uint8 status, uint256 timestamp)[] reports, uint256 total)",
+  "function getReportsByCitizen(bytes32 citizenPseudonym, uint256 offset, uint256 limit) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes)[] page, uint256 total)",
 ];
 
 interface FetchedReport {
-  id: string; description: string; category: string; status: number; timestamp: number;
+  id: string;
+  ipfsCid: string;
+  status: number;
+  timestamp: number;
+  description?: string;
+  category?: string;
+}
+
+function extractCid(raw: string): string | null {
+  if (!raw || raw === "ipfs://none") return null;
+  const first = raw.split(",")[0].trim();
+  return first.startsWith("ipfs://") ? first.slice(7) : first;
+}
+
+async function fetchIpfsMetadata(
+  report: FetchedReport
+): Promise<Partial<FetchedReport>> {
+  const cid = extractCid(report.ipfsCid);
+  if (!cid) return {};
+  try {
+    const res = await fetch(`/api/ipfs/${cid}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    if (!data.success) return {};
+    return {
+      description: data.description ?? "No description",
+      category: data.category ?? "GENERAL",
+    };
+  } catch {
+    return {};
+  }
 }
 
 function getCitizenLevel(count: number) {
@@ -81,11 +111,22 @@ export default function ProfilePage() {
           const provider = new ethers.JsonRpcProvider(RPC_URL);
           const contract = new ethers.Contract(CONTRACT_ADDRESS, REPORTING_ABI, provider);
           const [arr] = await contract.getReportsByCitizen(data.pseudonym, 0, 50);
-          const formatted: FetchedReport[] = arr.map((r: any) => ({
-            id: r.id.toString(), description: r.description, category: r.category,
-            status: Number(r.status), timestamp: Number(r.timestamp) * 1000,
+          const baseReports: FetchedReport[] = arr.map((r: any) => ({
+            id: r.id.toString(),
+            ipfsCid: r.ipfsCid,
+            status: Number(r.status),
+            timestamp: Number(r.createdAt) * 1000,
           }));
-          setReports(formatted.reverse());
+          
+          const reversedBase = baseReports.reverse();
+          const enriched = await Promise.all(
+            reversedBase.map(async (r) => ({
+              ...r,
+              ...(await fetchIpfsMetadata(r)),
+            }))
+          );
+          
+          setReports(enriched);
         }
       } catch (e: any) {
         setError(e.message);
@@ -370,8 +411,8 @@ export default function ProfilePage() {
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${s.bg} ${s.color}`}>{s.label}</span>
                             <span className="text-[10px] text-slate-400">{timeAgo(r.timestamp)}</span>
                           </div>
-                          <p className="text-sm font-bold text-slate-900 mb-1 line-clamp-1">{r.category}</p>
-                          <p className="text-xs text-slate-500 line-clamp-2">{r.description}</p>
+                          <p className="text-sm font-bold text-slate-900 mb-1 line-clamp-1">{r.category || "Loading..."}</p>
+                          <p className="text-xs text-slate-500 line-clamp-2">{r.description || "Loading..."}</p>
                         </div>
                       );
                     })}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ethers } from "ethers";
 import { useCitizen } from "@/context/CitizenContext";
+import dynamic from "next/dynamic";
 import {
   FileText,
   Shield,
@@ -21,19 +22,34 @@ import {
   XCircle,
   RefreshCw,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
+
+const MapPreview = dynamic(() => import("@/components/MapPreview"), {
+  ssr: false,
+});
 
 // Minimal ABI for fetching reports directly from the Reporting smart contract
 const REPORTING_ABI = [
-  "function getReportsByCitizen(bytes32 pseudonym, uint256 offset, uint256 limit) view returns (tuple(uint256 id, string description, string category, uint8 status, uint256 timestamp)[] reports, uint256 total)",
+  "function getReportsByCitizen(bytes32 citizenPseudonym, uint256 offset, uint256 limit) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes)[] page, uint256 total)",
 ];
 
-interface FetchedReport {
+export interface FetchedReport {
   id: string;
-  description: string;
-  category: string;
+  ipfsCid: string;
   status: number;
   timestamp: number;
+
+  description?: string;
+  category?: string;
+  location?: string;
+  imageUrl?: string;
+  ipfsLoaded?: boolean;
+
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 const STATUS_CONFIG: Record<
@@ -132,6 +148,54 @@ function matchesFilter(report: FetchedReport, filter: string) {
   return true;
 }
 
+function extractCid(raw: string): string | null {
+  if (!raw || raw === "ipfs://none") return null;
+  const first = raw.split(",")[0].trim();
+  return first.startsWith("ipfs://") ? first.slice(7) : first;
+}
+
+function parseCoordinates(raw: string | undefined) {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.lat === "number" && typeof parsed.lng === "number") {
+      return { lat: parsed.lat, lng: parsed.lng };
+    }
+    if (typeof parsed.latitude === "number" && typeof parsed.longitude === "number") {
+      return { lat: parsed.latitude, lng: parsed.longitude };
+    }
+  } catch {}
+  return undefined;
+}
+
+async function fetchIpfsMetadata(
+  report: FetchedReport
+): Promise<Partial<FetchedReport>> {
+  const cid = extractCid(report.ipfsCid);
+  if (!cid) return { ipfsLoaded: true };
+  try {
+    const res = await fetch(`/api/ipfs/${cid}`);
+    if (!res.ok) return { ipfsLoaded: true };
+    const data = await res.json();
+    if (!data.success) return { ipfsLoaded: true };
+
+    const firstImg = data.images?.[0];
+
+    return {
+      description: data.description ?? "No description",
+      category: data.category ?? "GENERAL",
+      location: data.location,
+      coordinates: parseCoordinates(data.location),
+      imageUrl: firstImg?.data
+        ? `data:${firstImg.mimeType || "image/jpeg"};base64,${firstImg.data}`
+        : undefined,
+      ipfsLoaded: true,
+    };
+  } catch {
+    return { ipfsLoaded: true };
+  }
+}
+
 export default function MyReportsPage() {
   const { wallet } = useCitizen();
   const [pseudonym, setPseudonym] = useState<string | null>(null);
@@ -200,15 +264,25 @@ export default function MyReportsPage() {
         50
       );
 
-      const formattedReports: FetchedReport[] = reportsArray.map((r: any) => ({
+      const baseReports: FetchedReport[] = reportsArray.map((r: any) => ({
         id: r.id.toString(),
-        description: r.description,
-        category: r.category,
+        ipfsCid: r.ipfsCid,
         status: Number(r.status),
-        timestamp: Number(r.timestamp) * 1000,
+        timestamp: Number(r.createdAt) * 1000,
+        ipfsLoaded: false,
       }));
 
-      setReports(formattedReports.reverse());
+      const reversedBase = baseReports.reverse();
+      setReports(reversedBase);
+
+      const enriched = await Promise.all(
+        reversedBase.map(async (r) => ({
+          ...r,
+          ...(await fetchIpfsMetadata(r)),
+        }))
+      );
+
+      setReports(enriched);
     } catch (err: any) {
       console.error("Error retrieving reports:", err);
       setError(
@@ -228,8 +302,8 @@ export default function MyReportsPage() {
     (r) =>
       matchesFilter(r, filter) &&
       (search === "" ||
-        r.category.toLowerCase().includes(search.toLowerCase()) ||
-        r.description.toLowerCase().includes(search.toLowerCase()) ||
+        (r.category || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.description || "").toLowerCase().includes(search.toLowerCase()) ||
         r.id.includes(search))
   );
 
@@ -352,11 +426,33 @@ export default function MyReportsPage() {
                   key={report.id}
                   className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100"
                 >
-                  {/* Image placeholder with status badge */}
-                  <div className="relative h-44 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center">
-                    <FileText className="h-12 w-12 text-slate-600/40" />
+                  {/* Image/Map container with status badge */}
+                  <div className="relative h-44 bg-slate-100 flex items-center justify-center overflow-hidden">
+                    {report.imageUrl ? (
+                      <img
+                        src={report.imageUrl}
+                        alt={`Report ${report.id}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : report.coordinates ? (
+                      <div className="w-full h-full">
+                        <MapPreview
+                          lat={report.coordinates.lat}
+                          lng={report.coordinates.lng}
+                        />
+                      </div>
+                    ) : (
+                      <FileText className="h-12 w-12 text-slate-300" />
+                    )}
+
+                    {!report.ipfsLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 z-[1200]">
+                        <RotateCw className="h-6 w-6 animate-spin text-slate-400" />
+                      </div>
+                    )}
+
                     <span
-                      className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${s.bgColor} ${s.color}`}
+                      className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${s.bgColor} ${s.color} z-[1200]`}
                     >
                       {s.label}
                     </span>
@@ -366,7 +462,7 @@ export default function MyReportsPage() {
                     {/* Title row */}
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h2 className="text-base font-bold text-slate-900 leading-snug line-clamp-1">
-                        {report.category}
+                        {report.category || "Loading..."}
                       </h2>
                       <button className="text-slate-400 hover:text-slate-600 transition-colors shrink-0 mt-0.5">
                         <MoreVertical className="h-4 w-4" />
@@ -381,7 +477,7 @@ export default function MyReportsPage() {
 
                     {/* Description excerpt */}
                     <p className="text-sm text-slate-500 line-clamp-2 mb-3">
-                      {report.description}
+                      {report.description || "Loading..."}
                     </p>
 
                     {/* Progress bar (for statuses with progress) */}
@@ -559,9 +655,9 @@ export default function MyReportsPage() {
                         {/* Title + ID */}
                         <td className="px-6 py-4">
                           <p className="font-semibold text-slate-900 line-clamp-1 mb-0.5">
-                            {report.description.length > 60
-                              ? report.description.slice(0, 60) + "…"
-                              : report.description}
+                            {(report.description || "").length > 60
+                              ? (report.description || "").slice(0, 60) + "…"
+                              : (report.description || "Loading...")}
                           </p>
                           <p className="text-[11px] text-slate-400 font-mono">
                             ID: AC-{report.id.padStart(4, "0")}
@@ -571,7 +667,7 @@ export default function MyReportsPage() {
                         {/* Category */}
                         <td className="px-4 py-4">
                           <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold uppercase tracking-wide">
-                            {report.category}
+                            {report.category || "Loading..."}
                           </span>
                         </td>
 

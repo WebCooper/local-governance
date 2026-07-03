@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 
 // Monorepo Magic: Import the ABI directly from your Hardhat artifacts!
 import * as ReportingArtifact from './Reporting.json';
+import * as OpinionPollingArtifact from './OpinionPolling.json';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit {
@@ -11,6 +12,7 @@ export class BlockchainService implements OnModuleInit {
   private provider!: ethers.JsonRpcProvider;
   private relayerWallet!: ethers.Wallet;
   private reportingContract!: ethers.Contract;
+  private pollingContract!: ethers.Contract;
   private blockchainEnabled = false;
 
   constructor(private configService: ConfigService) {}
@@ -37,8 +39,9 @@ export class BlockchainService implements OnModuleInit {
     const rpcUrl = this.configService.get<string>('RPC_URL'); 
     const privateKey = this.configService.get<string>('RELAYER_PRIVATE_KEY');
     const contractAddress = this.configService.get<string>('CONTRACT_ADDRESS');
+    const pollingAddress = this.configService.get<string>('POLLING_CONTRACT_ADDRESS');
 
-    if (!rpcUrl || !privateKey || !contractAddress) {
+    if (!rpcUrl || !privateKey || !contractAddress || !pollingAddress) {
       this.logger.error('Critical Web3 configuration missing from .env');
       return;
     }
@@ -55,6 +58,13 @@ export class BlockchainService implements OnModuleInit {
         contractAddress,
         ReportingArtifact.abi,
         this.relayerWallet,
+      );
+
+      // INITIALIZE POLLING CONTRACT
+      this.pollingContract = new ethers.Contract(
+        pollingAddress,
+        OpinionPollingArtifact.abi,
+        this.relayerWallet
       );
 
       this.logger.log(`Blockchain connected. Relayer Address: ${this.relayerWallet.address}`);
@@ -112,6 +122,125 @@ export class BlockchainService implements OnModuleInit {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Blockchain submission failed: ${message}`);
       throw new InternalServerErrorException('Failed to record report on-chain.');
+    }
+  }
+
+  // Add this inside BlockchainService class in src/blockchain/blockchain.service.ts
+
+  async castVoteOnChain(reportId: number, phase: 'validation' | 'verification' | 'rejectionReview', nullifier: string, decision: boolean) {
+    if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain disabled');
+
+    try {
+      const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
+      this.logger.log(`Casting ${phase} vote for report ${reportId}`);
+      
+      let tx;
+      if (phase === 'validation') {
+        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision);
+      } else if (phase === 'verification') {
+        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision);
+      } else if (phase === 'rejectionReview') {
+        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision);
+      }
+
+      const receipt = await tx.wait();
+      return { success: true, transactionHash: tx.hash, blockNumber: receipt.blockNumber };
+    } catch (error: any) {
+      this.logger.error(`Vote submission failed: ${error.message}`);
+      throw new InternalServerErrorException('Failed to cast vote on-chain.');
+    }
+  }
+
+  async batchFinalizeOnChain(reportIds: number[]) {
+    if (!this.blockchainEnabled || reportIds.length === 0) return;
+    try {
+      this.logger.log(`Running batch finalization for ${reportIds.length} reports...`);
+      const tx = await this.reportingContract.batchFinalizeVotingWindows(reportIds);
+      await tx.wait();
+      this.logger.log(`Batch finalization successful: ${tx.hash}`);
+    } catch (error: any) {
+      this.logger.error(`Batch finalization failed: ${error.message}`);
+    }
+  }
+
+  // Helper method to read reports for the Cron Job
+  async getLatestReportsForCron(limit: number = 50): Promise<any[]> {
+    if (!this.blockchainEnabled) return [];
+    // Assuming you have reportCount public variable or getAllReports implemented
+    const [reports] = await this.reportingContract.getAllReports(0, limit); 
+    return reports;
+  }
+
+  /**
+ * Triggers the OpinionPolling contract for government authorities.
+ */
+  async createPollOnChain(ipfsCID: string, deadline: number, pollType: number) {
+    if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain disabled');
+
+    try {
+      this.logger.log(`Broadcasting createOfficialPoll for CID: ${ipfsCID}`);
+
+      // Calling the smart contract function defined in OpinionPolling.sol
+      const tx = await this.pollingContract.createOfficialPoll(
+        ipfsCID,
+        deadline,
+        pollType
+      );
+
+      const receipt = await tx.wait();
+      this.logger.log(`✅ Poll created on-chain in block: ${receipt.blockNumber}`);
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
+      };
+    } catch (error: any) {
+      this.logger.error(`Poll creation on-chain failed: ${error.message}`);
+      throw new InternalServerErrorException('Failed to record poll on-chain.');
+    }
+  }
+
+  async castPollVoteOnChain(pollId: number, optionIndex: number, nullifier: string) {
+    if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain cluster offline');
+
+    try {
+      // Convert hex string nullifier to bytes32 format, tracking the exact pattern used in submitReportToChain
+      const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
+
+      this.logger.log(`Broadcasting castVote transaction for poll: ${pollId}`);
+      const tx = await this.pollingContract.castVote(pollId, optionIndex, nullifierBytes);
+
+      const receipt = await tx.wait();
+      this.logger.log(`✅ Vote successfully cataloged in block ${receipt.blockNumber}`);
+      return { success: true, transactionHash: tx.hash };
+    } catch (error: any) {
+      this.logger.error(`On-chain vote broadcast failure: ${error.message}`);
+      
+      const errStr = error.message || '';
+      const errData = error.data || '';
+      
+      if (errStr.includes('AlreadyVotedWithNullifier') || errData.includes('0xc73a9589')) {
+        throw new BadRequestException('You have already cast your ballot for this poll.');
+      }
+      if (errStr.includes('PollInactiveOrClosed') || errData.includes('0x78045ee6')) {
+        throw new BadRequestException('This poll has closed or is inactive.');
+      }
+      if (errStr.includes('PollDoesNotExist') || errData.includes('0x8acdc765')) {
+        throw new BadRequestException('The specified poll does not exist.');
+      }
+      
+      throw new InternalServerErrorException('Contract rejected voting payload.');
+    }
+  }
+
+  async isAuthority(address: string): Promise<boolean> {
+    if (!this.blockchainEnabled) return false;
+    try {
+      return await this.reportingContract.authorizedAuthorities(address);
+    } catch (error: any) {
+      this.logger.error(`Failed to check authority status for address ${address}: ${error.message}`);
+      return false;
     }
   }
 }
