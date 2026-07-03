@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   oracle-safety:
+    image: localgovernance-oracle-safety:latest
     build:
       context: ./oracle-safety
       dockerfile: Dockerfile
@@ -18,6 +19,7 @@ services:
       - oracle-net
 
   oracle-spam:
+    image: localgovernance-oracle-spam:latest
     build:
       context: ./oracle-spam
       dockerfile: Dockerfile
@@ -38,6 +40,7 @@ services:
       - oracle-net
 
   oracle-civic:
+    image: localgovernance-oracle-civic:latest
     build:
       context: ./oracle-civic
       dockerfile: Dockerfile
@@ -58,6 +61,7 @@ services:
       - oracle-net
 
   aggregator:
+    image: localgovernance-oracle-aggregator:latest
     build:
       context: ./aggregator
       dockerfile: Dockerfile
