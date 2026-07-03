@@ -4,8 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
 
-export const MULTISIG_ADDRESS = "0x53A70A51d7a8e0B751d66daaCAA65D3f0dd06b45";
-export const REPORTING_ADDRESS = "0x0B895D1eD1C8DE04853a1731453FFdFcDcCBcA19";
+export const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
+export const REPORTING_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
 
 
 interface AdminContextType {
