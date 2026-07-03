@@ -9,7 +9,7 @@ async function main() {
   // Use getContractAt through hre.ethers
   const contract = await hre.ethers.getContractAt("Reporting", contractAddress);
 
-  const relayerAddress = "0x3253678aF33758255f6d97069d9102597AFFf92c";
+  const relayerAddress = "0x39685Ab2Fddb6954095786f2f259570786719Ee2";
 
   console.log("Authorizing relayer...");
   const tx = await contract.setRelayer(relayerAddress, true);

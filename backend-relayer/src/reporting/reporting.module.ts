@@ -5,11 +5,12 @@ import { ReportingService } from './reporting.service';
 import { AiOracleService } from 'src/ai-oracle/ai-oracle.service';
 import { IpfsService } from 'src/ipfs/ipfs.service';
 import { CitizenAuthGuard } from './guards/citizen-auth.guard';
+import { AiOracleModule } from 'src/ai-oracle/ai-oracle.module';
 import { CronService } from './cron.service';
 
 @Module({
-  imports: [BlockchainModule],
+  imports: [BlockchainModule, AiOracleModule],
   controllers: [ReportingController],
-  providers: [ReportingService, AiOracleService, IpfsService, CitizenAuthGuard, CronService]
+  providers: [ReportingService, IpfsService, CitizenAuthGuard, CronService]
 })
 export class ReportingModule {}

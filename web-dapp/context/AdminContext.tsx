@@ -4,8 +4,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
 
-export const MULTISIG_ADDRESS = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853";
-export const REPORTING_ADDRESS = "0x0165878A594ca255338adfa4d48449f69242Eb8F";
+export const MULTISIG_ADDRESS = "0x60192F9239c40Ea5C7C9D02A18f2a32C94F7EFD4";
+export const REPORTING_ADDRESS = "0x43491d6850cef4B2E2D0d5CaCdF59B014B4A49ba";
+
 
 interface AdminContextType {
   account: string | null;
@@ -31,8 +32,8 @@ const AdminContext = createContext<AdminContextType>({
   reportingContract: null,
   superAdminsList: [],
   authoritiesList: [],
-  connectWallet: async () => {},
-  fetchLists: async () => {},
+  connectWallet: async () => { },
+  fetchLists: async () => { },
 });
 
 export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
@@ -62,7 +63,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
   }, [contract, reportingContract]);
 
   const checkAdminStatus = async (
-    userAddress: string, 
+    userAddress: string,
     multiSigContract: ethers.Contract,
     reportingContract: ethers.Contract
   ) => {
@@ -108,10 +109,10 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
         const accounts = await browserProvider.send("eth_requestAccounts", []);
         const signer = await browserProvider.getSigner();
-        
+
         const multiSig = new ethers.Contract(MULTISIG_ADDRESS, AuthorityMultiSigABI, signer);
         const reporting = new ethers.Contract(REPORTING_ADDRESS, ReportingABI, signer);
-        
+
         setProvider(browserProvider);
         setAccount(accounts[0]);
         setContract(multiSig);
@@ -145,7 +146,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
 
         (window as any).ethereum.on("accountsChanged", (accounts: string[]) => {
           if (accounts.length > 0) {
-            connectWallet(); 
+            connectWallet();
           } else {
             setAccount(null);
             setIsSuperAdmin(false);

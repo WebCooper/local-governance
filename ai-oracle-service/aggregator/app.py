@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import time
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Body
 from pydantic import BaseModel
 
 load_dotenv()
@@ -557,3 +558,133 @@ async def moderate_report(
         },
         "processing_time_ms": processing_time_ms,
     }
+    
+@app.post("/moderate/poll")
+async def moderate_poll(
+    payload: dict = Body(...),
+    x_api_key: Optional[str] = Header(default=None, alias="x-api-key"),
+    x_relayer_signature: Optional[str] = Header(default=None, alias="x-relayer-signature"),
+    x_request_timestamp: Optional[str] = Header(default=None, alias="x-request-timestamp"),
+    x_request_nonce: Optional[str] = Header(default=None, alias="x-request-nonce"),
+):
+    start_time = time.time()
+
+    # 1. Strict Header Validation
+    if x_api_key != ORACLE_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not x_relayer_signature:
+        raise HTTPException(status_code=401, detail="Missing relayer signature")
+    if not x_request_timestamp:
+        raise HTTPException(status_code=401, detail="Missing request timestamp")
+    if not x_request_nonce:
+        raise HTTPException(status_code=401, detail="Missing request nonce")
+
+    validate_timestamp(x_request_timestamp)
+
+    # 2. Extract and Hash Text
+    title = payload.get("title", "")
+    description = payload.get("description", "")
+    if not title or not description:
+        raise HTTPException(status_code=400, detail="Missing title or description")
+
+    combined_text = f"Title: {title}\n\nDescription: {description}"
+    text_hash = sha256_text(combined_text)
+
+    # 3. Cryptographic Verification
+    # Constructing the exact payload the NestJS relayer signed
+    signed_request_object = build_signed_request_object(
+        metadata=payload,
+        text_hash=text_hash,
+        media_hashes=[],  # No images for polls
+        timestamp=x_request_timestamp,
+        nonce=x_request_nonce,
+    )
+
+    request_hash = hash_dict(signed_request_object)
+
+    recovered_relayer_address = verify_relayer_signature(
+        request_hash=request_hash,
+        signature=x_relayer_signature,
+    )
+
+    validate_and_store_nonce(x_request_nonce, request_hash)
+
+    poll_hash = hash_dict(
+        {
+            "metadata": payload,
+            "text_hash": text_hash,
+            "media_hashes": [],
+        }
+    )
+
+    # 4. Prepare Internal Oracle Request
+    # Formatting to match what call_oracle and aggregate_votes expect
+    oracle_payload = {
+        "metadata": {"text": combined_text, "type": "official_poll"},
+        "media": [],
+        "text_hash": text_hash,
+        "media_hashes": [],
+        "report_hash": poll_hash,
+        "request_hash": request_hash,
+    }
+
+    # 5. Execute AI Microservices
+    oracle_votes = []
+    for oracle_name, oracle_url in ORACLE_URLS.items():
+        vote = call_oracle(oracle_name, oracle_url, oracle_payload)
+        oracle_votes.append(vote)
+    
+    aggregation = aggregate_votes(oracle_votes)
+
+    logger.info(
+        "Poll Aggregation decision=%s confidence=%s risk=%s",
+        aggregation["final_decision"],
+        aggregation["final_confidence"],
+        aggregation["risk_level"]
+    )
+
+    # 6. Sign and Format Output
+    decision_object = {
+        "report_hash": poll_hash, # Keeping key name consistent with aggregator schema
+        "request_hash": request_hash,
+        "final_decision": aggregation["final_decision"],
+        "final_confidence": aggregation["final_confidence"],
+        "risk_level": aggregation["risk_level"],
+        "oracle_votes_summary": [
+            {
+                "oracle_id": vote.get("oracle_id"),
+                "vote": vote.get("vote"),
+                "confidence": vote.get("confidence"),
+                "explanation_code": vote.get("explanation_code"),
+                "critical_violation": vote.get("critical_violation"),
+            }
+            for vote in oracle_votes
+        ],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    decision_hash = hash_dict(decision_object)
+    aggregator_signature = sign_hash(decision_hash)
+
+    processing_time_ms = round((time.time() - start_time) * 1000, 2)
+
+    return {
+        "final_decision": aggregation["final_decision"],
+        "final_confidence": aggregation["final_confidence"],
+        "risk_level": aggregation["risk_level"],
+        "report_hash": poll_hash,
+        "request_hash": request_hash,
+        "decision_hash": decision_hash,
+        "aggregator_signature": aggregator_signature,
+        "summary_explanation": aggregation["summary_explanation"],
+        "oracle_votes": oracle_votes,
+        "security": {
+            "relayer_signature_verified": True,
+            "recovered_relayer_address": recovered_relayer_address,
+            "timestamp_validated": True,
+            "nonce_accepted": True,
+        },
+        "processing_time_ms": processing_time_ms,
+    }
+
+    

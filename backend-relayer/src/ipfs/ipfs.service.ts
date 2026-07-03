@@ -11,6 +11,8 @@ export class IpfsService {
   private readonly complaintStoreEndpoint =
     process.env.IPFS_COMPLAINT_STORE_ENDPOINT ||
     `${this.ipfsBaseUrl}/api/ipfs/complaint/store`;
+  private readonly pollStoreEndpoint =
+    process.env.IPFS_POLL_STORE_ENDPOINT || `${this.ipfsBaseUrl}/api/ipfs/poll/store`;
 
   async uploadComplaint(payload: {
     description: string;
@@ -68,6 +70,46 @@ export class IpfsService {
         'Failed to store complaint on IPFS network',
         HttpStatus.BAD_GATEWAY,
       );
+    }
+  }
+
+
+  async uploadPoll(payload: {
+    title: string;
+    description: string;
+    pollType: number;
+    options: string[];
+    images?: Express.Multer.File[];
+  }): Promise<{ cid: string; ipfsUri: string; raw: any }> {
+    try {
+      const formData = new FormData();
+      formData.append('title', payload.title);
+      formData.append('description', payload.description);
+      formData.append('pollType', payload.pollType.toString());
+      formData.append('options', JSON.stringify(payload.options));
+
+      if (payload.images?.length) {
+        for (const image of payload.images) {
+          formData.append('images', image.buffer, {
+            filename: image.originalname || 'poll_img.jpg',
+            contentType: image.mimetype || 'image/webp',
+          });
+        }
+      }
+
+      this.logger.log('Uploading poll structural metadata to node...');
+      const response = await axios.post(this.pollStoreEndpoint, formData, {
+        headers: { ...formData.getHeaders() },
+        timeout: 30000,
+      });
+
+      const cid = response.data?.cid;
+      if (!cid) throw new Error('IPFS storage execution missed CID generation');
+
+      return { cid, ipfsUri: `ipfs://${cid}`, raw: response.data };
+    } catch (error: any) {
+      this.logger.error(`IPFS poll upload anomaly: ${error.message}`);
+      throw new HttpException('Failed to synchronize object state with the IPFS boundary.', HttpStatus.BAD_GATEWAY);
     }
   }
 
