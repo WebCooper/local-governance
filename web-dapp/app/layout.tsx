@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { TopAppBar } from "@/components/layout/TopAppBar";
@@ -45,9 +46,11 @@ export default function RootLayout({
               </div>
 
               <div className="p-4">
-                <button className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors text-center">
-                  Create Proposal
-                </button>
+                <Link href="/report" className="block w-full">
+                  <button className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors text-center">
+                    File Civic Report
+                  </button>
+                </Link>
               </div>
             </aside>
 

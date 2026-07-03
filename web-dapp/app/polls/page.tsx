@@ -245,6 +245,29 @@ export default function PollsFeedPage() {
       <main className="min-h-screen bg-[#f8fafc] text-slate-800 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
 
+        {isAuthority && !wallet && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-blue-700 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+              <span>You are connected as an Authority. Create and finalize polls directly inside your official panel.</span>
+            </div>
+            <Link href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
+              Go to Admin Panel
+            </Link>
+          </div>
+        )}
+
+        {!wallet && !isAuthority && (
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-amber-800 shadow-sm animate-in fade-in duration-300">
+            <div>
+              <span className="font-bold">Voting is locked.</span> Authenticate with your GovID to receive anonymous ZK action tickets and participate.
+            </div>
+            <Link href="/auth" className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
+              Get ZK Tickets
+            </Link>
+          </div>
+        )}
+
         {/* Responsive Header Section */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b border-slate-200 pb-6">
           <div>
