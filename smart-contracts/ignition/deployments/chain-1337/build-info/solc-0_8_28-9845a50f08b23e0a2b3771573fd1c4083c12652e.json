@@ -1,11 +1,11 @@
 {
   "_format": "hh3-sol-build-info-1",
-  "id": "solc-0_8_28-861d20c454a56b63810703ed6c89e76ec4c5b8dc",
+  "id": "solc-0_8_28-9845a50f08b23e0a2b3771573fd1c4083c12652e",
   "solcVersion": "0.8.28",
   "solcLongVersion": "0.8.28+commit.7893614a",
   "compilerType": "solc",
   "toolVersions": {
-    "hardhat": "3.9.0"
+    "hardhat": "3.4.5"
   },
   "userSourceNameMap": {
     "contracts/AuthorityMultiSig.sol": "project/contracts/AuthorityMultiSig.sol"
