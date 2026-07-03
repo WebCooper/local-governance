@@ -882,7 +882,7 @@ export default function FeedPage() {
                         </span>
                       </div>
 
-                      <p className="text-slate-600 text-sm leading-relaxed">{poll.description}</p>
+                      <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{poll.description}</p>
 
                       {poll.images && poll.images.length > 0 && (
                         <div className="pt-1">

@@ -7,13 +7,14 @@ const SENDER_PRIVATE_KEY = "0xda7a888d692c21e5882c5e7d5f29e001fc5424df7d52eb7109
 
 // 2. Define the list of real accounts you want to fund (Super Admins, Authorities, etc.)
 const TARGET_ADDRESSES = [
+  // "0x4eD7dFA2BE53193066212eE5B9F06cD25157AA48", // authority
   "0x27794a007eFFBBFE6dB522560cAB6FfeA2cD4A36", // Super Admin 1
   "0xD019C08F95B5450F36Fcb8D1d4Ba8AB73B64fDA7", // Super Admin 2
   "0x2f82af1eDf8ddA7C6f87AFdc1B60Dc5cA4C76B23", // Super Admin 3
 ];
 
 // Amount of ETH to send to each account (e.g., 10 ETH is plenty for thousands of transactions)
-const FUND_AMOUNT_ETH = "10.0";
+const FUND_AMOUNT_ETH = "40.0";
 
 async function main() {
   console.log(`Connecting to private Geth RPC: ${RPC_URL}...`);
