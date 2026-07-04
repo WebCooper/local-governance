@@ -1,19 +1,19 @@
 {
-  "test_id": "AI-S04",
-  "name": "Threatening text",
+  "test_id": "AI-S11",
+  "name": "Valid civic text with student face image (should blur)",
   "expected_http_status": 200,
-  "expected_decision": "REJECT",
+  "expected_decision": "ACCEPT",
   "actual_http_status": 200,
-  "actual_decision": "REJECT",
-  "passed": true,
-  "elapsed_ms_client": 39.82,
-  "processing_time_ms_server": 36.16,
-  "request_hash_local": "0083281852b6e830e1099d16604ff84a38554568a8af5b48ac7c9bec6dbe0774",
+  "actual_decision": "ACCEPT",
+  "passed": false,
+  "elapsed_ms_client": 95.76,
+  "processing_time_ms_server": 89.43,
+  "request_hash_local": "d10129ad62720b9d0285b84ad152e88df0b25f33283112fd3d760b48b917b9d5",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-S04-731e491c-84de-4f30-9d12-37197ed39e9b",
-    "text": "There is a pothole near the school and I will attack the officer if this is not fixed.",
-    "category": "Road Damage",
+    "report_id": "RPT-AI-S11-a5c78d27-dae8-45dd-aa8a-b48165b69add",
+    "text": "A student reported an issue in the library with a photo of the area.",
+    "category": "General Civic Issue",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
@@ -21,45 +21,52 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-S04-731e491c-84de-4f30-9d12-37197ed39e9b",
-    "text_hash": "81c202ebc2377c850c9a9735cc787830e288f3868a0d9ef33bf6806fb92bd256",
-    "media_hashes": [],
-    "category": "Road Damage",
+    "report_id": "RPT-AI-S11-a5c78d27-dae8-45dd-aa8a-b48165b69add",
+    "text_hash": "9043176e8bdfe121a5ba87fdf785b02e9421534a4c5660b72c6201269eacd80a",
+    "media_hashes": [
+      "594317d7851604914f6c5fffbaad5217717c078fe8ef74687a3ecc8c8b2c271c"
+    ],
+    "category": "General Civic Issue",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:08.838429+00:00",
-    "nonce": "afbe054d-d9c4-4cc9-8d30-79f027171563"
+    "timestamp": "2026-07-04T17:32:09.117209+00:00",
+    "nonce": "3d0a2d55-ad80-4024-8085-15f3d0185f0a"
   },
-  "file_summaries": [],
+  "file_summaries": [
+    {
+      "file_name": "student_face.png",
+      "mime_type": "image/png",
+      "size_bytes": 723561,
+      "sha256": "594317d7851604914f6c5fffbaad5217717c078fe8ef74687a3ecc8c8b2c271c"
+    }
+  ],
   "response": {
-    "final_decision": "REJECT",
-    "final_confidence": 0.95,
-    "risk_level": "HIGH",
-    "report_hash": "167512e71205d57d0ee1a85c92b785314aca0ecfd2e62b40ef32e8cf39940ad4",
-    "request_hash": "0083281852b6e830e1099d16604ff84a38554568a8af5b48ac7c9bec6dbe0774",
-    "decision_hash": "0ed5cffbb870fefc6ca519d649925b46e1368ea483e5f68e02eec7fb5c3d4b6f",
-    "aggregator_signature": "e8239203bcf9e97e4680a1fc4574b9ff70d17eef7db42177c0b684567371975234b3159b69b11b41511af35785d030509b63ade008891e0e0c59779db2cc141e1c",
-    "summary_explanation": "Report rejected due to a critical safety or system violation.",
+    "final_decision": "ACCEPT",
+    "final_confidence": 0.8567,
+    "risk_level": "LOW",
+    "report_hash": "74b82494302ec7b6c999ca38f01669ce5cc76df277c62072f3e375de4b2529ed",
+    "request_hash": "d10129ad62720b9d0285b84ad152e88df0b25f33283112fd3d760b48b917b9d5",
+    "decision_hash": "48a13f82482cafa235018d2ce350ec90e5866c5c24a7c756a023430e71a025cf",
+    "aggregator_signature": "bd5b58ffcaad7d48782237c7e211b80e3be64d648787648dc4e28d897f68cad50679bb45faeb6356dca5e674b8fb97bbc68b323cf41d06a726c7a3a6cf5f07971b",
+    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
     "oracle_votes": [
       {
         "oracle_id": "ORACLE_1_SAFETY",
-        "vote": "REJECT",
-        "confidence": 0.95,
-        "explanation_code": "CRITICAL_THREAT_DETECTED",
+        "vote": "ACCEPT",
+        "confidence": 0.75,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
         "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
         "model_version": "1.0.0",
-        "critical_violation": true,
+        "critical_violation": false,
         "details": {
           "text_result": {
-            "safe": false,
-            "confidence": 0.95,
-            "critical_violation": true,
-            "explanation_code": "CRITICAL_THREAT_DETECTED",
+            "safe": true,
+            "confidence": 0.75,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
             "details": {
-              "critical_matches": [
-                "attack"
-              ],
+              "critical_matches": [],
               "toxic_matches": [],
               "mode": "fallback_rules"
             }
@@ -68,9 +75,17 @@
             "safe": true,
             "confidence": 1.0,
             "critical_violation": false,
-            "explanation_code": "NO_IMAGE_PROVIDED",
+            "explanation_code": "IMAGES_SAFE",
             "details": {
-              "images": []
+              "images": [
+                {
+                  "file_name": "student_face.png",
+                  "labels": {},
+                  "nsfw_score": 0.0,
+                  "safe": true,
+                  "mode": "basic_decode_only"
+                }
+              ]
             }
           }
         },
@@ -103,7 +118,7 @@
           },
           "rule_based_analysis": {
             "spam_score": 0.0,
-            "word_count": 18,
+            "word_count": 14,
             "url_count": 0,
             "matched_spam_phrases": [],
             "matched_promotional_words": [],
@@ -128,23 +143,27 @@
             "explanation_code": "CATEGORY_AND_CIVIC_KEYWORD_MATCH",
             "details": {
               "mode": "keyword_fallback",
-              "selected_category": "Road Damage",
+              "selected_category": "General Civic Issue",
               "category_matches": {
-                "Road Damage": [
-                  "pothole",
-                  "hole"
+                "General Civic Issue": [
+                  "issue"
                 ]
               },
               "all_matches": [
-                "hole",
-                "pothole"
+                "issue"
               ]
             }
           },
           "image_relevance": {
-            "image_relevance": "NO_IMAGE_PROVIDED",
-            "confidence": 1.0,
-            "details": []
+            "image_relevance": "NOT_EVALUATED_TEXT_PRIMARY",
+            "confidence": 0.7,
+            "details": [
+              {
+                "file_name": "student_face.png",
+                "mode": "image_relevance_disabled",
+                "note": "Civic image relevance is not evaluated in this version. Image safety is handled by the Safety Oracle."
+              }
+            ]
           }
         }
       }
@@ -156,6 +175,6 @@
       "timestamp_validated": true,
       "nonce_accepted": true
     },
-    "processing_time_ms": 36.16
+    "processing_time_ms": 89.43
   }
 }

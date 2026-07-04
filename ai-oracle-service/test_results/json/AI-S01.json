@@ -6,12 +6,12 @@
   "actual_http_status": 200,
   "actual_decision": "ACCEPT",
   "passed": true,
-  "elapsed_ms_client": 1894.95,
-  "processing_time_ms_server": 251.85,
-  "request_hash_local": "3f1f3959e911b24033fd549c6f1c59a99de887999a73cd5c157f0d02a27d038a",
+  "elapsed_ms_client": 78.76,
+  "processing_time_ms_server": 69.62,
+  "request_hash_local": "57d9f76e3402e2f0f1cc54199950d9a75c12c57ce638c573f52d8db401c2b7ee",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-S01-dbef5f64-a9ab-4a88-a92d-1914904bcc3d",
+    "report_id": "RPT-AI-S01-19f57f1f-4bdf-4b9b-b3f5-92f7f9f1b52f",
     "text": "There is a large pothole near the public school road causing traffic problems.",
     "category": "Road Damage",
     "location": "Matara",
@@ -21,31 +21,31 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-S01-dbef5f64-a9ab-4a88-a92d-1914904bcc3d",
+    "report_id": "RPT-AI-S01-19f57f1f-4bdf-4b9b-b3f5-92f7f9f1b52f",
     "text_hash": "8337c500e601f5710ff588719999f08073d10b1764cbdf10a50838c28795f2aa",
     "media_hashes": [],
     "category": "Road Damage",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-05-12T12:13:51.840143+00:00",
-    "nonce": "62ce87dc-61bd-4677-9b7f-acac05edfde7"
+    "timestamp": "2026-07-04T17:32:08.649241+00:00",
+    "nonce": "f484dabf-d488-43ad-92e7-08d25130c4a8"
   },
   "file_summaries": [],
   "response": {
     "final_decision": "ACCEPT",
-    "final_confidence": 0.8373,
+    "final_confidence": 0.8567,
     "risk_level": "LOW",
-    "report_hash": "f0a3dc86a1e51aa06985d571272476637eae13423e2ed25b0ddbd5df33a55acd",
-    "request_hash": "3f1f3959e911b24033fd549c6f1c59a99de887999a73cd5c157f0d02a27d038a",
-    "decision_hash": "c69af19a279e6f6dfcb7790f42d143f97ede594a0ceadb63f90e396434238597",
-    "aggregator_signature": "779778c4471ddae91f87d45e57e5f569ca8fb6afdec7462667f22fe7f86056f729c104b7956e9fd6f2bc9e367a1e64890001f865c1e33cdba2bbc701d0a05a051c",
+    "report_hash": "1e234664bca97c0c02010f4647d27f9f2748aa4fb74ae6ff7562fd4b1e64ef2f",
+    "request_hash": "57d9f76e3402e2f0f1cc54199950d9a75c12c57ce638c573f52d8db401c2b7ee",
+    "decision_hash": "4e59ae4f5c299b8f568b8c388c5bf83314f4c77ddc2b5f9ad169f4ed8efaedbc",
+    "aggregator_signature": "5986aa4df8dd4f37fccc4f0cc5a6580d94f0ec25528ed95a7daa7c940d7fdc0e720097561ca9935a67b9f5f19f065b8733422a9cd303717f328f9341ac3121451b",
     "summary_explanation": "Report accepted. Text and media passed moderation checks.",
     "oracle_votes": [
       {
         "oracle_id": "ORACLE_1_SAFETY",
         "vote": "ACCEPT",
-        "confidence": 0.9984,
+        "confidence": 0.75,
         "explanation_code": "TEXT_AND_IMAGES_SAFE",
         "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
         "model_version": "1.0.0",
@@ -53,19 +53,13 @@
         "details": {
           "text_result": {
             "safe": true,
-            "confidence": 0.9984,
+            "confidence": 0.75,
             "critical_violation": false,
             "explanation_code": "TEXT_SAFE",
             "details": {
-              "scores": {
-                "toxic": 0.0015634275041520596,
-                "insult": 0.00024292833404615521,
-                "obscene": 0.00018848682520911098,
-                "identity_hate": 0.00016938927001319826,
-                "severe_toxic": 0.00010027021926362067,
-                "threat": 9.542702173348516e-05
-              },
-              "mode": "unitary/toxic-bert"
+              "critical_matches": [],
+              "toxic_matches": [],
+              "mode": "fallback_rules"
             }
           },
           "image_result": {
@@ -77,14 +71,15 @@
               "images": []
             }
           }
-        }
+        },
+        "blurred_media": null
       },
       {
         "oracle_id": "ORACLE_2_SPAM_ABUSE",
         "vote": "ACCEPT",
-        "confidence": 0.9332,
+        "confidence": 1.0,
         "explanation_code": "NO_SPAM_DETECTED",
-        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_name": "spam-abuse-rules-v2",
         "model_version": "2.0.0",
         "critical_violation": false,
         "details": {
@@ -96,17 +91,13 @@
             "rejection_reasons": []
           },
           "ai_analysis": {
-            "model_used": true,
-            "available": true,
-            "label": "LABEL_0",
-            "predicted_score": 0.9332,
-            "spam_probability": 0.0668,
-            "non_spam_probability": 0.9332,
-            "raw_output": {
-              "label": "LABEL_0",
-              "score": 0.9332168698310852
-            },
-            "error": null
+            "model_used": false,
+            "available": false,
+            "label": null,
+            "spam_probability": null,
+            "non_spam_probability": null,
+            "raw_output": null,
+            "error": "AI model unavailable or disabled."
           },
           "rule_based_analysis": {
             "spam_score": 0.0,
@@ -123,58 +114,44 @@
       {
         "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
         "vote": "ACCEPT",
-        "confidence": 0.5802,
-        "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
-        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "confidence": 0.82,
+        "explanation_code": "CATEGORY_AND_CIVIC_KEYWORD_MATCH",
+        "model_name": "civic-keyword-fallback-v2",
         "model_version": "2.0.0",
         "critical_violation": false,
         "details": {
           "text_relevance": {
             "civic_relevant": true,
-            "confidence": 0.5802,
-            "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+            "confidence": 0.82,
+            "explanation_code": "CATEGORY_AND_CIVIC_KEYWORD_MATCH",
             "details": {
-              "mode": "semantic_similarity",
+              "mode": "keyword_fallback",
               "selected_category": "Road Damage",
-              "overall_best_match": {
-                "category": "Road Damage",
-                "reference_text": "A civic report about potholes, damaged roads, broken streets, or unsafe road surfaces.",
-                "similarity": 0.5802
-              },
-              "selected_category_best_match": {
-                "category": "Road Damage",
-                "reference_text": "A civic report about potholes, damaged roads, broken streets, or unsafe road surfaces.",
-                "similarity": 0.5802
-              },
-              "text_relevance_threshold": 0.38,
-              "category_match_threshold": 0.4,
-              "keyword_support": {
-                "category_matches": {
-                  "Road Damage": [
-                    "road",
-                    "pothole",
-                    "hole"
-                  ],
-                  "Public Property Damage": [
-                    "public"
-                  ],
-                  "Traffic / Road Safety": [
-                    "traffic"
-                  ],
-                  "General Civic Issue": [
-                    "public",
-                    "problem"
-                  ]
-                },
-                "all_matches": [
-                  "hole",
-                  "pothole",
-                  "problem",
-                  "public",
+              "category_matches": {
+                "Road Damage": [
                   "road",
+                  "pothole",
+                  "hole"
+                ],
+                "Public Property Damage": [
+                  "public"
+                ],
+                "Traffic / Road Safety": [
                   "traffic"
+                ],
+                "General Civic Issue": [
+                  "public",
+                  "problem"
                 ]
-              }
+              },
+              "all_matches": [
+                "hole",
+                "pothole",
+                "problem",
+                "public",
+                "road",
+                "traffic"
+              ]
             }
           },
           "image_relevance": {
@@ -185,12 +162,13 @@
         }
       }
     ],
+    "blurred_media": null,
     "security": {
       "relayer_signature_verified": true,
       "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
       "timestamp_validated": true,
       "nonce_accepted": true
     },
-    "processing_time_ms": 251.85
+    "processing_time_ms": 69.62
   }
 }

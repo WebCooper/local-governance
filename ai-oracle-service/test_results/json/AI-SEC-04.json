@@ -6,12 +6,12 @@
   "actual_http_status": 401,
   "actual_decision": null,
   "passed": true,
-  "elapsed_ms_client": 1548.88,
+  "elapsed_ms_client": 3.27,
   "processing_time_ms_server": null,
-  "request_hash_local": "1eb71ae7764ebca6c56c3d5c1336951a7e9fe3470cc8860c80ae7dfdd08ed396",
+  "request_hash_local": "142be9859ae2853eb952008d8e1090a9f84ae2ecf95505dbd5202cb12118ec7f",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-SEC-04-6795de7c-eb46-482d-a110-ed0ff40055e8",
+    "report_id": "RPT-AI-SEC-04-f9d2b73a-0fc9-4434-889b-a72d39d8bd6e",
     "text": "There is a pothole near the public school road.",
     "category": "Road Damage",
     "location": "Matara",
@@ -21,15 +21,15 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-SEC-04-6795de7c-eb46-482d-a110-ed0ff40055e8",
+    "report_id": "RPT-AI-SEC-04-f9d2b73a-0fc9-4434-889b-a72d39d8bd6e",
     "text_hash": "3cd688b8ccdc78719302da0a2ffe4fd49b129b3c0cb88fccc7f26ef4bc542672",
     "media_hashes": [],
     "category": "Road Damage",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-05-12T11:54:10.287092+00:00",
-    "nonce": "183fc4e0-778f-4672-8af6-fdffb1e5477d"
+    "timestamp": "2026-07-04T17:12:09.270861+00:00",
+    "nonce": "6b57715d-8d61-408e-805e-30a6aa4d01c8"
   },
   "file_summaries": [],
   "response": {

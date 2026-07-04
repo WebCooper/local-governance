@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     environment:
       ENABLE_AI_MODELS: ${ENABLE_AI_MODELS:-true}
+      ENABLE_FACE_BLURRING: ${ENABLE_FACE_BLURRING:-true}
       HF_HOME: /models
     expose:
       - "8001"
