@@ -6,12 +6,12 @@
   "actual_http_status": 401,
   "actual_decision": null,
   "passed": true,
-  "elapsed_ms_client": 12.12,
+  "elapsed_ms_client": 13.07,
   "processing_time_ms_server": null,
-  "request_hash_local": "60d55c557a5146af71da34a8e4e19071630d546e7646f78f7500270a3f081419",
+  "request_hash_local": "4dbc2b31095afd9a979d1cf98c5c347617aa746af339b2d538b8495178375b7f",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-SEC-03-4ad08d36-0bdc-4323-ba32-b676c2ef661c",
+    "report_id": "RPT-AI-SEC-03-0fc569e8-4cfa-4581-9c8c-d1e7df29cab3",
     "text": "There is a pothole near the public school road.",
     "category": "Road Damage",
     "location": "Matara",
@@ -21,23 +21,23 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-SEC-03-4ad08d36-0bdc-4323-ba32-b676c2ef661c",
+    "report_id": "RPT-AI-SEC-03-0fc569e8-4cfa-4581-9c8c-d1e7df29cab3",
     "text_hash": "3cd688b8ccdc78719302da0a2ffe4fd49b129b3c0cb88fccc7f26ef4bc542672",
     "media_hashes": [],
     "category": "Road Damage",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:09.249428+00:00",
-    "nonce": "1cbb0f08-9f88-4519-9be7-9ee7333c5e94"
+    "timestamp": "2026-07-07T09:42:18.711960+00:00",
+    "nonce": "392a597c-3627-4771-a0b3-2851bc020458"
   },
   "file_summaries": [],
   "response": {
     "detail": {
       "error": "Request not signed by trusted relayer",
-      "recovered_address": "0x30270b2d32fb38c78ec55fdf5a37127ba57bb7e6",
-      "trusted_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
-      "request_hash": "60d55c557a5146af71da34a8e4e19071630d546e7646f78f7500270a3f081419"
+      "recovered_address": "0x2c84b0ed48b487cca89eabfe993d4de6091ac95f",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "4dbc2b31095afd9a979d1cf98c5c347617aa746af339b2d538b8495178375b7f"
     }
   }
 }

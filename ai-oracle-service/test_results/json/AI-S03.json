@@ -3,15 +3,15 @@
   "name": "Spam promotional text",
   "expected_http_status": 200,
   "expected_decision": "REJECT",
-  "actual_http_status": 200,
-  "actual_decision": "REJECT",
-  "passed": true,
-  "elapsed_ms_client": 39.16,
-  "processing_time_ms_server": 34.93,
-  "request_hash_local": "59ce636429bd288294e9760e84bcd58d64e6edc1fee4c8c3ce9a95f90b48a551",
+  "actual_http_status": 401,
+  "actual_decision": null,
+  "passed": false,
+  "elapsed_ms_client": 11.26,
+  "processing_time_ms_server": null,
+  "request_hash_local": "2a2c95506eb9f15480e9a1505ac40fc8d32bccbe75b3d7d89405def269068ab3",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-S03-bb8a2d7f-0a72-4f9d-8dae-e88a8c426848",
+    "report_id": "RPT-AI-S03-155384c2-f7f2-488b-8b3d-6e02eedebbb5",
     "text": "BUY NOW FREE MONEY CLICK HERE LIMITED OFFER SUBSCRIBE NOW!!!!",
     "category": "Other",
     "location": "Matara",
@@ -21,144 +21,23 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-S03-bb8a2d7f-0a72-4f9d-8dae-e88a8c426848",
+    "report_id": "RPT-AI-S03-155384c2-f7f2-488b-8b3d-6e02eedebbb5",
     "text_hash": "48048e5983c783ca79c0eb8f747da5902c0b09472494563ba7792ed5ac980a1d",
     "media_hashes": [],
     "category": "Other",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:08.789090+00:00",
-    "nonce": "5f69bc20-387b-44b4-99f6-26170ed2fa8c"
+    "timestamp": "2026-07-07T09:42:19.481986+00:00",
+    "nonce": "6c48ce7a-94c6-4b7c-8230-249a94a302fb"
   },
   "file_summaries": [],
   "response": {
-    "final_decision": "REJECT",
-    "final_confidence": 0.95,
-    "risk_level": "MEDIUM",
-    "report_hash": "037caada127793835bacb3ead40ea10340bedc05d8304e44b4713a90136aa38c",
-    "request_hash": "59ce636429bd288294e9760e84bcd58d64e6edc1fee4c8c3ce9a95f90b48a551",
-    "decision_hash": "4b63a3c8000f96e28ed8b58939637bcc06cc33fc0bd49a822f6eb5d89ff9e2b5",
-    "aggregator_signature": "2a57bccd1df54c61b5e561f2f85af7e49e8cf21bfa438b56aace58a0be47207c4b93d96a80e094f9667c63da6f1dda43b433541a9f28aa1c15702651fc0946451c",
-    "summary_explanation": "Report rejected because the oracle votes did not reach acceptance majority.",
-    "oracle_votes": [
-      {
-        "oracle_id": "ORACLE_1_SAFETY",
-        "vote": "ACCEPT",
-        "confidence": 0.75,
-        "explanation_code": "TEXT_AND_IMAGES_SAFE",
-        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
-        "model_version": "1.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_result": {
-            "safe": true,
-            "confidence": 0.75,
-            "critical_violation": false,
-            "explanation_code": "TEXT_SAFE",
-            "details": {
-              "critical_matches": [],
-              "toxic_matches": [],
-              "mode": "fallback_rules"
-            }
-          },
-          "image_result": {
-            "safe": true,
-            "confidence": 1.0,
-            "critical_violation": false,
-            "explanation_code": "NO_IMAGE_PROVIDED",
-            "details": {
-              "images": []
-            }
-          }
-        },
-        "blurred_media": null
-      },
-      {
-        "oracle_id": "ORACLE_2_SPAM_ABUSE",
-        "vote": "REJECT",
-        "confidence": 1.0,
-        "explanation_code": "SPAM_OR_LOW_QUALITY_DETECTED",
-        "model_name": "spam-abuse-rules-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "decision_logic": {
-            "ai_strong_spam_threshold": 0.85,
-            "ai_supporting_spam_threshold": 0.65,
-            "rule_reject_threshold": 0.6,
-            "rule_support_threshold": 0.25,
-            "rejection_reasons": [
-              "RULE_BASED_SPAM_DETECTION"
-            ]
-          },
-          "ai_analysis": {
-            "model_used": false,
-            "available": false,
-            "label": null,
-            "spam_probability": null,
-            "non_spam_probability": null,
-            "raw_output": null,
-            "error": "AI model unavailable or disabled."
-          },
-          "rule_based_analysis": {
-            "spam_score": 1.0,
-            "word_count": 10,
-            "url_count": 0,
-            "matched_spam_phrases": [
-              "buy now",
-              "free money",
-              "click here",
-              "limited offer",
-              "subscribe now"
-            ],
-            "matched_promotional_words": [
-              "offer"
-            ],
-            "repeated_character_pattern": false,
-            "excessive_symbols": false,
-            "reasons": [
-              "SPAM_PHRASE_DETECTED",
-              "PROMOTIONAL_LANGUAGE_DETECTED"
-            ]
-          }
-        }
-      },
-      {
-        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
-        "vote": "REJECT",
-        "confidence": 0.9,
-        "explanation_code": "LOW_CIVIC_RELEVANCE_KEYWORD_FALLBACK",
-        "model_name": "civic-keyword-fallback-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_relevance": {
-            "civic_relevant": false,
-            "confidence": 0.9,
-            "explanation_code": "LOW_CIVIC_RELEVANCE_KEYWORD_FALLBACK",
-            "details": {
-              "mode": "keyword_fallback",
-              "selected_category": "Other",
-              "category_matches": {},
-              "all_matches": []
-            }
-          },
-          "image_relevance": {
-            "image_relevance": "NO_IMAGE_PROVIDED",
-            "confidence": 1.0,
-            "details": []
-          }
-        }
-      }
-    ],
-    "blurred_media": null,
-    "security": {
-      "relayer_signature_verified": true,
-      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
-      "timestamp_validated": true,
-      "nonce_accepted": true
-    },
-    "processing_time_ms": 34.93
+    "detail": {
+      "error": "Request not signed by trusted relayer",
+      "recovered_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "2a2c95506eb9f15480e9a1505ac40fc8d32bccbe75b3d7d89405def269068ab3"
+    }
   }
 }

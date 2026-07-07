@@ -6,9 +6,9 @@
   "actual_http_status": 400,
   "actual_decision": null,
   "passed": true,
-  "elapsed_ms_client": 3.02,
+  "elapsed_ms_client": 4.07,
   "processing_time_ms_server": null,
-  "request_hash_local": "d3d270c4d0b770883429d51868859148aab4ec1af4b5e2ad966ac463dccc30c5",
+  "request_hash_local": "e8eab033a7486dad974b2d0ee5e81bc6cedbf5f0c24000e29e241ac4956e1a2f",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
     "text": "There is a pothole near the public school road.",
@@ -27,8 +27,8 @@
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:09.432801+00:00",
-    "nonce": "aec52aee-0cb4-441c-8117-61e9663ab578"
+    "timestamp": "2026-07-07T09:42:18.873881+00:00",
+    "nonce": "c6dccf60-de75-4a07-bdef-6c630cac76f5"
   },
   "file_summaries": [],
   "response": {

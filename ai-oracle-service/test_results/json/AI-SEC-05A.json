@@ -3,15 +3,15 @@
   "name": "Replay test first request",
   "expected_http_status": 200,
   "expected_decision": "ACCEPT",
-  "actual_http_status": 200,
-  "actual_decision": "ACCEPT",
-  "passed": true,
-  "elapsed_ms_client": 38.06,
-  "processing_time_ms_server": 33.93,
-  "request_hash_local": "473a82a15d6e77590161124ac17c381c518c14beaa4630d14ad32adcdf8f3f43",
+  "actual_http_status": 401,
+  "actual_decision": null,
+  "passed": false,
+  "elapsed_ms_client": 12.65,
+  "processing_time_ms_server": null,
+  "request_hash_local": "8043e3f852b5c2cad6b368552a97de68fbf7849bf3ee354da2d713d92f334a17",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-SEC-05A-d267ae5f-0360-4dd4-bf2d-ecb9926fa335",
+    "report_id": "RPT-AI-SEC-05A-e8f8e3f6-f4ce-4840-824d-4f02d9d9aee2",
     "text": "There is a pothole near the public school road.",
     "category": "Road Damage",
     "location": "Matara",
@@ -21,148 +21,23 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-SEC-05A-d267ae5f-0360-4dd4-bf2d-ecb9926fa335",
+    "report_id": "RPT-AI-SEC-05A-e8f8e3f6-f4ce-4840-824d-4f02d9d9aee2",
     "text_hash": "3cd688b8ccdc78719302da0a2ffe4fd49b129b3c0cb88fccc7f26ef4bc542672",
     "media_hashes": [],
     "category": "Road Damage",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:09.284101+00:00",
-    "nonce": "de464857-9b9c-475b-a075-9595ebbcb882"
+    "timestamp": "2026-07-07T09:42:18.747166+00:00",
+    "nonce": "438a1a24-8022-4b81-b88d-46f2f58461dd"
   },
   "file_summaries": [],
   "response": {
-    "final_decision": "ACCEPT",
-    "final_confidence": 0.8567,
-    "risk_level": "LOW",
-    "report_hash": "5ce46415a17f753c13da8e1ff7c50210e958618e7e7393216760613e0a7ee6dd",
-    "request_hash": "473a82a15d6e77590161124ac17c381c518c14beaa4630d14ad32adcdf8f3f43",
-    "decision_hash": "f146e6137662b7495ee2104d649254153ad875e286d2d378e18e95a39974432a",
-    "aggregator_signature": "378309b8c99bdd8a8385d868d032f62e93934d2af68a136021389e0fb34a7e9701e545573b3f9d46c5c44bfc1990ad2101883f1eb621f93c10802420c637e8941c",
-    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
-    "oracle_votes": [
-      {
-        "oracle_id": "ORACLE_1_SAFETY",
-        "vote": "ACCEPT",
-        "confidence": 0.75,
-        "explanation_code": "TEXT_AND_IMAGES_SAFE",
-        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
-        "model_version": "1.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_result": {
-            "safe": true,
-            "confidence": 0.75,
-            "critical_violation": false,
-            "explanation_code": "TEXT_SAFE",
-            "details": {
-              "critical_matches": [],
-              "toxic_matches": [],
-              "mode": "fallback_rules"
-            }
-          },
-          "image_result": {
-            "safe": true,
-            "confidence": 1.0,
-            "critical_violation": false,
-            "explanation_code": "NO_IMAGE_PROVIDED",
-            "details": {
-              "images": []
-            }
-          }
-        },
-        "blurred_media": null
-      },
-      {
-        "oracle_id": "ORACLE_2_SPAM_ABUSE",
-        "vote": "ACCEPT",
-        "confidence": 1.0,
-        "explanation_code": "NO_SPAM_DETECTED",
-        "model_name": "spam-abuse-rules-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "decision_logic": {
-            "ai_strong_spam_threshold": 0.85,
-            "ai_supporting_spam_threshold": 0.65,
-            "rule_reject_threshold": 0.6,
-            "rule_support_threshold": 0.25,
-            "rejection_reasons": []
-          },
-          "ai_analysis": {
-            "model_used": false,
-            "available": false,
-            "label": null,
-            "spam_probability": null,
-            "non_spam_probability": null,
-            "raw_output": null,
-            "error": "AI model unavailable or disabled."
-          },
-          "rule_based_analysis": {
-            "spam_score": 0.0,
-            "word_count": 9,
-            "url_count": 0,
-            "matched_spam_phrases": [],
-            "matched_promotional_words": [],
-            "repeated_character_pattern": false,
-            "excessive_symbols": false,
-            "reasons": []
-          }
-        }
-      },
-      {
-        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
-        "vote": "ACCEPT",
-        "confidence": 0.82,
-        "explanation_code": "CATEGORY_AND_CIVIC_KEYWORD_MATCH",
-        "model_name": "civic-keyword-fallback-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_relevance": {
-            "civic_relevant": true,
-            "confidence": 0.82,
-            "explanation_code": "CATEGORY_AND_CIVIC_KEYWORD_MATCH",
-            "details": {
-              "mode": "keyword_fallback",
-              "selected_category": "Road Damage",
-              "category_matches": {
-                "Road Damage": [
-                  "road",
-                  "pothole",
-                  "hole"
-                ],
-                "Public Property Damage": [
-                  "public"
-                ],
-                "General Civic Issue": [
-                  "public"
-                ]
-              },
-              "all_matches": [
-                "hole",
-                "pothole",
-                "public",
-                "road"
-              ]
-            }
-          },
-          "image_relevance": {
-            "image_relevance": "NO_IMAGE_PROVIDED",
-            "confidence": 1.0,
-            "details": []
-          }
-        }
-      }
-    ],
-    "blurred_media": null,
-    "security": {
-      "relayer_signature_verified": true,
-      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
-      "timestamp_validated": true,
-      "nonce_accepted": true
-    },
-    "processing_time_ms": 33.93
+    "detail": {
+      "error": "Request not signed by trusted relayer",
+      "recovered_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "8043e3f852b5c2cad6b368552a97de68fbf7849bf3ee354da2d713d92f334a17"
+    }
   }
 }

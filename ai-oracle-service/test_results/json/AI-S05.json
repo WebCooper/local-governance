@@ -3,15 +3,15 @@
   "name": "Non-civic irrelevant text",
   "expected_http_status": 200,
   "expected_decision": "REJECT",
-  "actual_http_status": 200,
-  "actual_decision": "ACCEPT",
+  "actual_http_status": 401,
+  "actual_decision": null,
   "passed": false,
-  "elapsed_ms_client": 40.03,
-  "processing_time_ms_server": 36.76,
-  "request_hash_local": "43830459f1d5af960c4aff4c99a05049145a97cc664f4b5e85f9ea48e6a0cfd6",
+  "elapsed_ms_client": 14.0,
+  "processing_time_ms_server": null,
+  "request_hash_local": "206df6bcfd0f56268f9ed2239462e954292e174a52788cf9226e58dc11aa259f",
   "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
   "metadata": {
-    "report_id": "RPT-AI-S05-5f3f4488-ab32-4943-982d-900b49c332aa",
+    "report_id": "RPT-AI-S05-c64c48a8-0950-4437-ad4d-f5c3345e37f1",
     "text": "I watched a movie yesterday and the food at the restaurant was very tasty.",
     "category": "Other",
     "location": "Matara",
@@ -21,131 +21,23 @@
     "government_ticket_signature": "0xmockgovernmentsignature"
   },
   "signed_object": {
-    "report_id": "RPT-AI-S05-5f3f4488-ab32-4943-982d-900b49c332aa",
+    "report_id": "RPT-AI-S05-c64c48a8-0950-4437-ad4d-f5c3345e37f1",
     "text_hash": "ad58340d0ad8769c33c41a0093ddf3b80d748f340ef7b489fd954e52eccd0218",
     "media_hashes": [],
     "category": "Other",
     "location": "Matara",
     "ticket_hash": "0xabc123ticket",
     "payload_hash": "0xdef456payload",
-    "timestamp": "2026-07-04T17:32:08.888922+00:00",
-    "nonce": "6fa7deed-212c-4de4-993e-a914df2af7dc"
+    "timestamp": "2026-07-07T09:42:18.541885+00:00",
+    "nonce": "86adf352-8e30-4839-8a9c-8c5154210ff8"
   },
   "file_summaries": [],
   "response": {
-    "final_decision": "ACCEPT",
-    "final_confidence": 0.875,
-    "risk_level": "LOW",
-    "report_hash": "d4bd591d2ddd9af6461d7797ac48c2172b5ee274b0eb31ce4ba020b0cda7481e",
-    "request_hash": "43830459f1d5af960c4aff4c99a05049145a97cc664f4b5e85f9ea48e6a0cfd6",
-    "decision_hash": "f38a528fb3d1b308a83af47d600c2949ca42923f7e5385e8b850c870bd9c69f4",
-    "aggregator_signature": "1806ff472bd13d68a98e0ce9cb05291a2a792a1aa9e7a9b204508df0b104c60165762151e3d6604dc49ed592344d7c4cf0fc014ec1c8b958ee7c91dbd946541f1c",
-    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
-    "oracle_votes": [
-      {
-        "oracle_id": "ORACLE_1_SAFETY",
-        "vote": "ACCEPT",
-        "confidence": 0.75,
-        "explanation_code": "TEXT_AND_IMAGES_SAFE",
-        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
-        "model_version": "1.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_result": {
-            "safe": true,
-            "confidence": 0.75,
-            "critical_violation": false,
-            "explanation_code": "TEXT_SAFE",
-            "details": {
-              "critical_matches": [],
-              "toxic_matches": [],
-              "mode": "fallback_rules"
-            }
-          },
-          "image_result": {
-            "safe": true,
-            "confidence": 1.0,
-            "critical_violation": false,
-            "explanation_code": "NO_IMAGE_PROVIDED",
-            "details": {
-              "images": []
-            }
-          }
-        },
-        "blurred_media": null
-      },
-      {
-        "oracle_id": "ORACLE_2_SPAM_ABUSE",
-        "vote": "ACCEPT",
-        "confidence": 1.0,
-        "explanation_code": "NO_SPAM_DETECTED",
-        "model_name": "spam-abuse-rules-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "decision_logic": {
-            "ai_strong_spam_threshold": 0.85,
-            "ai_supporting_spam_threshold": 0.65,
-            "rule_reject_threshold": 0.6,
-            "rule_support_threshold": 0.25,
-            "rejection_reasons": []
-          },
-          "ai_analysis": {
-            "model_used": false,
-            "available": false,
-            "label": null,
-            "spam_probability": null,
-            "non_spam_probability": null,
-            "raw_output": null,
-            "error": "AI model unavailable or disabled."
-          },
-          "rule_based_analysis": {
-            "spam_score": 0.0,
-            "word_count": 14,
-            "url_count": 0,
-            "matched_spam_phrases": [],
-            "matched_promotional_words": [],
-            "repeated_character_pattern": false,
-            "excessive_symbols": false,
-            "reasons": []
-          }
-        }
-      },
-      {
-        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
-        "vote": "REJECT",
-        "confidence": 0.9,
-        "explanation_code": "LOW_CIVIC_RELEVANCE_KEYWORD_FALLBACK",
-        "model_name": "civic-keyword-fallback-v2",
-        "model_version": "2.0.0",
-        "critical_violation": false,
-        "details": {
-          "text_relevance": {
-            "civic_relevant": false,
-            "confidence": 0.9,
-            "explanation_code": "LOW_CIVIC_RELEVANCE_KEYWORD_FALLBACK",
-            "details": {
-              "mode": "keyword_fallback",
-              "selected_category": "Other",
-              "category_matches": {},
-              "all_matches": []
-            }
-          },
-          "image_relevance": {
-            "image_relevance": "NO_IMAGE_PROVIDED",
-            "confidence": 1.0,
-            "details": []
-          }
-        }
-      }
-    ],
-    "blurred_media": null,
-    "security": {
-      "relayer_signature_verified": true,
-      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
-      "timestamp_validated": true,
-      "nonce_accepted": true
-    },
-    "processing_time_ms": 36.76
+    "detail": {
+      "error": "Request not signed by trusted relayer",
+      "recovered_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "206df6bcfd0f56268f9ed2239462e954292e174a52788cf9226e58dc11aa259f"
+    }
   }
 }
