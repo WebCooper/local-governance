@@ -4,8 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
 
-export const MULTISIG_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-export const REPORTING_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+export const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
+export const REPORTING_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
 
 
 interface AdminContextType {
@@ -84,7 +84,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
       setIsConnecting(true);
       try {
-        const chainIdHex = "0x7a69";
+        const chainIdHex = "0x539"; // 1337 in hex for Geth Private Network
         try {
           await (window as any).ethereum.request({
             method: 'wallet_switchEthereumChain',
@@ -97,8 +97,8 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
               params: [
                 {
                   chainId: chainIdHex,
-                  chainName: 'Hardhat Localhost',
-                  rpcUrls: ['http://127.0.0.1:8545/'],
+                  chainName: 'Geth Private Network',
+                  rpcUrls: [process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.internalbuildtools.online'],
                   nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
                 },
               ],

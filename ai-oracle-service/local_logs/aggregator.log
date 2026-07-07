@@ -1,0 +1,36 @@
+INFO:     Started server process [26031]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:40780 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40786 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40796 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40804 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40810 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40820 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40836 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40848 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40854 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40870 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40872 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+WARNING:ai-oracle-aggregator:Relayer signature mismatch. recovered=0x30270b2d32fb38c78ec55fdf5a37127ba57bb7e6 trusted=0x8b3d8a21b794544759ea04b15f2bac1e61877a11 request_hash=60d55c557a5146af71da34a8e4e19071630d546e7646f78f7500270a3f081419
+INFO:     127.0.0.1:40878 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40888 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40898 - "POST /moderate/report HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40904 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40912 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40922 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40930 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40932 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40940 - "POST /moderate/report HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:40942 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40952 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40966 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40980 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:40986 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:41002 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:41012 - "POST /moderate/report HTTP/1.1" 400 Bad Request
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [26031]

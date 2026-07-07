@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import logging
 import os
@@ -14,9 +15,92 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("oracle-safety")
 
 ENABLE_AI_MODELS = os.getenv("ENABLE_AI_MODELS", "true").lower() == "true"
+ENABLE_FACE_BLURRING = os.getenv("ENABLE_FACE_BLURRING", "true").lower() == "true"
 
 text_classifier = None
 image_classifier = None
+
+
+def blur_faces(pil_image: Image.Image) -> Image.Image:
+    try:
+        import cv2
+        import numpy as np
+
+        # Convert PIL Image to OpenCV BGR
+        img = np.array(pil_image.convert("RGB"))
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+        # Load cascades from cv2 bundled data
+        frontal_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        profile_path = cv2.data.haarcascades + "haarcascade_profileface.xml"
+
+        frontal_cascade = cv2.CascadeClassifier(frontal_path)
+        profile_cascade = cv2.CascadeClassifier(profile_path)
+
+        # Detect faces
+        faces_frontal = frontal_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        faces_profile = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+        all_faces = []
+        if isinstance(faces_frontal, np.ndarray):
+            all_faces.extend(faces_frontal.tolist())
+        if isinstance(faces_profile, np.ndarray):
+            all_faces.extend(faces_profile.tolist())
+
+        if not all_faces:
+            return pil_image
+
+        logger.info(f"[Face Blurring] Detected {len(all_faces)} potential faces in image.")
+
+        for (x, y, w, h) in all_faces:
+            x = max(0, x)
+            y = max(0, y)
+            w = min(w, img_bgr.shape[1] - x)
+            h = min(h, img_bgr.shape[0] - y)
+
+            if w <= 0 or h <= 0:
+                continue
+
+            face_roi = img_bgr[y:y+h, x:x+w]
+
+            # Select kernel size based on face dimensions, ensuring it is odd and >= 15
+            ksize_w = int(w / 3) | 1
+            ksize_h = int(h / 3) | 1
+            ksize_w = max(15, ksize_w)
+            ksize_h = max(15, ksize_h)
+
+            blurred_face = cv2.GaussianBlur(face_roi, (ksize_w, ksize_h), 0)
+            img_bgr[y:y+h, x:x+w] = blurred_face
+
+        # Convert back to PIL Image
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        return Image.fromarray(img_rgb)
+    except Exception as e:
+        logger.error(f"[Face Blurring] Face blurring failed with error: {e}")
+        return pil_image
+
+
+def encode_image(image: Image.Image, mime_type: str) -> Optional[tuple[str, str, int]]:
+    try:
+        pil_format = "JPEG"
+        if "png" in mime_type.lower():
+            pil_format = "PNG"
+        elif "webp" in mime_type.lower():
+            pil_format = "WEBP"
+
+        buffered = io.BytesIO()
+        image.save(buffered, format=pil_format)
+        img_bytes = buffered.getvalue()
+
+        b64_str = base64.b64encode(img_bytes).decode("utf-8")
+        sha256_hash = hashlib.sha256(img_bytes).hexdigest()
+        size_bytes = len(img_bytes)
+
+        return b64_str, sha256_hash, size_bytes
+    except Exception as e:
+        logger.error(f"[Face Blurring] Encoding image failed: {e}")
+        return None
 
 
 class MediaItem(BaseModel):
@@ -226,50 +310,61 @@ def image_safety(media: List[MediaItem]) -> Dict[str, Any]:
                 "details": {"file_name": item.file_name},
             }
 
-        if image_classifier is None:
-            image_results.append(
-                {
-                    "file_name": item.file_name,
-                    "mode": "basic_decode_only",
-                    "safe": True,
-                    "nsfw_score": 0.0,
-                }
-            )
-            continue
+        # 1. Run NSFW safety checks first
+        nsfw_score = 0.0
+        is_safe = True
+        labels = {}
+        mode = "basic_decode_only"
 
-        try:
-            outputs = image_classifier(image)
-            labels = {row["label"].lower(): float(row["score"]) for row in outputs}
+        if image_classifier is not None:
+            try:
+                outputs = image_classifier(image)
+                labels = {row["label"].lower(): float(row["score"]) for row in outputs}
 
-            nsfw_score = max(
-                labels.get("nsfw", 0.0),
-                labels.get("porn", 0.0),
-                labels.get("sexy", 0.0),
-                labels.get("hentai", 0.0),
-            )
+                nsfw_score = max(
+                    labels.get("nsfw", 0.0),
+                    labels.get("porn", 0.0),
+                    labels.get("sexy", 0.0),
+                    labels.get("hentai", 0.0),
+                )
+                max_nsfw_score = max(max_nsfw_score, nsfw_score)
+                is_safe = nsfw_score < 0.70
+                mode = "Falconsai/nsfw_image_detection"
+            except Exception as e:
+                logger.error(f"[Safety Oracle] NSFW check failed: {e}")
+                mode = "model_failed_decode_passed"
+                is_safe = True
 
-            max_nsfw_score = max(max_nsfw_score, nsfw_score)
-
+        # 2. Block/Reject if image is NSFW
+        if not is_safe:
             image_results.append(
                 {
                     "file_name": item.file_name,
                     "labels": labels,
                     "nsfw_score": nsfw_score,
-                    "safe": nsfw_score < 0.70,
-                    "mode": "Falconsai/nsfw_image_detection",
+                    "safe": False,
+                    "mode": mode,
                 }
             )
+            continue
 
-        except Exception as e:
-            image_results.append(
-                {
-                    "file_name": item.file_name,
-                    "safe": True,
-                    "nsfw_score": 0.0,
-                    "mode": "model_failed_decode_passed",
-                    "error": str(e),
-                }
-            )
+        # 3. If safe and face blurring is enabled, detect and blur faces
+        if ENABLE_FACE_BLURRING:
+            blurred_image = blur_faces(image)
+            encoded = encode_image(blurred_image, item.mime_type)
+            if encoded:
+                item.base64, item.sha256, item.size_bytes = encoded
+                logger.info(f"[Face Blurring] Image {item.file_name} blurred. New size: {item.size_bytes} bytes.")
+
+        image_results.append(
+            {
+                "file_name": item.file_name,
+                "labels": labels,
+                "nsfw_score": nsfw_score,
+                "safe": True,
+                "mode": mode,
+            }
+        )
 
     unsafe_images = [img for img in image_results if img.get("safe") is False]
 
@@ -323,6 +418,19 @@ def analyze(payload: OracleRequest):
         {"text_result": text_result, "image_result": image_result},
     )
 
+    blurred_media_list = []
+    if vote == "ACCEPT" and ENABLE_FACE_BLURRING:
+        for item in payload.media:
+            blurred_media_list.append(
+                {
+                    "file_name": item.file_name,
+                    "mime_type": item.mime_type,
+                    "sha256": item.sha256,
+                    "base64": item.base64,
+                    "size_bytes": item.size_bytes,
+                }
+            )
+
     return {
         "oracle_id": "ORACLE_1_SAFETY",
         "vote": vote,
@@ -335,4 +443,5 @@ def analyze(payload: OracleRequest):
             "text_result": text_result,
             "image_result": image_result,
         },
+        "blurred_media": blurred_media_list if blurred_media_list else None,
     }
