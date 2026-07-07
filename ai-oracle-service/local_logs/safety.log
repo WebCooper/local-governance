@@ -1,0 +1,26 @@
+INFO:     Started server process [26028]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49640 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49644 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49656 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=REJECT confidence=0.95 reason=CRITICAL_THREAT_DETECTED critical=True details={'text_result': {'safe': False, 'confidence': 0.95, 'critical_violation': True, 'explanation_code': 'CRITICAL_THREAT_DETECTED', 'details': {'critical_matches': ['attack'], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49666 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49682 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'IMAGES_SAFE', 'details': {'images': [{'file_name': 'pothole_road.png', 'labels': {}, 'nsfw_score': 0.0, 'safe': True, 'mode': 'basic_decode_only'}]}}}
+INFO:     127.0.0.1:49684 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'IMAGES_SAFE', 'details': {'images': [{'file_name': 'garbage_street.png', 'labels': {}, 'nsfw_score': 0.0, 'safe': True, 'mode': 'basic_decode_only'}]}}}
+INFO:     127.0.0.1:49692 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'IMAGES_SAFE', 'details': {'images': [{'file_name': 'student_face.png', 'labels': {}, 'nsfw_score': 0.0, 'safe': True, 'mode': 'basic_decode_only'}]}}}
+INFO:     127.0.0.1:49708 - "POST /analyze HTTP/1.1" 200 OK
+INFO:oracle-safety:Decision=ACCEPT confidence=0.75 reason=TEXT_AND_IMAGES_SAFE critical=False details={'text_result': {'safe': True, 'confidence': 0.75, 'critical_violation': False, 'explanation_code': 'TEXT_SAFE', 'details': {'critical_matches': [], 'toxic_matches': [], 'mode': 'fallback_rules'}}, 'image_result': {'safe': True, 'confidence': 1.0, 'critical_violation': False, 'explanation_code': 'NO_IMAGE_PROVIDED', 'details': {'images': []}}}
+INFO:     127.0.0.1:49720 - "POST /analyze HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [26028]

@@ -365,7 +365,7 @@ export default function PollsFeedPage() {
                     </div>
                   </div>
 
-                  <p className="text-slate-600 text-sm leading-relaxed">{poll.description}</p>
+                  <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{poll.description}</p>
 
                   {/* Render Images if nested inside the metadata envelope */}
                   {poll.images && poll.images.length > 0 && (

@@ -295,7 +295,7 @@ def send_request(
         "expected_decision": test_case.get("expected_decision"),
         "actual_http_status": response.status_code,
         "actual_decision": response_json.get("final_decision"),
-        "passed": evaluate_result(test_case, response.status_code, response_json),
+        "passed": evaluate_result(test_case, response.status_code, response_json, file_summaries),
         "elapsed_ms_client": elapsed_ms,
         "processing_time_ms_server": response_json.get("processing_time_ms"),
         "request_hash_local": request_hash,
@@ -307,7 +307,7 @@ def send_request(
     }
 
 
-def evaluate_result(test_case: Dict[str, Any], status_code: int, response_json: Dict[str, Any]) -> bool:
+def evaluate_result(test_case: Dict[str, Any], status_code: int, response_json: Dict[str, Any], file_summaries: List[Dict[str, Any]] = None) -> bool:
     expected_status = test_case.get("expected_http_status", 200)
     expected_decision = test_case.get("expected_decision")
 
@@ -315,7 +315,29 @@ def evaluate_result(test_case: Dict[str, Any], status_code: int, response_json: 
         return False
 
     if expected_decision is not None:
-        return response_json.get("final_decision") == expected_decision
+        if response_json.get("final_decision") != expected_decision:
+            return False
+
+    if test_case.get("validate_blurred") and file_summaries:
+        blurred_media = response_json.get("blurred_media")
+        if not blurred_media:
+            print("[Test Evaluation] Failed: expected blurred_media but got none.")
+            return False
+        # Match by filename and verify that the hash changed
+        for orig in file_summaries:
+            matched = False
+            for blurred in blurred_media:
+                if blurred["file_name"] == orig["file_name"]:
+                    matched = True
+                    if blurred["sha256"] == orig["sha256"]:
+                        print(f"[Test Evaluation] Failed: image {orig['file_name']} was not blurred (sha256 matches original).")
+                        return False
+                    else:
+                        print(f"[Test Evaluation] Success: image {orig['file_name']} was successfully blurred (original sha256: {orig['sha256'][:8]} -> blurred: {blurred['sha256'][:8]}).")
+                        break
+            if not matched:
+                print(f"[Test Evaluation] Failed: image {orig['file_name']} was not returned in blurred_media.")
+                return False
 
     return True
 
@@ -466,6 +488,16 @@ def run_standard_tests() -> List[Dict[str, Any]]:
             "category": "Road Damage",
             "image_paths": ["test_client/test_assets/invalid/fake_image.png"],
             "expected_decision": "REJECT",
+            "skip_if_file_missing": True,
+        },
+        {
+            "id": "AI-S11",
+            "name": "Valid civic text with student face image (should blur)",
+            "text": "A student reported an issue in the library with a photo of the area.",
+            "category": "General Civic Issue",
+            "image_paths": ["test_client/test_assets/safe/student_face.png"],
+            "expected_decision": "ACCEPT",
+            "validate_blurred": True,
             "skip_if_file_missing": True,
         },
     ]

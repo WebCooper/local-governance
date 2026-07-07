@@ -4,3 +4,5 @@ pydantic
 pillow
 transformers
 torch
+opencv-python-headless
+numpy

@@ -65,12 +65,12 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 ORACLE_URLS = {
-    "safety": "http://oracle-safety:8001/analyze",
-    "spam": "http://oracle-spam:8002/analyze",
-    "civic": "http://oracle-civic:8003/analyze",
+    "safety": os.getenv("ORACLE_SAFETY_URL", "http://oracle-safety:8001/analyze"),
+    "spam": os.getenv("ORACLE_SPAM_URL", "http://oracle-spam:8002/analyze"),
+    "civic": os.getenv("ORACLE_CIVIC_URL", "http://oracle-civic:8003/analyze"),
 }
 
-DB_PATH = "/data/nonces.db"
+DB_PATH = os.getenv("DB_PATH", "/data/nonces.db")
 
 
 class MediaItem(BaseModel):
@@ -91,7 +91,9 @@ class OracleRequest(BaseModel):
 
 
 def init_db() -> None:
-    os.makedirs("/data", exist_ok=True)
+    db_dir = os.path.dirname(DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -516,6 +518,13 @@ async def moderate_report(
         aggregation["summary_explanation"],
     )
 
+    # Extract blurred media from safety oracle response if available
+    blurred_media = None
+    for vote in oracle_votes:
+        if vote.get("oracle_id") == "ORACLE_1_SAFETY":
+            blurred_media = vote.get("blurred_media")
+            break
+
     decision_object = {
         "report_hash": report_hash,
         "request_hash": request_hash,
@@ -550,6 +559,7 @@ async def moderate_report(
         "aggregator_signature": aggregator_signature,
         "summary_explanation": aggregation["summary_explanation"],
         "oracle_votes": oracle_votes,
+        "blurred_media": blurred_media,
         "security": {
             "relayer_signature_verified": True,
             "recovered_relayer_address": recovered_relayer_address,
