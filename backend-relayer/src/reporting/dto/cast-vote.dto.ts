@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsBoolean, IsIn, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsBoolean,
+  IsIn,
+  IsNumber,
+} from 'class-validator';
 
 export class CastVoteDto {
   @IsNumber()

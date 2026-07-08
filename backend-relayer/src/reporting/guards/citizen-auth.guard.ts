@@ -66,12 +66,16 @@ export class CitizenAuthGuard implements CanActivate {
 
     // ── Basic format checks ───────────────────────────────────────────────────
     if (!ethers.isAddress(citizenAddress)) {
-      throw new UnauthorizedException('Invalid Ethereum address in Authorization header');
+      throw new UnauthorizedException(
+        'Invalid Ethereum address in Authorization header',
+      );
     }
 
     const timestamp = parseInt(timestampStr, 10);
     if (isNaN(timestamp)) {
-      throw new UnauthorizedException('Invalid timestamp in Authorization header');
+      throw new UnauthorizedException(
+        'Invalid timestamp in Authorization header',
+      );
     }
 
     // ── Replay / expiry check ─────────────────────────────────────────────────
@@ -97,14 +101,18 @@ export class CitizenAuthGuard implements CanActivate {
     try {
       recoveredAddress = ethers.verifyMessage(challenge, signature);
     } catch {
-      throw new UnauthorizedException('Signature verification failed — malformed signature');
+      throw new UnauthorizedException(
+        'Signature verification failed — malformed signature',
+      );
     }
 
     if (recoveredAddress.toLowerCase() !== citizenAddress.toLowerCase()) {
       this.logger.warn(
         `Auth failure: claimed=${citizenAddress}, recovered=${recoveredAddress}`,
       );
-      throw new UnauthorizedException('Signature does not match claimed address');
+      throw new UnauthorizedException(
+        'Signature does not match claimed address',
+      );
     }
 
     // ── Attach verified identity to request ───────────────────────────────────
