@@ -1,4 +1,5 @@
 venv/
 __pycache__/
 .env*
-DEPLOYMENT.md
+*.pyc
+test_client/test_assets/unsafe/unsafe_test_image.png

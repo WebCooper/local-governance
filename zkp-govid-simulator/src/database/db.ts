@@ -23,6 +23,7 @@ export const initializeDatabase = (): void => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       govId TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
+      citizenSeed TEXT NOT NULL,
       name TEXT NOT NULL,
       email TEXT,
       phone TEXT,

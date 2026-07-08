@@ -1,0 +1,190 @@
+{
+  "test_id": "AI-SEC-05A",
+  "name": "Replay test first request",
+  "expected_http_status": 200,
+  "expected_decision": "ACCEPT",
+  "actual_http_status": 200,
+  "actual_decision": "ACCEPT",
+  "passed": true,
+  "elapsed_ms_client": 1700.42,
+  "processing_time_ms_server": 153.4,
+  "request_hash_local": "eda9bf542f7f748a187b8cf4d084c09700afb43a7c4ee15e1f980cc87cb28544",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-SEC-05A-a3a1020d-6aa0-4685-bd1f-cf70049e9422",
+    "text": "There is a pothole near the public school road.",
+    "category": "Road Damage",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-SEC-05A-a3a1020d-6aa0-4685-bd1f-cf70049e9422",
+    "text_hash": "3cd688b8ccdc78719302da0a2ffe4fd49b129b3c0cb88fccc7f26ef4bc542672",
+    "media_hashes": [],
+    "category": "Road Damage",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-05-12T12:14:11.844350+00:00",
+    "nonce": "e38ff51e-d64a-4bbf-b11b-4b681d9a7710"
+  },
+  "file_summaries": [],
+  "response": {
+    "final_decision": "ACCEPT",
+    "final_confidence": 0.8102,
+    "risk_level": "LOW",
+    "report_hash": "767221b52303cf9799bce152e76d390390e3844e5a579fd2847ae8973be26ca5",
+    "request_hash": "eda9bf542f7f748a187b8cf4d084c09700afb43a7c4ee15e1f980cc87cb28544",
+    "decision_hash": "fe2e7f77dafb1cf8aece91196883d008ad1aac216d8fd7a684ec7491d21ecdae",
+    "aggregator_signature": "b3bda809f915a8c9fdc05bb1712aa8fe041a822a85ff55200f597ba0f92f438d4fbea64056b8f6c3532a8bf9bcb76171f866a7819db074cce4bfc13930cc0df71c",
+    "summary_explanation": "Report accepted. Text and media passed moderation checks.",
+    "oracle_votes": [
+      {
+        "oracle_id": "ORACLE_1_SAFETY",
+        "vote": "ACCEPT",
+        "confidence": 0.9972,
+        "explanation_code": "TEXT_AND_IMAGES_SAFE",
+        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
+        "model_version": "1.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_result": {
+            "safe": true,
+            "confidence": 0.9972,
+            "critical_violation": false,
+            "explanation_code": "TEXT_SAFE",
+            "details": {
+              "scores": {
+                "toxic": 0.0027646715752780437,
+                "insult": 0.00028668594313785434,
+                "obscene": 0.00024163654597941786,
+                "identity_hate": 0.00018485593318473548,
+                "severe_toxic": 9.370943735120818e-05,
+                "threat": 9.13281983230263e-05
+              },
+              "mode": "unitary/toxic-bert"
+            }
+          },
+          "image_result": {
+            "safe": true,
+            "confidence": 1.0,
+            "critical_violation": false,
+            "explanation_code": "NO_IMAGE_PROVIDED",
+            "details": {
+              "images": []
+            }
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_2_SPAM_ABUSE",
+        "vote": "ACCEPT",
+        "confidence": 0.9353,
+        "explanation_code": "NO_SPAM_DETECTED",
+        "model_name": "mrm8488/bert-tiny-finetuned-sms-spam-detection + spam-abuse-rules-v2",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "decision_logic": {
+            "ai_strong_spam_threshold": 0.85,
+            "ai_supporting_spam_threshold": 0.65,
+            "rule_reject_threshold": 0.6,
+            "rule_support_threshold": 0.25,
+            "rejection_reasons": []
+          },
+          "ai_analysis": {
+            "model_used": true,
+            "available": true,
+            "label": "LABEL_0",
+            "predicted_score": 0.9353,
+            "spam_probability": 0.0647,
+            "non_spam_probability": 0.9353,
+            "raw_output": {
+              "label": "LABEL_0",
+              "score": 0.935294508934021
+            },
+            "error": null
+          },
+          "rule_based_analysis": {
+            "spam_score": 0.0,
+            "word_count": 9,
+            "url_count": 0,
+            "matched_spam_phrases": [],
+            "matched_promotional_words": [],
+            "repeated_character_pattern": false,
+            "excessive_symbols": false,
+            "reasons": []
+          }
+        }
+      },
+      {
+        "oracle_id": "ORACLE_3_CIVIC_RELEVANCE",
+        "vote": "ACCEPT",
+        "confidence": 0.498,
+        "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+        "model_name": "sentence-transformers/all-MiniLM-L6-v2 + keyword-support",
+        "model_version": "2.0.0",
+        "critical_violation": false,
+        "details": {
+          "text_relevance": {
+            "civic_relevant": true,
+            "confidence": 0.498,
+            "explanation_code": "SEMANTIC_CIVIC_RELEVANCE_AND_CATEGORY_MATCH",
+            "details": {
+              "mode": "semantic_similarity",
+              "selected_category": "Road Damage",
+              "overall_best_match": {
+                "category": "Road Damage",
+                "reference_text": "A civic report about potholes, damaged roads, broken streets, or unsafe road surfaces.",
+                "similarity": 0.498
+              },
+              "selected_category_best_match": {
+                "category": "Road Damage",
+                "reference_text": "A civic report about potholes, damaged roads, broken streets, or unsafe road surfaces.",
+                "similarity": 0.498
+              },
+              "text_relevance_threshold": 0.38,
+              "category_match_threshold": 0.4,
+              "keyword_support": {
+                "category_matches": {
+                  "Road Damage": [
+                    "road",
+                    "pothole",
+                    "hole"
+                  ],
+                  "Public Property Damage": [
+                    "public"
+                  ],
+                  "General Civic Issue": [
+                    "public"
+                  ]
+                },
+                "all_matches": [
+                  "hole",
+                  "pothole",
+                  "public",
+                  "road"
+                ]
+              }
+            }
+          },
+          "image_relevance": {
+            "image_relevance": "NO_IMAGE_PROVIDED",
+            "confidence": 1.0,
+            "details": []
+          }
+        }
+      }
+    ],
+    "security": {
+      "relayer_signature_verified": true,
+      "recovered_relayer_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "timestamp_validated": true,
+      "nonce_accepted": true
+    },
+    "processing_time_ms": 153.4
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "test_id": "AI-S10",
+  "name": "Corrupted image file",
+  "expected_http_status": 200,
+  "actual_http_status": "SKIPPED",
+  "expected_decision": "REJECT",
+  "actual_decision": "SKIPPED",
+  "passed": false,
+  "elapsed_ms_client": "",
+  "processing_time_ms_server": "",
+  "skip_reason": "Missing files: ['/home/nostoc/dev/local-governance/ai-oracle-service/test_client/test_assets/invalid/fake_image.png']",
+  "response": {}
+}
