@@ -15,7 +15,7 @@ export class BlockchainService implements OnModuleInit {
   private pollingContract!: ethers.Contract;
   private blockchainEnabled = false;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) { }
 
   onModuleInit() {
     this.initializeWeb3();
@@ -36,9 +36,9 @@ export class BlockchainService implements OnModuleInit {
     this.blockchainEnabled = true;
 
     // These values are pulled from your .env file
-    const rpcUrl = this.configService.get<string>('RPC_URL'); 
+    const rpcUrl = this.configService.get<string>('RPC_URL');
     const privateKey = this.configService.get<string>('RELAYER_PRIVATE_KEY');
-    const contractAddress = this.configService.get<string>('CONTRACT_ADDRESS');
+    const contractAddress = this.configService.get<string>('REPORTING_CONTRACT_ADDRESS');
     const pollingAddress = this.configService.get<string>('POLLING_CONTRACT_ADDRESS');
 
     if (!rpcUrl || !privateKey || !contractAddress || !pollingAddress) {
@@ -93,30 +93,30 @@ export class BlockchainService implements OnModuleInit {
 
     try {
 
-          // Convert hex strings to bytes32
-    const reportHashBytes   = ethers.hexlify(ethers.getBytes(reportHash)) as `0x${string}`;
-    const nullifierBytes = ethers.hexlify(ethers.getBytes(submissionNullifier)) as `0x${string}`;
+      // Convert hex strings to bytes32
+      const reportHashBytes = ethers.hexlify(ethers.getBytes(reportHash)) as `0x${string}`;
+      const nullifierBytes = ethers.hexlify(ethers.getBytes(submissionNullifier)) as `0x${string}`;
 
       this.logger.log(`Initiating blockchain transaction for nullifier: ${submissionNullifier}`);
-      
-    const tx = await this.reportingContract.submitReport(   // ← was createReport
-      ipfsCID,
-      reportHashBytes,      // bytes32 reportHash
-      nullifierBytes,       // bytes32 submissionNullifier
-      citizenPseudonym      // bytes32 citizenPseudonym
-    );
-      
+
+      const tx = await this.reportingContract.submitReport(   // ← was createReport
+        ipfsCID,
+        reportHashBytes,      // bytes32 reportHash
+        nullifierBytes,       // bytes32 submissionNullifier
+        citizenPseudonym      // bytes32 citizenPseudonym
+      );
+
       this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
-      
+
       // Wait for the block to be sealed by the authority nodes
       const receipt = await tx.wait();
-      
+
       this.logger.log(`Success! Report mined in block: ${receipt.blockNumber}`);
-      
-      return { 
-        success: true, 
-        transactionHash: tx.hash, 
-        blockNumber: receipt.blockNumber 
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -133,7 +133,7 @@ export class BlockchainService implements OnModuleInit {
     try {
       const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
       this.logger.log(`Casting ${phase} vote for report ${reportId}`);
-      
+
       let tx;
       if (phase === 'validation') {
         tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision);
@@ -167,7 +167,7 @@ export class BlockchainService implements OnModuleInit {
   async getLatestReportsForCron(limit: number = 50): Promise<any[]> {
     if (!this.blockchainEnabled) return [];
     // Assuming you have reportCount public variable or getAllReports implemented
-    const [reports] = await this.reportingContract.getAllReports(0, limit); 
+    const [reports] = await this.reportingContract.getAllReports(0, limit);
     return reports;
   }
 
@@ -216,10 +216,10 @@ export class BlockchainService implements OnModuleInit {
       return { success: true, transactionHash: tx.hash };
     } catch (error: any) {
       this.logger.error(`On-chain vote broadcast failure: ${error.message}`);
-      
+
       const errStr = error.message || '';
       const errData = error.data || '';
-      
+
       if (errStr.includes('AlreadyVotedWithNullifier') || errData.includes('0xc73a9589')) {
         throw new BadRequestException('You have already cast your ballot for this poll.');
       }
@@ -229,7 +229,7 @@ export class BlockchainService implements OnModuleInit {
       if (errStr.includes('PollDoesNotExist') || errData.includes('0x8acdc765')) {
         throw new BadRequestException('The specified poll does not exist.');
       }
-      
+
       throw new InternalServerErrorException('Contract rejected voting payload.');
     }
   }
