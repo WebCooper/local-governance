@@ -21,6 +21,7 @@ import {
 import { useCitizen } from "@/context/CitizenContext";
 import { castVoteOnRelayer } from "@/lib/relayerAPI";
 import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
+import { getVotePhaseFromStatus } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
 
 // Dynamic import to avoid SSR window issues
@@ -197,9 +198,11 @@ export default function IssueDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<boolean | null>(null);
-  const [votePhase, setVotePhase] = useState<VotePhase>("validation");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
+
+  // Derive the correct vote phase from the report's on-chain status
+  const votePhase: VotePhase | null = report ? getVotePhaseFromStatus(report.status) : null;
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "Unknown error";
@@ -214,6 +217,12 @@ export default function IssueDetailPage({
 
     if (!report) {
       setVoteMessage("Report data is not ready yet.");
+      return;
+    }
+
+    // Guard: votePhase is null when there is no active voting window
+    if (!votePhase) {
+      setVoteMessage("This report has no active voting window.");
       return;
     }
 
@@ -396,15 +405,21 @@ export default function IssueDetailPage({
         }`
       : null;
 
-  const voteControls = (
+  // Only render vote controls when there is an active voting window
+  const voteControls = votePhase ? (
     <VoteControls
       phase={votePhase}
       selectedDecision={selectedDecision}
-      onPhaseChange={setVotePhase}
       onVote={handleCastVote}
       isSubmitting={isSubmitting}
       availableTicketsCount={availableTicketsCount}
     />
+  ) : (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <p className="text-sm font-semibold text-slate-500 text-center">
+        No active voting window for this report.
+      </p>
+    </div>
   );
 
   return (
