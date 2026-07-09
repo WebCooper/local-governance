@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract Reporting is Ownable, ReentrancyGuard {
-
     // ─── Enums ───────────────────────────────────────────────────────────────
 
     enum ReportStatus {
@@ -35,20 +34,20 @@ contract Reporting is Ownable, ReentrancyGuard {
         string ipfsCid;
         bytes32 reportHash;
         bytes32 submissionNullifier;
-        bytes32 citizenPseudonym;      // keccak256(citizenPubKey + domainSalt) — derived off-chain by relayer
+        bytes32 citizenPseudonym; // keccak256(citizenPubKey + domainSalt) — derived off-chain by relayer
         address submittedByRelayer;
         ReportStatus status;
         uint256 createdAt;
         uint256 updatedAt;
         uint256 phaseDeadline;
         address assignedAuthority;
-        VoteCounters votes; 
+        VoteCounters votes;
     }
 
     // ─── State Variables ─────────────────────────────────────────────────────
 
     uint256 public reportCount;
-    uint256 public votingWindowDuration = 12 hours;
+    uint256 public votingWindowDuration = 6 hours;
 
     // Primary store: reportId → Report
     mapping(uint256 => Report) public reports;
@@ -58,9 +57,12 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     // Replay-attack guards
     mapping(bytes32 => bool) public usedSubmissionNullifiers;
-    mapping(uint256 => mapping(bytes32 => bool)) public usedValidationVoteNullifiers;
-    mapping(uint256 => mapping(bytes32 => bool)) public usedVerificationVoteNullifiers;
-    mapping(uint256 => mapping(bytes32 => bool)) public usedRejectionReviewVoteNullifiers;
+    mapping(uint256 => mapping(bytes32 => bool))
+        public usedValidationVoteNullifiers;
+    mapping(uint256 => mapping(bytes32 => bool))
+        public usedVerificationVoteNullifiers;
+    mapping(uint256 => mapping(bytes32 => bool))
+        public usedRejectionReviewVoteNullifiers;
 
     mapping(address => bool) public authorizedRelayers;
     mapping(address => bool) public authorizedAuthorities;
@@ -90,14 +92,54 @@ contract Reporting is Ownable, ReentrancyGuard {
         bytes32 citizenPseudonym,
         uint256 timestamp
     );
-    event ValidationVoteCast(uint256 indexed reportId, bytes32 indexed voteNullifier, bool support, uint256 upvotes, uint256 downvotes);
-    event ReportStatusChanged(uint256 indexed reportId, ReportStatus previousStatus, ReportStatus newStatus, uint256 timestamp);
-    event VotingWindowFinalized(uint256 indexed reportId, ReportStatus previousStatus, ReportStatus newStatus, uint256 timestamp);
-    event WorkStarted(uint256 indexed reportId, address indexed authority, uint256 timestamp);
-    event ReportMarkedSolved(uint256 indexed reportId, address indexed authority, uint256 timestamp);
-    event ReportRejectedByAuthority(uint256 indexed reportId, address indexed authority, uint256 timestamp);
-    event VerificationVoteCast(uint256 indexed reportId,bytes32 indexed voteNullifier, bool accept, uint256 acceptVotes, uint256 rejectVotes); 
-    event RejectionReviewVoteCast(uint256 indexed reportId, bytes32 indexed voteNullifier, bool uphold, uint256 upholdVotes, uint256 appealVotes);
+    event ValidationVoteCast(
+        uint256 indexed reportId,
+        bytes32 indexed voteNullifier,
+        bool support,
+        uint256 upvotes,
+        uint256 downvotes
+    );
+    event ReportStatusChanged(
+        uint256 indexed reportId,
+        ReportStatus previousStatus,
+        ReportStatus newStatus,
+        uint256 timestamp
+    );
+    event VotingWindowFinalized(
+        uint256 indexed reportId,
+        ReportStatus previousStatus,
+        ReportStatus newStatus,
+        uint256 timestamp
+    );
+    event WorkStarted(
+        uint256 indexed reportId,
+        address indexed authority,
+        uint256 timestamp
+    );
+    event ReportMarkedSolved(
+        uint256 indexed reportId,
+        address indexed authority,
+        uint256 timestamp
+    );
+    event ReportRejectedByAuthority(
+        uint256 indexed reportId,
+        address indexed authority,
+        uint256 timestamp
+    );
+    event VerificationVoteCast(
+        uint256 indexed reportId,
+        bytes32 indexed voteNullifier,
+        bool accept,
+        uint256 acceptVotes,
+        uint256 rejectVotes
+    );
+    event RejectionReviewVoteCast(
+        uint256 indexed reportId,
+        bytes32 indexed voteNullifier,
+        bool uphold,
+        uint256 upholdVotes,
+        uint256 appealVotes
+    );
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
@@ -127,7 +169,10 @@ contract Reporting is Ownable, ReentrancyGuard {
         authorizedRelayers[relayer] = authorized;
     }
 
-    function setAuthority(address authority, bool authorized) external onlyOwner {
+    function setAuthority(
+        address authority,
+        bool authorized
+    ) external onlyOwner {
         if (authorized && !authorizedAuthorities[authority]) {
             authorizedAuthorities[authority] = true;
             authoritiesList.push(authority);
@@ -136,7 +181,9 @@ contract Reporting is Ownable, ReentrancyGuard {
             // Remove from array
             for (uint256 i = 0; i < authoritiesList.length; i++) {
                 if (authoritiesList[i] == authority) {
-                    authoritiesList[i] = authoritiesList[authoritiesList.length - 1];
+                    authoritiesList[i] = authoritiesList[
+                        authoritiesList.length - 1
+                    ];
                     authoritiesList.pop();
                     break;
                 }
@@ -175,16 +222,16 @@ contract Reporting is Ownable, ReentrancyGuard {
         bytes32 submissionNullifier,
         bytes32 citizenPseudonym
     ) external onlyRelayer nonReentrant returns (uint256 reportId) {
-
         // ── Input validation ──────────────────────────────────────────────────
 
-        if (bytes(ipfsCid).length == 0)    revert EmptyCID();
-        if (reportHash == bytes32(0))       revert InvalidHash();
+        if (bytes(ipfsCid).length == 0) revert EmptyCID();
+        if (reportHash == bytes32(0)) revert InvalidHash();
         if (submissionNullifier == bytes32(0)) revert InvalidNullifier();
         if (citizenPseudonym == bytes32(0)) revert InvalidPseudonym();
 
         // Nullifier must not have been used before (replay attack prevention)
-        if (usedSubmissionNullifiers[submissionNullifier]) revert NullifierAlreadyUsed();
+        if (usedSubmissionNullifiers[submissionNullifier])
+            revert NullifierAlreadyUsed();
 
         // ── Consume nullifier before state changes (CEI pattern) ──────────────
         usedSubmissionNullifiers[submissionNullifier] = true;
@@ -196,15 +243,15 @@ contract Reporting is Ownable, ReentrancyGuard {
         // ── Write report to storage ───────────────────────────────────────────
         Report storage report = reports[reportId];
 
-        report.id                  = reportId;
-        report.ipfsCid             = ipfsCid;
-        report.reportHash          = reportHash;
+        report.id = reportId;
+        report.ipfsCid = ipfsCid;
+        report.reportHash = reportHash;
         report.submissionNullifier = submissionNullifier;
-        report.citizenPseudonym    = citizenPseudonym;
-        report.submittedByRelayer  = msg.sender;
-        report.status              = ReportStatus.PendingValidation;
-        report.createdAt           = block.timestamp;
-        report.updatedAt           = block.timestamp;
+        report.citizenPseudonym = citizenPseudonym;
+        report.submittedByRelayer = msg.sender;
+        report.status = ReportStatus.PendingValidation;
+        report.createdAt = block.timestamp;
+        report.updatedAt = block.timestamp;
 
         // ── Open the validation voting window ─────────────────────────────────
         report.phaseDeadline = block.timestamp + votingWindowDuration;
@@ -213,34 +260,43 @@ contract Reporting is Ownable, ReentrancyGuard {
         reportsByCitizen[citizenPseudonym].push(reportId);
 
         // ── Emit event ────────────────────────────────────────────────────────
-        emit ReportSubmitted(reportId, ipfsCid, reportHash, submissionNullifier, citizenPseudonym, block.timestamp);
+        emit ReportSubmitted(
+            reportId,
+            ipfsCid,
+            reportHash,
+            submissionNullifier,
+            citizenPseudonym,
+            block.timestamp
+        );
     }
 
     // ─── Internal State Transition Helper ────────────────────────────────────
 
-    function _changeStatus(
-        uint256 reportId,
-        ReportStatus newStatus
-    ) internal {
+    function _changeStatus(uint256 reportId, ReportStatus newStatus) internal {
         Report storage report = reports[reportId];
 
         ReportStatus previousStatus = report.status;
 
-        report.status    = newStatus;
+        report.status = newStatus;
         report.updatedAt = block.timestamp;
 
         // Clear phaseDeadline when entering a non-voting state
         if (
-            newStatus == ReportStatus.Open              ||
-            newStatus == ReportStatus.InProgress        ||
-            newStatus == ReportStatus.Closed            ||
+            newStatus == ReportStatus.Open ||
+            newStatus == ReportStatus.InProgress ||
+            newStatus == ReportStatus.Closed ||
             newStatus == ReportStatus.CommunityRejected ||
             newStatus == ReportStatus.Reopened
         ) {
             report.phaseDeadline = 0;
         }
 
-        emit ReportStatusChanged(reportId, previousStatus, newStatus, block.timestamp);
+        emit ReportStatusChanged(
+            reportId,
+            previousStatus,
+            newStatus,
+            block.timestamp
+        );
     }
 
     // ─── Query / View Functions ───────────────────────────────────────────────
@@ -282,7 +338,7 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         // How many items are actually available from this offset?
         uint256 available = total - offset;
-        uint256 count     = available < limit ? available : limit;
+        uint256 count = available < limit ? available : limit;
 
         page = new Report[](count);
 
@@ -336,7 +392,7 @@ contract Reporting is Ownable, ReentrancyGuard {
         }
 
         uint256 available = total - offset;
-        uint256 count     = available < limit ? available : limit;
+        uint256 count = available < limit ? available : limit;
 
         page = new Report[](count);
 
@@ -379,17 +435,22 @@ contract Reporting is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Cast a vote on a newly created report. 
+     * @notice Cast a vote on a newly created report.
      * If the vote arrives after the deadline, it performs lazy evaluation to finalize the report instead.
      */
-    function castValidationVote(uint256 reportId, bytes32 voteNullifier, bool support) external onlyRelayer nonReentrant {
+    function castValidationVote(
+        uint256 reportId,
+        bytes32 voteNullifier,
+        bool support
+    ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
-        
+
         // Ensure the report is currently in the validation phase
-        if (report.status != ReportStatus.PendingValidation) revert InvalidState();
+        if (report.status != ReportStatus.PendingValidation)
+            revert InvalidState();
 
         // ─── LAZY EVALUATION ──────────────────────────────────────────────────
-        // If the window has expired, do NOT count the vote. 
+        // If the window has expired, do NOT count the vote.
         // Instead, use this transaction to finalize the voting window.
         if (block.timestamp > report.phaseDeadline) {
             _finalizeSingleReport(reportId, report);
@@ -397,7 +458,8 @@ contract Reporting is Ownable, ReentrancyGuard {
         }
 
         // ─── NORMAL VOTING LOGIC ──────────────────────────────────────────────
-        if (usedValidationVoteNullifiers[reportId][voteNullifier]) revert NullifierAlreadyUsed();
+        if (usedValidationVoteNullifiers[reportId][voteNullifier])
+            revert NullifierAlreadyUsed();
         usedValidationVoteNullifiers[reportId][voteNullifier] = true;
 
         if (support) {
@@ -406,13 +468,24 @@ contract Reporting is Ownable, ReentrancyGuard {
             report.votes.validationDownvotes++;
         }
 
-        emit ValidationVoteCast(reportId, voteNullifier, support, report.votes.validationUpvotes, report.votes.validationDownvotes);
+        emit ValidationVoteCast(
+            reportId,
+            voteNullifier,
+            support,
+            report.votes.validationUpvotes,
+            report.votes.validationDownvotes
+        );
     }
 
-    function castVerificationVote(uint256 reportId, bytes32 voteNullifier, bool accept) external onlyRelayer nonReentrant {
+    function castVerificationVote(
+        uint256 reportId,
+        bytes32 voteNullifier,
+        bool accept
+    ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
-        
-        if (report.status != ReportStatus.PendingVerification) revert InvalidState();
+
+        if (report.status != ReportStatus.PendingVerification)
+            revert InvalidState();
 
         // ─── LAZY EVALUATION ───
         if (block.timestamp > report.phaseDeadline) {
@@ -420,7 +493,8 @@ contract Reporting is Ownable, ReentrancyGuard {
             return;
         }
 
-        if (usedVerificationVoteNullifiers[reportId][voteNullifier]) revert NullifierAlreadyUsed();
+        if (usedVerificationVoteNullifiers[reportId][voteNullifier])
+            revert NullifierAlreadyUsed();
         usedVerificationVoteNullifiers[reportId][voteNullifier] = true;
 
         if (accept) {
@@ -429,13 +503,24 @@ contract Reporting is Ownable, ReentrancyGuard {
             report.votes.verificationRejectVotes++;
         }
 
-        emit VerificationVoteCast(reportId, voteNullifier, accept, report.votes.verificationAcceptVotes, report.votes.verificationRejectVotes);
+        emit VerificationVoteCast(
+            reportId,
+            voteNullifier,
+            accept,
+            report.votes.verificationAcceptVotes,
+            report.votes.verificationRejectVotes
+        );
     }
 
-    function castRejectionReviewVote(uint256 reportId, bytes32 voteNullifier, bool uphold) external onlyRelayer nonReentrant {
+    function castRejectionReviewVote(
+        uint256 reportId,
+        bytes32 voteNullifier,
+        bool uphold
+    ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
-        
-        if (report.status != ReportStatus.PendingRejectionReview) revert InvalidState();
+
+        if (report.status != ReportStatus.PendingRejectionReview)
+            revert InvalidState();
 
         // ─── LAZY EVALUATION ───
         if (block.timestamp > report.phaseDeadline) {
@@ -443,7 +528,8 @@ contract Reporting is Ownable, ReentrancyGuard {
             return;
         }
 
-        if (usedRejectionReviewVoteNullifiers[reportId][voteNullifier]) revert NullifierAlreadyUsed();
+        if (usedRejectionReviewVoteNullifiers[reportId][voteNullifier])
+            revert NullifierAlreadyUsed();
         usedRejectionReviewVoteNullifiers[reportId][voteNullifier] = true;
 
         if (uphold) {
@@ -452,7 +538,13 @@ contract Reporting is Ownable, ReentrancyGuard {
             report.votes.rejectionAppealVotes++;
         }
 
-        emit RejectionReviewVoteCast(reportId, voteNullifier, uphold, report.votes.rejectionUpholdVotes, report.votes.rejectionAppealVotes);
+        emit RejectionReviewVoteCast(
+            reportId,
+            voteNullifier,
+            uphold,
+            report.votes.rejectionUpholdVotes,
+            report.votes.rejectionAppealVotes
+        );
     }
 
     // ─── Finalization & Cron Job ──────────────────────────────────────────────
@@ -464,16 +556,14 @@ contract Reporting is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < reportIds.length; i++) {
             uint256 reportId = reportIds[i];
             Report storage report = reports[reportId];
-            
+
             // Only finalize if the window is closed and it is currently in a voting state
             if (
-                report.phaseDeadline > 0 && 
+                report.phaseDeadline > 0 &&
                 block.timestamp > report.phaseDeadline &&
-                (
-                    report.status == ReportStatus.PendingValidation || 
-                    report.status == ReportStatus.PendingVerification || 
-                    report.status == ReportStatus.PendingRejectionReview
-                )
+                (report.status == ReportStatus.PendingValidation ||
+                    report.status == ReportStatus.PendingVerification ||
+                    report.status == ReportStatus.PendingRejectionReview)
             ) {
                 _finalizeSingleReport(reportId, report);
             }
@@ -483,74 +573,94 @@ contract Reporting is Ownable, ReentrancyGuard {
     function finalizeVotingWindow(uint256 reportId) external nonReentrant {
         Report storage report = reports[reportId];
         if (report.phaseDeadline == 0) revert InvalidState();
-        if (block.timestamp <= report.phaseDeadline) revert VotingWindowStillOpen();
-        
+        if (block.timestamp <= report.phaseDeadline)
+            revert VotingWindowStillOpen();
+
         _finalizeSingleReport(reportId, report);
     }
 
     /**
      * @dev Internal logic extracted to support both single (lazy) and batch finalization.
      */
-    function _finalizeSingleReport(uint256 reportId, Report storage report) internal {
+    function _finalizeSingleReport(
+        uint256 reportId,
+        Report storage report
+    ) internal {
         ReportStatus previousStatus = report.status;
         ReportStatus newStatus;
 
         if (previousStatus == ReportStatus.PendingValidation) {
-            newStatus = report.votes.validationUpvotes > report.votes.validationDownvotes 
-                ? ReportStatus.Open 
+            newStatus = report.votes.validationUpvotes >
+                report.votes.validationDownvotes
+                ? ReportStatus.Open
                 : ReportStatus.CommunityRejected;
         } else if (previousStatus == ReportStatus.PendingVerification) {
-            newStatus = report.votes.verificationAcceptVotes >= report.votes.verificationRejectVotes 
-                ? ReportStatus.Closed 
+            newStatus = report.votes.verificationAcceptVotes >=
+                report.votes.verificationRejectVotes
+                ? ReportStatus.Closed
                 : ReportStatus.Reopened;
         } else if (previousStatus == ReportStatus.PendingRejectionReview) {
-            newStatus = report.votes.rejectionUpholdVotes >= report.votes.rejectionAppealVotes 
-                ? ReportStatus.Closed 
+            newStatus = report.votes.rejectionUpholdVotes >=
+                report.votes.rejectionAppealVotes
+                ? ReportStatus.Closed
                 : ReportStatus.Reopened;
         } else {
             return; // Not in a resolvable state, gracefully exit
         }
 
         _changeStatus(reportId, newStatus);
-        emit VotingWindowFinalized(reportId, previousStatus, newStatus, block.timestamp);
+        emit VotingWindowFinalized(
+            reportId,
+            previousStatus,
+            newStatus,
+            block.timestamp
+        );
     }
 
     function startWork(uint256 reportId) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
-        if (report.status != ReportStatus.Open && report.status != ReportStatus.Reopened) revert InvalidState();
-        
+        if (
+            report.status != ReportStatus.Open &&
+            report.status != ReportStatus.Reopened
+        ) revert InvalidState();
+
         report.assignedAuthority = msg.sender;
         _changeStatus(reportId, ReportStatus.InProgress);
-        
+
         emit WorkStarted(reportId, msg.sender, block.timestamp);
     }
 
-    function markAsSolved(uint256 reportId) external onlyAuthority nonReentrant {
+    function markAsSolved(
+        uint256 reportId
+    ) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
         if (report.status != ReportStatus.InProgress) revert InvalidState();
         if (report.assignedAuthority != msg.sender) revert Unauthorized();
-        
+
         _changeStatus(reportId, ReportStatus.PendingVerification);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
-        
+
         emit ReportMarkedSolved(reportId, msg.sender, block.timestamp);
     }
 
     function rejectIssue(uint256 reportId) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
         if (
-            report.status != ReportStatus.Open && 
-            report.status != ReportStatus.Reopened && 
+            report.status != ReportStatus.Open &&
+            report.status != ReportStatus.Reopened &&
             report.status != ReportStatus.InProgress
         ) revert InvalidState();
-        
-        if (report.status == ReportStatus.InProgress && report.assignedAuthority != msg.sender) {
+
+        if (
+            report.status == ReportStatus.InProgress &&
+            report.assignedAuthority != msg.sender
+        ) {
             revert Unauthorized();
         }
-        
+
         _changeStatus(reportId, ReportStatus.PendingRejectionReview);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
-        
+
         emit ReportRejectedByAuthority(reportId, msg.sender, block.timestamp);
     }
 }
