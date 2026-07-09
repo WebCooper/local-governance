@@ -53,6 +53,37 @@ export default function AuthorityAdminPage() {
     connectWallet,
   } = useAdmin();
   const { wallet } = useCitizen();
+  const [isFunding, setIsFunding] = useState(false);
+
+  const handleTopUp = async () => {
+    setIsFunding(true);
+    const loadToast = toast.loading("Scanning wallet balances & topping up...");
+    try {
+      const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_URL || "https://relayer.internalbuildtools.online";
+      const response = await axios.post(`${relayerUrl}/funding/scan`);
+      const { funded, skipped, errors } = response.data.data;
+
+      const fundedCount = funded.length;
+      const skippedCount = skipped.length;
+      const errorCount = errors.length;
+
+      let msg = `Scan complete. Topped up: ${fundedCount}, Skipped: ${skippedCount}`;
+      if (errorCount > 0) {
+        msg += `, Errors: ${errorCount}`;
+      }
+
+      if (fundedCount > 0) {
+        toast.success(msg, { id: loadToast });
+      } else {
+        toast.success(`${msg} (All wallets have sufficient balance)`, { id: loadToast });
+      }
+    } catch (error: any) {
+      console.error("Failed to trigger top-up scan:", error);
+      toast.error(error.response?.data?.message || "Failed to trigger top-up scan.", { id: loadToast });
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"reports" | "polls">("reports");
@@ -291,11 +322,27 @@ export default function AuthorityAdminPage() {
             <p className="text-sm text-slate-500">Manage Civic Reports &amp; Opinion Polls</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 bg-slate-100 py-2 px-4 rounded-full border border-slate-200">
-          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-sm font-mono text-slate-700">
-            {account.slice(0, 6)}…{account.slice(-4)}
-          </span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleTopUp}
+            disabled={isFunding}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-1.5 shadow-md hover:shadow-lg"
+          >
+            {isFunding ? (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            )}
+            {isFunding ? "Scanning..." : "Top-Up Wallets"}
+          </button>
+          <div className="flex items-center gap-3 bg-slate-100 py-2 px-4 rounded-full border border-slate-200 shadow-sm">
+            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-sm font-mono text-slate-700">
+              {account.slice(0, 6)}…{account.slice(-4)}
+            </span>
+          </div>
         </div>
       </nav>
 
