@@ -1,12 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BlockchainService } from '../blockchain/blockchain.service';
+import { AuthorityFundingService } from '../blockchain/authority-funding.service';
 
 @Injectable()
 export class CronService {
   private readonly logger = new Logger(CronService.name);
 
-  constructor(private readonly blockchainService: BlockchainService) { }
+  constructor(
+    private readonly blockchainService: BlockchainService,
+    private readonly fundingService: AuthorityFundingService,
+  ) { }
+
+  @Cron(process.env.BALANCE_SCAN_CRON_EXPRESSION || '0 1 * * *', {
+    timeZone: 'Asia/Colombo',
+  })
+  async handleBalanceScan() {
+    this.logger.log('CRON: Scanning authority and super admin balances...');
+    try {
+      const summary = await this.fundingService.scanAndFundAllAccounts();
+      this.logger.log(
+        `CRON Balance Scan completed. Funded: ${summary.funded.length}, Skipped: ${summary.skipped.length}, Errors: ${summary.errors.length}`,
+      );
+    } catch (error: any) {
+      this.logger.error(`CRON Balance Scan failed: ${error.message}`);
+    }
+  }
 
   @Cron(process.env.CRON_EXPRESSION || CronExpression.EVERY_DAY_AT_MIDNIGHT, {
     timeZone: "Asia/Colombo" //add time zone property. Now this will run according to sl time zone
