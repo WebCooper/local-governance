@@ -59,7 +59,7 @@ export function getVotePhaseFromStatus(status: number): VotePhase | null {
 }
 
 // ─── Authority Action Definitions ─────────────────────────────────────────────
-export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue";
+export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue" | "addUpdate";
 
 export interface AuthorityActionMeta {
   action: AuthorityAction;
@@ -98,6 +98,15 @@ const ACTION_META: Record<AuthorityAction, AuthorityActionMeta> = {
       "You are about to reject this report. This will open a community rejection review voting window for citizens to appeal or uphold your decision.",
     color: "red",
   },
+  addUpdate: {
+    action: "addUpdate",
+    label: "Post Progress Update",
+    description: "Post a progress update with comments and/or images without changing report status.",
+    confirmTitle: "Post Progress Update?",
+    confirmMessage:
+      "You are about to post a progress update for this report on-chain. This will not change the report status.",
+    color: "green",
+  },
 };
 
 export function getActionMeta(action: AuthorityAction): AuthorityActionMeta {
@@ -119,7 +128,13 @@ export function getAvailableActions(
     case REPORT_STATUS.Reopened:
       return ["startWork", "rejectIssue"];
     case REPORT_STATUS.InProgress:
-      if (isAssigned || isUnassigned) return ["markAsSolved", "rejectIssue"];
+      if (isAssigned || isUnassigned) {
+        const actions: AuthorityAction[] = ["markAsSolved", "rejectIssue"];
+        if (isAssigned) {
+          actions.push("addUpdate");
+        }
+        return actions;
+      }
       return [];
     default:
       return [];
@@ -161,6 +176,9 @@ export interface EnrichedReport {
     rejectionUpholdVotes: number;
     rejectionAppealVotes: number;
   };
+  authorityComment?: string;
+  authorityImageCid?: string;
+  authorityCommentResolved?: string;
   description?: string;
   category?: string;
   location?: string;
@@ -187,6 +205,8 @@ export function rawToEnriched(raw: any): EnrichedReport {
       rejectionUpholdVotes: Number(raw.votes.rejectionUpholdVotes),
       rejectionAppealVotes: Number(raw.votes.rejectionAppealVotes),
     },
+    authorityComment: raw.authorityComment,
+    authorityImageCid: raw.authorityImageCid,
     ipfsLoaded: false,
   };
 }
@@ -200,24 +220,44 @@ function extractCid(raw: string): string | null {
 export async function enrichReportWithIPFS(
   report: EnrichedReport
 ): Promise<EnrichedReport> {
+  let enriched = { ...report };
+
+  // Resolve citizen report IPFS data
   const cid = extractCid(report.ipfsCid);
-  if (!cid) return { ...report, ipfsLoaded: true };
-  try {
-    const res = await fetch(`/api/ipfs/${cid}`);
-    if (!res.ok) return { ...report, ipfsLoaded: true };
-    const data = await res.json();
-    if (!data.success) return { ...report, ipfsLoaded: true };
-    return {
-      ...report,
-      description: data.description,
-      category: data.category,
-      location: data.location,
-      images: data.images ?? [],
-      ipfsLoaded: true,
-    };
-  } catch {
-    return { ...report, ipfsLoaded: true };
+  if (cid) {
+    try {
+      const res = await fetch(`/api/ipfs/${cid}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          enriched.description = data.description;
+          enriched.category = data.category;
+          enriched.location = data.location;
+          enriched.images = data.images ?? [];
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch complaint IPFS data:", err);
+    }
   }
+
+  // Resolve authority comment text from IPFS if present
+  if (report.authorityComment && report.authorityComment.length > 5) {
+    try {
+      const res = await fetch(`/api/ipfs/text/${report.authorityComment}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.content) {
+          enriched.authorityCommentResolved = data.content;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch authority comment from IPFS:", err);
+    }
+  }
+
+  enriched.ipfsLoaded = true;
+  return enriched;
 }
 
 // ─── Formatting Helpers ───────────────────────────────────────────────────────
@@ -241,3 +281,19 @@ export function shortenAddress(addr: string): string {
     return "Unassigned";
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
+
+export function extractCoordinates(raw?: string): { lat: number; lng: number } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.lat === "number" && typeof parsed.lng === "number")
+      return { lat: parsed.lat, lng: parsed.lng };
+    if (
+      typeof parsed.latitude === "number" &&
+      typeof parsed.longitude === "number"
+    )
+      return { lat: parsed.latitude, lng: parsed.longitude };
+  } catch {}
+  return null;
+}
+

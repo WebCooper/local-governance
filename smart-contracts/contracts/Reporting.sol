@@ -42,6 +42,21 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 phaseDeadline;
         address assignedAuthority;
         VoteCounters votes;
+        // Latest authority update (comment + image) for quick display
+        string authorityComment;
+        string authorityImageCid;
+    }
+
+    /**
+     * @notice Records each action taken by an authority on a report.
+     *         Stored in reportActions[reportId] as a append-only history log.
+     */
+    struct AuthorityAction {
+        address authority;
+        ReportStatus stage;       // Status the report was in when this action was taken
+        string comment;           // Free-text note from the authority
+        string imageCid;          // IPFS CID of any attached image (empty string if none)
+        uint256 timestamp;
     }
 
     // ─── State Variables ─────────────────────────────────────────────────────
@@ -54,6 +69,9 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     // Index: citizenPseudonym → list of reportIds submitted by that citizen
     mapping(bytes32 => uint256[]) private reportsByCitizen;
+
+    // Full authority action history per report
+    mapping(uint256 => AuthorityAction[]) public reportActions;
 
     // Replay-attack guards
     mapping(bytes32 => bool) public usedSubmissionNullifiers;
@@ -114,16 +132,29 @@ contract Reporting is Ownable, ReentrancyGuard {
     event WorkStarted(
         uint256 indexed reportId,
         address indexed authority,
+        string comment,
+        string imageCid,
         uint256 timestamp
     );
     event ReportMarkedSolved(
         uint256 indexed reportId,
         address indexed authority,
+        string comment,
+        string imageCid,
         uint256 timestamp
     );
     event ReportRejectedByAuthority(
         uint256 indexed reportId,
         address indexed authority,
+        string comment,
+        string imageCid,
+        uint256 timestamp
+    );
+    event AuthorityUpdatePosted(
+        uint256 indexed reportId,
+        address indexed authority,
+        string comment,
+        string imageCid,
         uint256 timestamp
     );
     event VerificationVoteCast(
@@ -299,6 +330,29 @@ contract Reporting is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+     * @dev Records an authority action log entry and updates the report's
+     *      latest comment and image CID fields.
+     */
+    function _recordAuthorityAction(
+        uint256 reportId,
+        ReportStatus stage,
+        string memory comment,
+        string memory imageCid
+    ) internal {
+        Report storage report = reports[reportId];
+        report.authorityComment = comment;
+        report.authorityImageCid = imageCid;
+
+        reportActions[reportId].push(AuthorityAction({
+            authority: msg.sender,
+            stage: stage,
+            comment: comment,
+            imageCid: imageCid,
+            timestamp: block.timestamp
+        }));
+    }
+
     // ─── Query / View Functions ───────────────────────────────────────────────
 
     /**
@@ -308,6 +362,19 @@ contract Reporting is Ownable, ReentrancyGuard {
     function getReport(uint256 reportId) external view returns (Report memory) {
         if (reportId == 0 || reportId > reportCount) revert InvalidReportId();
         return reports[reportId];
+    }
+
+    /**
+     * @notice Fetch the full authority action history for a report.
+     * @param reportId  The sequential report ID (1-indexed).
+     */
+    function getReportActions(uint256 reportId)
+        external
+        view
+        returns (AuthorityAction[] memory)
+    {
+        if (reportId == 0 || reportId > reportCount) revert InvalidReportId();
+        return reportActions[reportId];
     }
 
     /**
@@ -617,7 +684,19 @@ contract Reporting is Ownable, ReentrancyGuard {
         );
     }
 
-    function startWork(uint256 reportId) external onlyAuthority nonReentrant {
+    // ─── Authority Action Functions ───────────────────────────────────────────
+
+    /**
+     * @notice Authority claims a report and starts work on it.
+     * @param reportId   The report to start working on.
+     * @param comment    A free-text note from the authority (can be empty).
+     * @param imageCid   IPFS CID of an optional evidence/progress image (can be empty).
+     */
+    function startWork(
+        uint256 reportId,
+        string calldata comment,
+        string calldata imageCid
+    ) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
@@ -626,12 +705,21 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         report.assignedAuthority = msg.sender;
         _changeStatus(reportId, ReportStatus.InProgress);
+        _recordAuthorityAction(reportId, ReportStatus.InProgress, comment, imageCid);
 
-        emit WorkStarted(reportId, msg.sender, block.timestamp);
+        emit WorkStarted(reportId, msg.sender, comment, imageCid, block.timestamp);
     }
 
+    /**
+     * @notice Authority marks the report as solved and opens the community verification window.
+     * @param reportId   The in-progress report.
+     * @param comment    A free-text note describing what was done (can be empty).
+     * @param imageCid   IPFS CID of completion evidence image (can be empty).
+     */
     function markAsSolved(
-        uint256 reportId
+        uint256 reportId,
+        string calldata comment,
+        string calldata imageCid
     ) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
         if (report.status != ReportStatus.InProgress) revert InvalidState();
@@ -639,11 +727,22 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         _changeStatus(reportId, ReportStatus.PendingVerification);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
+        _recordAuthorityAction(reportId, ReportStatus.PendingVerification, comment, imageCid);
 
-        emit ReportMarkedSolved(reportId, msg.sender, block.timestamp);
+        emit ReportMarkedSolved(reportId, msg.sender, comment, imageCid, block.timestamp);
     }
 
-    function rejectIssue(uint256 reportId) external onlyAuthority nonReentrant {
+    /**
+     * @notice Authority rejects the issue and opens the community appeal window.
+     * @param reportId   The report to reject.
+     * @param comment    A free-text note explaining the rejection (can be empty).
+     * @param imageCid   IPFS CID of any supporting image (can be empty).
+     */
+    function rejectIssue(
+        uint256 reportId,
+        string calldata comment,
+        string calldata imageCid
+    ) external onlyAuthority nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
@@ -660,7 +759,33 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         _changeStatus(reportId, ReportStatus.PendingRejectionReview);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
+        _recordAuthorityAction(reportId, ReportStatus.PendingRejectionReview, comment, imageCid);
 
-        emit ReportRejectedByAuthority(reportId, msg.sender, block.timestamp);
+        emit ReportRejectedByAuthority(reportId, msg.sender, comment, imageCid, block.timestamp);
+    }
+
+    /**
+     * @notice Post a comment and/or image update on an assigned report without
+     *         changing its status. Useful for mid-work progress updates.
+     *
+     * @dev    Only the currently assigned authority may call this. The report
+     *         must be InProgress. The action is appended to the history log.
+     *
+     * @param reportId   The in-progress report.
+     * @param comment    Progress note (can be empty if only an image is posted).
+     * @param imageCid   IPFS CID of a progress image (can be empty if only a comment is posted).
+     */
+    function addAuthorityUpdate(
+        uint256 reportId,
+        string calldata comment,
+        string calldata imageCid
+    ) external onlyAuthority nonReentrant {
+        Report storage report = reports[reportId];
+        if (report.status != ReportStatus.InProgress) revert InvalidState();
+        if (report.assignedAuthority != msg.sender) revert Unauthorized();
+
+        _recordAuthorityAction(reportId, ReportStatus.InProgress, comment, imageCid);
+
+        emit AuthorityUpdatePosted(reportId, msg.sender, comment, imageCid, block.timestamp);
     }
 }

@@ -13,22 +13,22 @@ import {
   RotateCw,
   AlertCircle,
   ImageIcon,
-  ThumbsUp,
-  ThumbsDown,
-  Hash,
   Calendar,
 } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { useCitizen } from "@/context/CitizenContext";
 import { ReportStatusBadge } from "@/components/admin/ReportStatusBadge";
 import { ReportActionButtons } from "@/components/admin/ReportActionButtons";
+import { VoteRow } from "@/components/admin/VoteRow";
+import { ReportingABI, AuthorityMultiSigABI } from "@/lib/contracts/abis";
 import {
   type EnrichedReport,
   rawToEnriched,
   enrichReportWithIPFS,
   formatLocation,
   shortenAddress,
-  REPORT_STATUS,
+  getStatusMeta,
+  extractCoordinates,
 } from "@/lib/reportHelpers";
 import Link from "next/link";
 
@@ -36,70 +36,20 @@ const MapPreview = dynamic(() => import("@/components/MapPreview"), {
   ssr: false,
 });
 
-// ─── ABI (view only — reads done via public RPC) ──────────────────────────────
-const REPORTING_ABI = [
-  "function getReport(uint256 reportId) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes))",
-];
-
-function extractCoordinates(raw?: string): { lat: number; lng: number } | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (typeof parsed.lat === "number" && typeof parsed.lng === "number")
-      return { lat: parsed.lat, lng: parsed.lng };
-    if (
-      typeof parsed.latitude === "number" &&
-      typeof parsed.longitude === "number"
-    )
-      return { lat: parsed.latitude, lng: parsed.longitude };
-  } catch {}
-  return null;
+interface ActionLogEntry {
+  authority: string;
+  stage: number;
+  commentCid: string;
+  imageCid: string;
+  timestamp: number;
+  commentText: string;
+  profile: {
+    name: string;
+    position: string;
+    department: string;
+  } | null;
 }
 
-function VoteRow({
-  label,
-  yes,
-  no,
-  yesLabel = "Yes",
-  noLabel = "No",
-}: {
-  label: string;
-  yes: number;
-  no: number;
-  yesLabel?: string;
-  noLabel?: string;
-}) {
-  const total = yes + no;
-  const pct = total === 0 ? 0 : Math.round((yes / total) * 100);
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-        <span>{label}</span>
-        <span className="font-bold text-slate-700">{pct}% {yesLabel}</span>
-      </div>
-      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-blue-500 rounded-full transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1 text-green-600 font-semibold">
-          <ThumbsUp className="w-3 h-3" />
-          {yes} {yesLabel}
-        </span>
-        <span className="flex items-center gap-1 text-red-500 font-semibold">
-          <ThumbsDown className="w-3 h-3" />
-          {no} {noLabel}
-        </span>
-        <span className="ml-auto">{total} total votes</span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AuthorityReportDetailPage({
   params,
 }: {
@@ -111,6 +61,7 @@ export default function AuthorityReportDetailPage({
   const { wallet } = useCitizen();
 
   const [report, setReport] = useState<EnrichedReport | null>(null);
+  const [actionsHistory, setActionsHistory] = useState<ActionLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,14 +71,76 @@ export default function AuthorityReportDetailPage({
     try {
       const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
       const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+      const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
       if (!CONTRACT_ADDRESS) throw new Error("Contract address not configured.");
 
       const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, REPORTING_ABI, provider);
-      const raw = await contract.getReport(Number(id));
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, ReportingABI, provider);
+      const multiSig = new ethers.Contract(MULTISIG_ADDRESS, AuthorityMultiSigABI, provider);
 
+      // Fetch main report details
+      const raw = await contract.getReport(Number(id));
       const base = rawToEnriched(raw);
       setReport(base);
+
+      // Fetch authority actions history
+      try {
+        const rawActions = await contract.getReportActions(Number(id));
+        const enrichedActions = await Promise.all(
+          rawActions.map(async (act: any) => {
+            const authority = act.authority;
+            const stage = Number(act.stage);
+            const commentCid = act.comment;
+            const imageCid = act.imageCid;
+            const timestamp = Number(act.timestamp);
+
+            let commentText = "";
+            if (commentCid && commentCid.trim().length > 5) {
+              try {
+                const textRes = await fetch(`/api/ipfs/text/${commentCid}`);
+                if (textRes.ok) {
+                  const textData = await textRes.json();
+                  if (textData.success && textData.content) {
+                    commentText = textData.content;
+                  }
+                }
+              } catch (e) {
+                console.error("Error resolving action comment:", e);
+              }
+            }
+
+            let profile = null;
+            if (MULTISIG_ADDRESS) {
+              try {
+                const prof = await multiSig.getProfile(authority);
+                if (prof.isSet) {
+                  profile = {
+                    name: prof.name,
+                    position: prof.position,
+                    department: prof.department,
+                  };
+                }
+              } catch (e) {
+                console.error("Error fetching authority profile:", e);
+              }
+            }
+
+            return {
+              authority,
+              stage,
+              commentCid,
+              imageCid,
+              timestamp,
+              commentText,
+              profile,
+            };
+          })
+        );
+        // Sort actions: newest first
+        setActionsHistory(enrichedActions.reverse());
+      } catch (err) {
+        console.error("Failed to load actions history:", err);
+      }
 
       // Async IPFS enrichment
       const enriched = await enrichReportWithIPFS(base);
@@ -429,6 +442,78 @@ export default function AuthorityReportDetailPage({
                 )}
               </div>
             </div>
+
+            {/* Authority Action Log / Timeline */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-5">
+                Authority Activity History
+              </h2>
+              {actionsHistory.length === 0 ? (
+                <p className="text-slate-400 italic text-sm text-center py-4">
+                  No authority actions recorded on-chain yet.
+                </p>
+              ) : (
+                <div className="relative border-l border-slate-200 ml-4 pl-6 space-y-8">
+                  {actionsHistory.map((act, index) => {
+                    const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    });
+
+                    const statusMeta = getStatusMeta(act.stage);
+
+                    return (
+                      <div key={index} className="relative">
+                        {/* Timeline dot */}
+                        <span className={`absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                              {statusMeta.label}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">
+                              {actionDate}
+                            </span>
+                          </div>
+
+                          {/* Authority Name / Role */}
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                            <span className="text-slate-800">
+                              {act.profile ? act.profile.name : shortenAddress(act.authority)}
+                            </span>
+                            {act.profile && (
+                              <span className="text-slate-400 font-medium">
+                                ({act.profile.position} &bull; {act.profile.department})
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Comment Content */}
+                          {act.commentText && (
+                            <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                              {act.commentText}
+                            </p>
+                          )}
+
+                          {/* Uploaded Evidence Image */}
+                          {act.imageCid && act.imageCid.length > 5 && (
+                            <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-slate-50">
+                              <img
+                                src={`/api/ipfs/image/${act.imageCid}`}
+                                alt="Action Attachment"
+                                className="w-full h-full object-cover hover:scale-[1.02] transition-all"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* ── RIGHT COLUMN ────────────────────────────────────────────────── */}
@@ -440,7 +525,7 @@ export default function AuthorityReportDetailPage({
                 Authority Actions
               </h3>
               <p className="text-xs text-slate-500 mb-4">
-                Actions available for the current report status.
+                Execute state updates with notes and image uploads.
               </p>
               <ReportActionButtons
                 report={report}
