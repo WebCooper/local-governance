@@ -25,6 +25,7 @@ import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
 import { getVotePhaseFromStatus } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
 import { ReportingABI } from "@/lib/contracts/abis";
+import CountdownTimer from "@/components/ui/CountdownTimer";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -50,6 +51,7 @@ interface ReportDetail {
   ipfsCid: string;
   status: number;
   createdAt: number;
+  phaseDeadline: number;
   votes: VoteCounters;
   assignedAuthority: string;
 
@@ -350,6 +352,7 @@ export default function IssueDetailPage({
           ipfsCid: r.ipfsCid,
           status: Number(r.status),
           createdAt: Number(r.createdAt) * 1000,
+          phaseDeadline: Number(r.phaseDeadline) * 1000,
           votes: {
             validationUpvotes: Number(r.votes.validationUpvotes),
             validationDownvotes: Number(r.votes.validationDownvotes),
@@ -526,6 +529,30 @@ export default function IssueDetailPage({
         </div>
 
         <div className="p-4 space-y-5">
+          {/* Active Voting Phase Countdown */}
+          {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+                <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                <span>Voting Ends In:</span>
+              </div>
+              <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+            </div>
+          )}
+
+          {/* Pending Validation Phase Explanation */}
+          {report.status === 0 && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+              <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                <span>About Pending Validation Phase</span>
+              </div>
+              <p className="leading-relaxed">
+                When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -626,22 +653,32 @@ export default function IssueDetailPage({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
-              >
-                {status.label}
-              </span>
-
-              {report.category && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                  {report.category}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
+                >
+                  {status.label}
                 </span>
-              )}
 
-              <span className="text-slate-400 text-sm font-mono">
-                ID: #{report.id}
-              </span>
+                {report.category && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
+                    {report.category}
+                  </span>
+                )}
+
+                <span className="text-slate-400 text-sm font-mono">
+                  ID: #{report.id}
+                </span>
+              </div>
+
+              {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full text-blue-700 text-xs font-bold shadow-sm">
+                  <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                  <span>VOTING ENDS IN:</span>
+                  <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+                </div>
+              )}
             </div>
 
             {/* Title */}
@@ -666,6 +703,20 @@ export default function IssueDetailPage({
                 </span>
               )}
             </div>
+
+            {/* Pending Validation Phase Explanation */}
+            {report.status === 0 && (
+              <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                  <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                  <span>About Pending Validation Phase</span>
+                </div>
+                <p className="leading-relaxed">
+                  When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                  Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+                </p>
+              </div>
+            )}
 
             {/* Description */}
             <div>
