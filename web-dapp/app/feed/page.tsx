@@ -10,6 +10,7 @@ import MapPreview from "@/components/MapPreview";
 import { useAdmin } from "@/context/AdminContext";
 import { useCitizen } from "@/context/CitizenContext";
 import { getPollingContract } from "@/lib/contracts/polling";
+import CountdownTimer from "@/components/ui/CountdownTimer";
 
 import {
   ThumbsUp,
@@ -92,6 +93,7 @@ export interface PublicReport {
   ipfsCid: string;
   status: number;
   createdAt: number;
+  phaseDeadline: number;
   upvotes: number;
   downvotes: number;
 
@@ -451,6 +453,7 @@ export default function FeedPage() {
           ipfsCid: r.ipfsCid,
           status: Number(r.status),
           createdAt: Number(r.createdAt) * 1000,
+          phaseDeadline: Number(r.phaseDeadline) * 1000,
           upvotes,
           downvotes,
           ipfsLoaded: false,
@@ -785,6 +788,11 @@ export default function FeedPage() {
                       {report.imageUrl && (
                         <div className="absolute top-3 right-3 z-[1200] w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center shadow">
                           <ImageIcon className="h-4 w-4 text-slate-700" />
+                        </div>
+                      )}
+                      {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+                        <div className="absolute bottom-3 right-3 z-[1200] bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-xl shadow flex items-center gap-1">
+                          <CountdownTimer deadline={report.phaseDeadline} compact />
                         </div>
                       )}
                     </div>
