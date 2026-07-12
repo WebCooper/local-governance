@@ -5,6 +5,14 @@ import { useAdmin } from "@/context/AdminContext";
 import axios from "axios";
 import toast from "react-hot-toast";
 
+interface MemberProfile {
+  address: string;
+  name: string;
+  position: string;
+  department: string;
+  isSet: boolean;
+}
+
 export default function SuperAdminPage() {
   const { 
     account, 
@@ -20,13 +28,22 @@ export default function SuperAdminPage() {
   const [targetAddress, setTargetAddress] = useState("");
   const [actionType, setActionType] = useState("0");
   const [durationInDays, setDurationInDays] = useState<number>(7);
+  
+  // Proposal target profile details
+  const [targetName, setTargetName] = useState("");
+  const [targetPosition, setTargetPosition] = useState("");
+  const [targetDepartment, setTargetDepartment] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [proposals, setProposals] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"proposals" | "members">("proposals");
   const [isFunding, setIsFunding] = useState(false);
 
+  // Profile data states for existing members
+  const [superAdminProfiles, setSuperAdminProfiles] = useState<MemberProfile[]>([]);
+  const [authorityProfiles, setAuthorityProfiles] = useState<MemberProfile[]>([]);
+
   const handleTopUp = async () => {
-    setIsFunding(true);
     const loadToast = toast.loading("Scanning wallet balances & topping up...");
     try {
       const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_URL || "https://relayer.internalbuildtools.online";
@@ -55,12 +72,6 @@ export default function SuperAdminPage() {
     }
   };
 
-  useEffect(() => {
-    if (contract && isSuperAdmin) {
-      fetchProposals();
-    }
-  }, [contract, isSuperAdmin]);
-
   const fetchProposals = async () => {
     if (!contract) return;
     try {
@@ -76,6 +87,9 @@ export default function SuperAdminPage() {
           noVotes: Number(p.noVotes),
           deadline: Number(p.deadline),
           executed: p.executed,
+          name: p.name,
+          position: p.position,
+          department: p.department,
         });
       }
       setProposals(loadedProposals);
@@ -87,6 +101,62 @@ export default function SuperAdminPage() {
     }
   };
 
+  const loadProfiles = async () => {
+    if (!contract) return;
+    try {
+      const saProfs = await Promise.all(
+        superAdminsList.map(async (addr) => {
+          try {
+            const p = await contract.getProfile(addr);
+            return {
+              address: addr,
+              name: p.name,
+              position: p.position,
+              department: p.department,
+              isSet: p.isSet,
+            };
+          } catch {
+            return { address: addr, name: "", position: "", department: "", isSet: false };
+          }
+        })
+      );
+      setSuperAdminProfiles(saProfs);
+      
+      const authProfs = await Promise.all(
+        authoritiesList.map(async (addr) => {
+          try {
+            const p = await contract.getProfile(addr);
+            return {
+              address: addr,
+              name: p.name,
+              position: p.position,
+              department: p.department,
+              isSet: p.isSet,
+            };
+          } catch {
+            return { address: addr, name: "", position: "", department: "", isSet: false };
+          }
+        })
+      );
+      setAuthorityProfiles(authProfs);
+    } catch (e) {
+      console.error("Error loading member profiles:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (contract && isSuperAdmin) {
+      fetchProposals();
+    }
+  }, [contract, isSuperAdmin]);
+
+  // Load profiles when membership lists change
+  useEffect(() => {
+    if (contract && (superAdminsList.length > 0 || authoritiesList.length > 0)) {
+      loadProfiles();
+    }
+  }, [contract, superAdminsList, authoritiesList]);
+
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contract) return;
@@ -94,10 +164,24 @@ export default function SuperAdminPage() {
     setIsSubmitting(true);
     try {
       const safeAddress = targetAddress.trim().toLowerCase();
-      const tx = await contract.submitProposal(safeAddress, Number(actionType), durationInDays);
+      const nameVal = (actionType === "0" || actionType === "2") ? targetName.trim() : "";
+      const posVal = (actionType === "0" || actionType === "2") ? targetPosition.trim() : "";
+      const deptVal = (actionType === "0" || actionType === "2") ? targetDepartment.trim() : "";
+
+      const tx = await contract.submitProposal(
+        safeAddress, 
+        Number(actionType), 
+        durationInDays,
+        nameVal,
+        posVal,
+        deptVal
+      );
       await tx.wait();
       alert("Proposal submitted successfully!");
       setTargetAddress("");
+      setTargetName("");
+      setTargetPosition("");
+      setTargetDepartment("");
       fetchProposals();
     } catch (error: any) {
       console.error(error);
@@ -204,15 +288,15 @@ export default function SuperAdminPage() {
                   onChange={(e) => setTargetAddress(e.target.value)}
                   placeholder="0x..."
                   required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
                 />
               </div>
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Action Type</label>
                 <select 
                   value={actionType}
                   onChange={(e) => setActionType(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
                 >
                   <option value="0">Add Super Admin</option>
                   <option value="1">Remove Super Admin</option>
@@ -220,6 +304,47 @@ export default function SuperAdminPage() {
                   <option value="3">Remove Authority</option>
                 </select>
               </div>
+
+              {/* Conditional Profile Fields */}
+              {(actionType === "0" || actionType === "2") && (
+                <div className="space-y-4 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Member Details</h4>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
+                    <input 
+                      type="text" 
+                      value={targetName}
+                      onChange={(e) => setTargetName(e.target.value)}
+                      placeholder="e.g. Janitha Rajapakse"
+                      required
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Position / Job Title</label>
+                    <input 
+                      type="text" 
+                      value={targetPosition}
+                      onChange={(e) => setTargetPosition(e.target.value)}
+                      placeholder="e.g. Chief Executive Officer"
+                      required
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
+                    <input 
+                      type="text" 
+                      value={targetDepartment}
+                      onChange={(e) => setTargetDepartment(e.target.value)}
+                      placeholder="e.g. Technology Department"
+                      required
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Validity Period (Days)</label>
                 <input 
@@ -229,7 +354,7 @@ export default function SuperAdminPage() {
                   value={durationInDays}
                   onChange={(e) => setDurationInDays(Number(e.target.value))}
                   required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800"
                 />
               </div>
               <button 
@@ -281,64 +406,74 @@ export default function SuperAdminPage() {
                     </div>
                   ) : (
                     <ul className="divide-y divide-slate-200">
-                {proposals.map((prop) => {
-                  const isExpired = Date.now() > prop.deadline * 1000;
-                  const timeRemaining = Math.max(0, prop.deadline * 1000 - Date.now());
-                  const daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
-                  const hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                  
-                  return (
-                  <li key={prop.id} className="p-6 hover:bg-slate-50 transition-colors">
-                    <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
-                      <div className="w-full lg:w-1/2">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className="text-xs font-bold bg-slate-200 text-slate-700 px-2 py-1 rounded">#{prop.id}</span>
-                          <span className={`text-xs font-bold px-2 py-1 rounded ${prop.executed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {prop.executed ? 'Executed' : 'Pending'}
-                          </span>
-                          {!prop.executed && (
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${isExpired ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                              {isExpired ? 'Expired' : `${daysRemaining}d ${hoursRemaining}h remaining`}
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-slate-900">{getActionName(prop.actionType)}</h3>
-                        <p className="text-sm text-slate-500 font-mono mt-1 break-all">Target: {prop.target}</p>
-                      </div>
-                      
-                      <div className="flex flex-col sm:flex-row items-center gap-6 w-full lg:w-auto">
-                        <div className="flex gap-6 w-full justify-between sm:justify-start">
-                          <div className="text-center bg-green-50 px-4 py-2 rounded-lg border border-green-100">
-                            <div className="text-xs font-semibold text-green-700 uppercase tracking-wide">Yes Votes</div>
-                            <div className="text-2xl font-bold text-green-600">{prop.yesVotes}</div>
-                          </div>
-                          <div className="text-center bg-red-50 px-4 py-2 rounded-lg border border-red-100">
-                            <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">No Votes</div>
-                            <div className="text-2xl font-bold text-red-600">{prop.noVotes}</div>
-                          </div>
-                        </div>
+                      {proposals.map((prop) => {
+                        const isExpired = Date.now() > prop.deadline * 1000;
+                        const timeRemaining = Math.max(0, prop.deadline * 1000 - Date.now());
+                        const daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+                        const hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                         
-                        {!prop.executed && !isExpired && (
-                          <div className="flex flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                            <button 
-                              onClick={() => handleVote(prop.id, true)}
-                              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
-                            >
-                              Vote Yes
-                            </button>
-                            <button 
-                              onClick={() => handleVote(prop.id, false)}
-                              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
-                            >
-                              Vote No
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                )})}
-              </ul>
+                        return (
+                          <li key={prop.id} className="p-6 hover:bg-slate-50 transition-colors">
+                            <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
+                              <div className="w-full lg:w-1/2">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="text-xs font-bold bg-slate-200 text-slate-700 px-2 py-1 rounded">#{prop.id}</span>
+                                  <span className={`text-xs font-bold px-2 py-1 rounded ${prop.executed ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {prop.executed ? 'Executed' : 'Pending'}
+                                  </span>
+                                  {!prop.executed && (
+                                    <span className={`text-xs font-bold px-2 py-1 rounded ${isExpired ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                      {isExpired ? 'Expired' : `${daysRemaining}d ${hoursRemaining}h remaining`}
+                                    </span>
+                                  )}
+                                </div>
+                                <h3 className="font-semibold text-slate-900 leading-tight">
+                                  {getActionName(prop.actionType)}
+                                </h3>
+                                
+                                {prop.name && (
+                                  <div className="mt-2 bg-slate-50 border border-slate-100 p-2.5 rounded-lg text-xs text-slate-600">
+                                    <span className="font-bold text-slate-700">Proposed Profile:</span> {prop.name} ({prop.position} &bull; {prop.department})
+                                  </div>
+                                )}
+
+                                <p className="text-xs text-slate-400 font-mono mt-2 break-all">Target: {prop.target}</p>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row items-center gap-6 w-full lg:w-auto">
+                                <div className="flex gap-6 w-full justify-between sm:justify-start">
+                                  <div className="text-center bg-green-50 px-4 py-2 rounded-lg border border-green-100">
+                                    <div className="text-xs font-semibold text-green-700 uppercase tracking-wide">Yes Votes</div>
+                                    <div className="text-2xl font-bold text-green-600">{prop.yesVotes}</div>
+                                  </div>
+                                  <div className="text-center bg-red-50 px-4 py-2 rounded-lg border border-red-100">
+                                    <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">No Votes</div>
+                                    <div className="text-2xl font-bold text-red-600">{prop.noVotes}</div>
+                                  </div>
+                                </div>
+                                
+                                {!prop.executed && !isExpired && (
+                                  <div className="flex flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                                    <button 
+                                      onClick={() => handleVote(prop.id, true)}
+                                      className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                    >
+                                      Vote Yes
+                                    </button>
+                                    <button 
+                                      onClick={() => handleVote(prop.id, false)}
+                                      className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                    >
+                                      Vote No
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </>
               )}
@@ -351,16 +486,37 @@ export default function SuperAdminPage() {
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                       Super Admins
                     </h3>
-                    {superAdminsList.length === 0 ? (
+                    {superAdminProfiles.length === 0 ? (
                       <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100">No super admins found.</p>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {superAdminsList.map((admin, idx) => (
-                          <div key={`sa-${idx}`} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm shrink-0 border border-blue-100">
+                        {superAdminProfiles.map((member, idx) => (
+                          <div key={`sa-${idx}`} className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm shrink-0 border border-blue-100 mt-0.5">
                               {idx + 1}
                             </div>
-                            <p className="font-mono text-sm text-slate-700 truncate" title={admin}>{admin}</p>
+                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                              {member.isSet ? (
+                                <>
+                                  <p className="font-bold text-slate-800 text-sm leading-snug">
+                                    {member.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500 font-medium">
+                                    {member.position} &bull; {member.department}
+                                  </p>
+                                  <p className="font-mono text-[10px] text-slate-400 mt-0.5 break-all" title={member.address}>
+                                    {member.address}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="font-mono text-sm text-slate-700 truncate" title={member.address}>
+                                    {member.address}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 italic">No profile details set</p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -373,16 +529,37 @@ export default function SuperAdminPage() {
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
                       Authorities
                     </h3>
-                    {authoritiesList.length === 0 ? (
+                    {authorityProfiles.length === 0 ? (
                       <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100">No authorities configured.</p>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {authoritiesList.map((auth, idx) => (
-                          <div key={`auth-${idx}`} className="flex items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 font-bold text-sm shrink-0 border border-green-100">
+                        {authorityProfiles.map((member, idx) => (
+                          <div key={`auth-${idx}`} className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 font-bold text-sm shrink-0 border border-green-100 mt-0.5">
                               A
                             </div>
-                            <p className="font-mono text-sm text-slate-700 truncate" title={auth}>{auth}</p>
+                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                              {member.isSet ? (
+                                <>
+                                  <p className="font-bold text-slate-800 text-sm leading-snug">
+                                    {member.name}
+                                  </p>
+                                  <p className="text-xs text-slate-500 font-medium">
+                                    {member.position} &bull; {member.department}
+                                  </p>
+                                  <p className="font-mono text-[10px] text-slate-400 mt-0.5 break-all" title={member.address}>
+                                    {member.address}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="font-mono text-sm text-slate-700 truncate" title={member.address}>
+                                    {member.address}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 italic">No profile details set</p>
+                                </>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

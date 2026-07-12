@@ -29,10 +29,37 @@ export default buildModule("ReportingLocalGovernance", (m) => {
     "0x416109618A1f1A89C7Fd156be62b5fc734745340", // Super Admin 1 - Janitha
     "0x22c3488E96fccE1077365309A92e6BD895a00AAf", // Super Admin 2 - Hansika
     "0xA7Fe174054755c27c870772f47E52081c4b250b5", // Super Admin 3 - Lavindu
-    "0xda90b18Df16955Da5352C21D00d3ac4CDb52125b" //  Super Admin 4 - Malitha
+    "0xda90b18Df16955Da5352C21D00d3ac4CDb52125b"  // Super Admin 4 - Malitha
   ];
 
-  const authorityMultiSig = m.contract("AuthorityMultiSig", [initialSuperAdmins, reporting]);
+  const initialNames = [
+    "Janitha Karunarathna",
+    "Hansika Karunathilake",
+    "Lavindu Aththanayaka",
+    "Malitha Jeewaka"
+  ];
+
+  const initialPositions = [
+    "Mayor",
+    "Deputy Mayor",
+    "Chief Executive Officer",
+    "Town Planner"
+  ];
+
+  const initialDepartments = [
+    "Mayor's Office",
+    "Deputy Mayor's Office",
+    "Treasury & Accounts",
+    "Municipal Council"
+  ];
+
+  const authorityMultiSig = m.contract("AuthorityMultiSig", [
+    initialSuperAdmins,
+    initialNames,
+    initialPositions,
+    initialDepartments,
+    reporting
+  ]);
 
   // OpinionPolling reads authorizedAuthorities from Reporting to gate createOfficialPoll
   const opinionPolling = m.contract("OpinionPolling", [reporting]);
