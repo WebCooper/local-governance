@@ -9,6 +9,7 @@ import {
   MapPin,
   Clock,
   ThumbsUp,
+  ThumbsDown,
   RotateCw,
   AlertCircle,
   ImageIcon,
@@ -23,6 +24,7 @@ import { castVoteOnRelayer } from "@/lib/relayerAPI";
 import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
 import { getVotePhaseFromStatus } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
+import { ReportingABI } from "@/lib/contracts/abis";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -30,18 +32,25 @@ const MapPreview = dynamic(() => import("@/components/MapPreview"), {
 });
 
 // ── ABI ──────────────────────────────────────────────────────────
-const REPORTING_ABI = [
-  "function getReport(uint256 reportId) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes))",
-];
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
 
 // ── Types ─────────────────────────────────────────────────────────
+interface VoteCounters {
+  validationUpvotes: number;
+  validationDownvotes: number;
+  verificationAcceptVotes: number;
+  verificationRejectVotes: number;
+  rejectionUpholdVotes: number;
+  rejectionAppealVotes: number;
+}
+
 interface ReportDetail {
   id: string;
   ipfsCid: string;
   status: number;
   createdAt: number;
-  upvotes: number;
-  downvotes: number;
+  votes: VoteCounters;
   assignedAuthority: string;
 
   // IPFS
@@ -176,10 +185,68 @@ function extractCoordinates(
 
 function consensusPct(up: number, down: number) {
   const total = up + down;
-
   if (total === 0) return 0;
-
   return Math.round((up / total) * 100);
+}
+
+/** Returns the agree/disagree vote pair relevant to the report's current phase. */
+function getPhaseVotes(
+  votes: VoteCounters,
+  status: number
+): { agree: number; disagree: number; agreeLabel: string; disagreeLabel: string; phaseLabel: string } {
+  switch (status) {
+    case 0: // PendingValidation
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+    case 5: // PendingVerification
+      return {
+        agree: votes.verificationAcceptVotes,
+        disagree: votes.verificationRejectVotes,
+        agreeLabel: "Accepted",
+        disagreeLabel: "Rejected",
+        phaseLabel: "Verification",
+      };
+    case 4: // PendingRejectionReview
+      return {
+        agree: votes.rejectionUpholdVotes,
+        disagree: votes.rejectionAppealVotes,
+        agreeLabel: "Upheld",
+        disagreeLabel: "Appealed",
+        phaseLabel: "Rejection Review",
+      };
+    default:
+      // No active voting window — show whichever phase had the most activity
+      if (votes.verificationAcceptVotes + votes.verificationRejectVotes > 0) {
+        return {
+          agree: votes.verificationAcceptVotes,
+          disagree: votes.verificationRejectVotes,
+          agreeLabel: "Accepted",
+          disagreeLabel: "Rejected",
+          phaseLabel: "Verification",
+        };
+      }
+      if (votes.rejectionUpholdVotes + votes.rejectionAppealVotes > 0) {
+        return {
+          agree: votes.rejectionUpholdVotes,
+          disagree: votes.rejectionAppealVotes,
+          agreeLabel: "Upheld",
+          disagreeLabel: "Appealed",
+          phaseLabel: "Rejection Review",
+        };
+      }
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+  }
 }
 
 
@@ -268,21 +335,11 @@ export default function IssueDetailPage({
       setError(null);
 
       try {
-        const RPC_URL =
-          process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
-
-        const CONTRACT_ADDRESS =
-          process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
-
-        if (!CONTRACT_ADDRESS) {
-          throw new Error("Contract address not configured.");
-        }
-
         const provider = new ethers.JsonRpcProvider(RPC_URL);
 
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
-          REPORTING_ABI,
+          ReportingABI,
           provider
         );
 
@@ -293,8 +350,14 @@ export default function IssueDetailPage({
           ipfsCid: r.ipfsCid,
           status: Number(r.status),
           createdAt: Number(r.createdAt) * 1000,
-          upvotes: Number(r.votes.validationUpvotes),
-          downvotes: Number(r.votes.validationDownvotes),
+          votes: {
+            validationUpvotes: Number(r.votes.validationUpvotes),
+            validationDownvotes: Number(r.votes.validationDownvotes),
+            verificationAcceptVotes: Number(r.votes.verificationAcceptVotes),
+            verificationRejectVotes: Number(r.votes.verificationRejectVotes),
+            rejectionUpholdVotes: Number(r.votes.rejectionUpholdVotes),
+            rejectionAppealVotes: Number(r.votes.rejectionAppealVotes),
+          },
           assignedAuthority: r.assignedAuthority,
           ipfsLoaded: false,
         };
@@ -384,7 +447,8 @@ export default function IssueDetailPage({
 
   const status = getStatus(report.status);
 
-  const pct = consensusPct(report.upvotes, report.downvotes);
+  const phaseVotes = getPhaseVotes(report.votes, report.status);
+  const pct = consensusPct(phaseVotes.agree, phaseVotes.disagree);
 
   const reportedAt = new Date(report.createdAt).toLocaleString(
     "en-US",
@@ -669,15 +733,20 @@ export default function IssueDetailPage({
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
 
-              <h3 className="text-lg font-bold text-slate-900 mb-5">
-                Community Consensus
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">
+                  Community Consensus
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
+                  {phaseVotes.phaseLabel}
+                </span>
+              </div>
 
               <div className="mb-4">
 
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-slate-500 font-medium">
-                    Current support
+                    {phaseVotes.agreeLabel} rate
                   </span>
 
                   <span className="text-2xl font-extrabold text-blue-600">
@@ -692,10 +761,16 @@ export default function IssueDetailPage({
                   />
                 </div>
 
-                <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-                  <ThumbsUp className="h-3 w-3" />
-                  {report.upvotes} upvotes · {report.downvotes} downvotes
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3" />
+                    {phaseVotes.agree} {phaseVotes.agreeLabel}
+                  </p>
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3" />
+                    {phaseVotes.disagree} {phaseVotes.disagreeLabel}
+                  </p>
+                </div>
               </div>
             </div>
 
