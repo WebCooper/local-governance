@@ -9,6 +9,7 @@ import {
   MapPin,
   Clock,
   ThumbsUp,
+  ThumbsDown,
   RotateCw,
   AlertCircle,
   ImageIcon,
@@ -21,7 +22,10 @@ import {
 import { useCitizen } from "@/context/CitizenContext";
 import { castVoteOnRelayer } from "@/lib/relayerAPI";
 import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
+import { getVotePhaseFromStatus } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
+import { ReportingABI } from "@/lib/contracts/abis";
+import CountdownTimer from "@/components/ui/CountdownTimer";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -29,18 +33,26 @@ const MapPreview = dynamic(() => import("@/components/MapPreview"), {
 });
 
 // ── ABI ──────────────────────────────────────────────────────────
-const REPORTING_ABI = [
-  "function getReport(uint256 reportId) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes))",
-];
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
 
 // ── Types ─────────────────────────────────────────────────────────
+interface VoteCounters {
+  validationUpvotes: number;
+  validationDownvotes: number;
+  verificationAcceptVotes: number;
+  verificationRejectVotes: number;
+  rejectionUpholdVotes: number;
+  rejectionAppealVotes: number;
+}
+
 interface ReportDetail {
   id: string;
   ipfsCid: string;
   status: number;
   createdAt: number;
-  upvotes: number;
-  downvotes: number;
+  phaseDeadline: number;
+  votes: VoteCounters;
   assignedAuthority: string;
 
   // IPFS
@@ -175,10 +187,68 @@ function extractCoordinates(
 
 function consensusPct(up: number, down: number) {
   const total = up + down;
-
   if (total === 0) return 0;
-
   return Math.round((up / total) * 100);
+}
+
+/** Returns the agree/disagree vote pair relevant to the report's current phase. */
+function getPhaseVotes(
+  votes: VoteCounters,
+  status: number
+): { agree: number; disagree: number; agreeLabel: string; disagreeLabel: string; phaseLabel: string } {
+  switch (status) {
+    case 0: // PendingValidation
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+    case 5: // PendingVerification
+      return {
+        agree: votes.verificationAcceptVotes,
+        disagree: votes.verificationRejectVotes,
+        agreeLabel: "Accepted",
+        disagreeLabel: "Rejected",
+        phaseLabel: "Verification",
+      };
+    case 4: // PendingRejectionReview
+      return {
+        agree: votes.rejectionUpholdVotes,
+        disagree: votes.rejectionAppealVotes,
+        agreeLabel: "Upheld",
+        disagreeLabel: "Appealed",
+        phaseLabel: "Rejection Review",
+      };
+    default:
+      // No active voting window — show whichever phase had the most activity
+      if (votes.verificationAcceptVotes + votes.verificationRejectVotes > 0) {
+        return {
+          agree: votes.verificationAcceptVotes,
+          disagree: votes.verificationRejectVotes,
+          agreeLabel: "Accepted",
+          disagreeLabel: "Rejected",
+          phaseLabel: "Verification",
+        };
+      }
+      if (votes.rejectionUpholdVotes + votes.rejectionAppealVotes > 0) {
+        return {
+          agree: votes.rejectionUpholdVotes,
+          disagree: votes.rejectionAppealVotes,
+          agreeLabel: "Upheld",
+          disagreeLabel: "Appealed",
+          phaseLabel: "Rejection Review",
+        };
+      }
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+  }
 }
 
 
@@ -197,9 +267,11 @@ export default function IssueDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<boolean | null>(null);
-  const [votePhase, setVotePhase] = useState<VotePhase>("validation");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
+
+  // Derive the correct vote phase from the report's on-chain status
+  const votePhase: VotePhase | null = report ? getVotePhaseFromStatus(report.status) : null;
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "Unknown error";
@@ -214,6 +286,12 @@ export default function IssueDetailPage({
 
     if (!report) {
       setVoteMessage("Report data is not ready yet.");
+      return;
+    }
+
+    // Guard: votePhase is null when there is no active voting window
+    if (!votePhase) {
+      setVoteMessage("This report has no active voting window.");
       return;
     }
 
@@ -259,21 +337,11 @@ export default function IssueDetailPage({
       setError(null);
 
       try {
-        const RPC_URL =
-          process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
-
-        const CONTRACT_ADDRESS =
-          process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
-
-        if (!CONTRACT_ADDRESS) {
-          throw new Error("Contract address not configured.");
-        }
-
         const provider = new ethers.JsonRpcProvider(RPC_URL);
 
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
-          REPORTING_ABI,
+          ReportingABI,
           provider
         );
 
@@ -284,8 +352,15 @@ export default function IssueDetailPage({
           ipfsCid: r.ipfsCid,
           status: Number(r.status),
           createdAt: Number(r.createdAt) * 1000,
-          upvotes: Number(r.votes.validationUpvotes),
-          downvotes: Number(r.votes.validationDownvotes),
+          phaseDeadline: Number(r.phaseDeadline) * 1000,
+          votes: {
+            validationUpvotes: Number(r.votes.validationUpvotes),
+            validationDownvotes: Number(r.votes.validationDownvotes),
+            verificationAcceptVotes: Number(r.votes.verificationAcceptVotes),
+            verificationRejectVotes: Number(r.votes.verificationRejectVotes),
+            rejectionUpholdVotes: Number(r.votes.rejectionUpholdVotes),
+            rejectionAppealVotes: Number(r.votes.rejectionAppealVotes),
+          },
           assignedAuthority: r.assignedAuthority,
           ipfsLoaded: false,
         };
@@ -375,7 +450,8 @@ export default function IssueDetailPage({
 
   const status = getStatus(report.status);
 
-  const pct = consensusPct(report.upvotes, report.downvotes);
+  const phaseVotes = getPhaseVotes(report.votes, report.status);
+  const pct = consensusPct(phaseVotes.agree, phaseVotes.disagree);
 
   const reportedAt = new Date(report.createdAt).toLocaleString(
     "en-US",
@@ -396,15 +472,21 @@ export default function IssueDetailPage({
         }`
       : null;
 
-  const voteControls = (
+  // Only render vote controls when there is an active voting window
+  const voteControls = votePhase ? (
     <VoteControls
       phase={votePhase}
       selectedDecision={selectedDecision}
-      onPhaseChange={setVotePhase}
       onVote={handleCastVote}
       isSubmitting={isSubmitting}
       availableTicketsCount={availableTicketsCount}
     />
+  ) : (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <p className="text-sm font-semibold text-slate-500 text-center">
+        No active voting window for this report.
+      </p>
+    </div>
   );
 
   return (
@@ -447,6 +529,30 @@ export default function IssueDetailPage({
         </div>
 
         <div className="p-4 space-y-5">
+          {/* Active Voting Phase Countdown */}
+          {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+                <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                <span>Voting Ends In:</span>
+              </div>
+              <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+            </div>
+          )}
+
+          {/* Pending Validation Phase Explanation */}
+          {report.status === 0 && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+              <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                <span>About Pending Validation Phase</span>
+              </div>
+              <p className="leading-relaxed">
+                When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -547,22 +653,32 @@ export default function IssueDetailPage({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
-              >
-                {status.label}
-              </span>
-
-              {report.category && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                  {report.category}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
+                >
+                  {status.label}
                 </span>
-              )}
 
-              <span className="text-slate-400 text-sm font-mono">
-                ID: #{report.id}
-              </span>
+                {report.category && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
+                    {report.category}
+                  </span>
+                )}
+
+                <span className="text-slate-400 text-sm font-mono">
+                  ID: #{report.id}
+                </span>
+              </div>
+
+              {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full text-blue-700 text-xs font-bold shadow-sm">
+                  <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                  <span>VOTING ENDS IN:</span>
+                  <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+                </div>
+              )}
             </div>
 
             {/* Title */}
@@ -587,6 +703,20 @@ export default function IssueDetailPage({
                 </span>
               )}
             </div>
+
+            {/* Pending Validation Phase Explanation */}
+            {report.status === 0 && (
+              <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                  <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                  <span>About Pending Validation Phase</span>
+                </div>
+                <p className="leading-relaxed">
+                  When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                  Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+                </p>
+              </div>
+            )}
 
             {/* Description */}
             <div>
@@ -654,15 +784,20 @@ export default function IssueDetailPage({
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
 
-              <h3 className="text-lg font-bold text-slate-900 mb-5">
-                Community Consensus
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">
+                  Community Consensus
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
+                  {phaseVotes.phaseLabel}
+                </span>
+              </div>
 
               <div className="mb-4">
 
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-slate-500 font-medium">
-                    Current support
+                    {phaseVotes.agreeLabel} rate
                   </span>
 
                   <span className="text-2xl font-extrabold text-blue-600">
@@ -677,10 +812,16 @@ export default function IssueDetailPage({
                   />
                 </div>
 
-                <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-                  <ThumbsUp className="h-3 w-3" />
-                  {report.upvotes} upvotes · {report.downvotes} downvotes
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3" />
+                    {phaseVotes.agree} {phaseVotes.agreeLabel}
+                  </p>
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3" />
+                    {phaseVotes.disagree} {phaseVotes.disagreeLabel}
+                  </p>
+                </div>
               </div>
             </div>
 

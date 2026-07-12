@@ -6,7 +6,8 @@ import { VOTE_PHASE_OPTIONS, getVoteDecisionCopy, type VotePhase } from "@/lib/v
 export interface VoteControlsProps {
   phase: VotePhase;
   selectedDecision: boolean | null;
-  onPhaseChange: (phase: VotePhase) => void;
+  /** Optional — when omitted the phase selector is hidden (phase is auto-detected from status) */
+  onPhaseChange?: (phase: VotePhase) => void;
   onVote: (decision: boolean) => void;
   isSubmitting: boolean;
   availableTicketsCount: number;
@@ -40,42 +41,44 @@ export function VoteControls({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 mb-4">
-        {VOTE_PHASE_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onPhaseChange(option.value)}
-            className={`text-left rounded-xl border px-3 py-3 transition-colors ${
-              phase === option.value
-                ? "border-blue-600 bg-blue-50"
-                : "border-slate-200 bg-white hover:bg-slate-50"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className={`text-sm font-semibold ${
-                  phase === option.value ? "text-blue-700" : "text-slate-800"
-                }`}
-              >
-                {option.label}
-              </span>
-              {phase === option.value ? (
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-700">
-                  Active
-                </span>
-              ) : null}
-            </div>
-            <p
-              className={`text-xs mt-1 ${
-                phase === option.value ? "text-blue-700/80" : "text-slate-500"
+      {onPhaseChange && (
+        <div className="grid grid-cols-1 gap-2 mb-4">
+          {VOTE_PHASE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onPhaseChange(option.value)}
+              className={`text-left rounded-xl border px-3 py-3 transition-colors ${
+                phase === option.value
+                  ? "border-blue-600 bg-blue-50"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
               }`}
             >
-              {option.description}
-            </p>
-          </button>
-        ))}
-      </div>
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`text-sm font-semibold ${
+                    phase === option.value ? "text-blue-700" : "text-slate-800"
+                  }`}
+                >
+                  {option.label}
+                </span>
+                {phase === option.value ? (
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-700">
+                    Active
+                  </span>
+                ) : null}
+              </div>
+              <p
+                className={`text-xs mt-1 ${
+                  phase === option.value ? "text-blue-700/80" : "text-slate-500"
+                }`}
+              >
+                {option.description}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">

@@ -1,11 +1,11 @@
 {
   "_format": "hh3-sol-build-info-1",
-  "id": "solc-0_8_28-f027f0e3a967553d0b319d9f082fc0a0f091fddd",
+  "id": "solc-0_8_28-74d6f27cae38f93efa1f7ceed0f7f41c9b52372f",
   "solcVersion": "0.8.28",
   "solcLongVersion": "0.8.28+commit.7893614a",
   "compilerType": "solc",
   "toolVersions": {
-    "hardhat": "3.9.0"
+    "hardhat": "3.4.5"
   },
   "userSourceNameMap": {
     "contracts/OpinionPolling.sol": "project/contracts/OpinionPolling.sol"

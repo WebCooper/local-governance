@@ -252,12 +252,16 @@ export class ReportingService implements OnModuleInit {
 
       this.logger.log(`Vote crypto-verification passed for report ${reportId}`);
 
+      // Derive citizen pseudonym to enforce one-vote-per-citizen restrictions
+      const { pseudonym } = this.getPseudonym(recoveredCitizenAddress);
+
       // 3. Submit to Blockchain
       const txResult = await this.blockchainService.castVoteOnChain(
         reportId,
         votePhase,
         zkpTicketId, // Using the ticket as the vote nullifier
-        decision
+        decision,
+        pseudonym
       );
 
       return {

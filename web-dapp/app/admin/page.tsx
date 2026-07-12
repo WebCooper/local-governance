@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import { getPollingContract } from "@/lib/contracts/polling";
-import { ethers } from "ethers";
 import axios from "axios";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText } from "lucide-react";
+import { ReportCard } from "@/components/admin/ReportCard";
+import {
+  rawToEnriched,
+  enrichReportWithIPFS,
+  ADMIN_STATUS_FILTERS,
+  type EnrichedReport,
+  type StatusFilter,
+} from "@/lib/reportHelpers";
 
+// ─── Poll Type ────────────────────────────────────────────────────────────────
 interface PollStructure {
   id: number;
   title: string;
@@ -20,115 +29,220 @@ interface PollStructure {
   results?: number[];
 }
 
-export default function AuthorityAdminPage() {
-  const { account, isAuthority, isConnecting, provider, reportingContract, connectWallet } = useAdmin();
-  const { wallet } = useCitizen();
-  const [reports, setReports] = useState<any[]>([]);
-  const [polls, setPolls] = useState<PollStructure[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"reports" | "polls">("reports");
-  const [finalizingMap, setFinalizingMap] = useState<Record<number, boolean>>({});
+const PAGE_SIZE = 10;
 
-  const fetchReports = async () => {
-    if (!reportingContract) return;
-    setIsLoading(true);
+// ─── Filter tab accent colors ─────────────────────────────────────────────────
+const FILTER_COLORS: Record<string, { active: string; border: string }> = {
+  actionable:          { active: "text-green-700 border-green-600",  border: "border-green-600" },
+  open:                { active: "text-blue-700 border-blue-600",    border: "border-blue-600" },
+  inprogress:          { active: "text-indigo-700 border-indigo-600",border: "border-indigo-600" },
+  pendingRejection:    { active: "text-orange-700 border-orange-500",border: "border-orange-500" },
+  pendingVerification: { active: "text-purple-700 border-purple-600",border: "border-purple-600" },
+  reopened:            { active: "text-slate-700 border-slate-600",  border: "border-slate-600" },
+  all:                 { active: "text-slate-700 border-slate-600",  border: "border-slate-600" },
+};
+
+// ─── Page Component ───────────────────────────────────────────────────────────
+export default function AuthorityAdminPage() {
+  const {
+    account,
+    isAuthority,
+    isConnecting,
+    provider,
+    reportingContract,
+    connectWallet,
+  } = useAdmin();
+  const { wallet } = useCitizen();
+  const [isFunding, setIsFunding] = useState(false);
+
+  const handleTopUp = async () => {
+    setIsFunding(true);
+    const loadToast = toast.loading("Scanning wallet balances & topping up...");
     try {
-      // Fetch latest 20 reports
-      const [page] = await reportingContract.getAllReports(0, 20);
-      setReports(page);
-    } catch (error) {
-      console.error("Error fetching reports", error);
-      toast.error("Error fetching reports from blockchain");
+      const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_URL || "https://relayer.internalbuildtools.online";
+      const response = await axios.post(`${relayerUrl}/funding/scan`);
+      const { funded, skipped, errors } = response.data.data;
+
+      const fundedCount = funded.length;
+      const skippedCount = skipped.length;
+      const errorCount = errors.length;
+
+      let msg = `Scan complete. Topped up: ${fundedCount}, Skipped: ${skippedCount}`;
+      if (errorCount > 0) {
+        msg += `, Errors: ${errorCount}`;
+      }
+
+      if (fundedCount > 0) {
+        toast.success(msg, { id: loadToast });
+      } else {
+        toast.success(`${msg} (All wallets have sufficient balance)`, { id: loadToast });
+      }
+    } catch (error: any) {
+      console.error("Failed to trigger top-up scan:", error);
+      toast.error(error.response?.data?.message || "Failed to trigger top-up scan.", { id: loadToast });
     } finally {
-      setIsLoading(false);
+      setIsFunding(false);
     }
   };
 
-  const fetchPolls = async () => {
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"reports" | "polls">("reports");
+
+  // ── Reports State ─────────────────────────────────────────────────────────
+  const [allReports, setAllReports] = useState<EnrichedReport[]>([]);
+  const [totalReports, setTotalReports] = useState(0);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    ADMIN_STATUS_FILTERS[0] // default: Actionable
+  );
+
+  // ── Polls State ───────────────────────────────────────────────────────────
+  const [polls, setPolls] = useState<PollStructure[]>([]);
+  const [pollsLoading, setPollsLoading] = useState(false);
+  const [finalizingMap, setFinalizingMap] = useState<Record<number, boolean>>({});
+
+  // ─── Fetch Reports ─────────────────────────────────────────────────────────
+  const fetchReports = useCallback(
+    async (pageOffset: number = 0) => {
+      if (!reportingContract) return;
+      setReportsLoading(true);
+      try {
+        const [page, total] = await reportingContract.getAllReports(
+          pageOffset,
+          PAGE_SIZE
+        );
+        const base: EnrichedReport[] = page.map((r: any) => rawToEnriched(r));
+        setTotalReports(Number(total));
+        setAllReports(base);
+
+        // Kick off IPFS enrichment for each report in the background
+        base.forEach(async (report, i) => {
+          const enriched = await enrichReportWithIPFS(report);
+          setAllReports((prev) => {
+            const updated = [...prev];
+            updated[i] = enriched;
+            return updated;
+          });
+        });
+      } catch (err) {
+        console.error("Error fetching reports", err);
+        toast.error("Failed to fetch reports from the blockchain.");
+      } finally {
+        setReportsLoading(false);
+      }
+    },
+    [reportingContract]
+  );
+
+  // ─── Fetch Polls ───────────────────────────────────────────────────────────
+  const fetchPolls = useCallback(async () => {
     if (!provider) return;
-    setIsLoading(true);
+    setPollsLoading(true);
     try {
       const contract = getPollingContract(provider);
       const chainCount = Number(await contract.pollCount());
       const loadedPolls: PollStructure[] = [];
 
-      if (chainCount > 0) {
-        for (let i = chainCount; i >= 1; i--) {
-          const chainPoll = await contract.polls(i);
-          let metaTitle = `Opinion Poll #${i}`;
-          let metaDesc = "Loading metadata...";
-          let metaOptions: string[] = ["False", "True"];
+      for (let i = chainCount; i >= 1; i--) {
+        const chainPoll = await contract.polls(i);
+        let metaTitle = `Opinion Poll #${i}`;
+        let metaDesc = "No description.";
+        let metaOptions: string[] = ["False", "True"];
 
-          try {
-            const ipfsRes = await axios.get(`/api/ipfs/poll/${chainPoll.ipfsMetadataCid}`);
-            if (ipfsRes.data) {
-              metaTitle = ipfsRes.data.title;
-              metaDesc = ipfsRes.data.description;
-              metaOptions = ipfsRes.data.options;
-            }
-          } catch (e) {
-            console.error(`Failed to resolve IPFS metadata for poll ${i}`, e);
+        try {
+          const ipfsRes = await axios.get(
+            `/api/ipfs/poll/${chainPoll.ipfsMetadataCid}`
+          );
+          if (ipfsRes.data) {
+            metaTitle = ipfsRes.data.title;
+            metaDesc = ipfsRes.data.description;
+            metaOptions = ipfsRes.data.options;
           }
+        } catch {}
 
-          const optionCount = Number(chainPoll.pollType) === 0 ? 2 : metaOptions.length;
-          const tally = await contract.getPollResults(i, optionCount);
+        const optionCount =
+          Number(chainPoll.pollType) === 0 ? 2 : metaOptions.length;
+        const tally = await contract.getPollResults(i, optionCount);
 
-          loadedPolls.push({
-            id: i,
-            title: metaTitle,
-            description: metaDesc,
-            options: metaOptions,
-            pollType: Number(chainPoll.pollType),
-            deadline: Number(chainPoll.deadline),
-            isActive: chainPoll.isActive,
-            results: tally.map((v: any) => Number(v)),
-          });
-        }
+        loadedPolls.push({
+          id: i,
+          title: metaTitle,
+          description: metaDesc,
+          options: metaOptions,
+          pollType: Number(chainPoll.pollType),
+          deadline: Number(chainPoll.deadline),
+          isActive: chainPoll.isActive,
+          results: tally.map((v: any) => Number(v)),
+        });
       }
+
       setPolls(loadedPolls);
-    } catch (error) {
-      console.error("Error fetching polls", error);
-      toast.error("Error fetching opinion polls from blockchain");
+    } catch (err) {
+      console.error("Error fetching polls", err);
+      toast.error("Failed to fetch opinion polls from the blockchain.");
     } finally {
-      setIsLoading(false);
+      setPollsLoading(false);
     }
-  };
+  }, [provider]);
 
   useEffect(() => {
-    if (isAuthority) {
-      if (activeTab === "reports" && reportingContract) {
-        fetchReports();
-      } else if (activeTab === "polls" && provider) {
-        fetchPolls();
-      }
-    }
+    if (!isAuthority) return;
+    if (activeTab === "reports" && reportingContract) fetchReports(0);
+    else if (activeTab === "polls" && provider) fetchPolls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthority, activeTab, reportingContract, provider]);
 
-  const handleResolve = async (reportId: number) => {
-    // Placeholder for resolving a report
-    alert("Resolving functionality will be implemented soon!");
+  // ─── Pagination Handlers ───────────────────────────────────────────────────
+  const handleNextPage = () => {
+    const newOffset = offset + PAGE_SIZE;
+    if (newOffset < totalReports) {
+      setOffset(newOffset);
+      fetchReports(newOffset);
+    }
   };
 
+  const handlePrevPage = () => {
+    const newOffset = Math.max(0, offset - PAGE_SIZE);
+    setOffset(newOffset);
+    fetchReports(newOffset);
+  };
+
+  // ─── Action success handler ────────────────────────────────────────────────
+  const handleActionSuccess = (reportId: number) => {
+    fetchReports(offset);
+  };
+
+  // ─── Finalize Poll ─────────────────────────────────────────────────────────
   const handleFinalizePoll = async (pollId: number) => {
     if (!provider) return;
-    setFinalizingMap(prev => ({ ...prev, [pollId]: true }));
-    const loadToast = toast.loading("Finalizing and closing poll on-chain...");
+    setFinalizingMap((p) => ({ ...p, [pollId]: true }));
+    const loadToast = toast.loading("Finalizing poll on-chain…");
     try {
       const signer = await provider.getSigner();
       const contract = getPollingContract(signer);
       const tx = await contract.finalizePoll(pollId);
       await tx.wait();
-      toast.success("Poll successfully finalized!", { id: loadToast });
+      toast.success("Poll finalized successfully!", { id: loadToast });
       fetchPolls();
-    } catch (error: any) {
-      console.error(error);
-      toast.error(`Finalization failed: ${error.message}`, { id: loadToast });
+    } catch (err: any) {
+      toast.error(`Finalization failed: ${err.message}`, { id: loadToast });
     } finally {
-      setFinalizingMap(prev => ({ ...prev, [pollId]: false }));
+      setFinalizingMap((p) => ({ ...p, [pollId]: false }));
     }
   };
 
-  // If a citizen session is active, block access to authority portal
+  // ─── Filter reports ────────────────────────────────────────────────────────
+  const filteredReports =
+    statusFilter.statuses.length === 0
+      ? allReports
+      : allReports.filter((r) => statusFilter.statuses.includes(r.status));
+
+  const totalPages = Math.ceil(totalReports / PAGE_SIZE);
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+
+  // ─── Access Guards ─────────────────────────────────────────────────────────
   if (wallet) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -139,7 +253,9 @@ export default function AuthorityAdminPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h1>
-          <p className="text-slate-500 mb-8 text-sm leading-relaxed">Please log out of your Citizen session to access the Authority portal.</p>
+          <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+            Please log out of your Citizen session to access the Authority portal.
+          </p>
           <Link href="/profile" className="inline-block w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors text-center">
             Go to Profile (Sign Out)
           </Link>
@@ -148,7 +264,6 @@ export default function AuthorityAdminPage() {
     );
   }
 
-  // If wallet is not connected
   if (!account) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -159,20 +274,21 @@ export default function AuthorityAdminPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Authority Portal</h1>
-          <p className="text-slate-500 mb-8">Connect your wallet to access the city administration dashboard and manage civic reports & polls.</p>
+          <p className="text-slate-500 mb-8">
+            Connect your wallet to access the city administration dashboard and manage civic reports &amp; polls.
+          </p>
           <button
             onClick={connectWallet}
             disabled={isConnecting}
             className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl shadow-md transition-all flex justify-center items-center gap-2"
           >
-            {isConnecting ? "Connecting..." : "Connect MetaMask"}
+            {isConnecting ? "Connecting…" : "Connect MetaMask"}
           </button>
         </div>
       </div>
     );
   }
 
-  // If connected but NOT an authority
   if (!isAuthority) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -190,6 +306,7 @@ export default function AuthorityAdminPage() {
     );
   }
 
+  // ─── Main Dashboard ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top Nav */}
@@ -202,148 +319,224 @@ export default function AuthorityAdminPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900">Authority Dashboard</h1>
-            <p className="text-sm text-slate-500">Manage Civic Reports & Polls</p>
+            <p className="text-sm text-slate-500">Manage Civic Reports &amp; Opinion Polls</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 bg-slate-100 py-2 px-4 rounded-full border border-slate-200">
-          <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm font-mono text-slate-700">
-            Authority: {account.slice(0, 6)}...{account.slice(-4)}
-          </span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleTopUp}
+            disabled={isFunding}
+            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-1.5 shadow-md hover:shadow-lg"
+          >
+            {isFunding ? (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            )}
+            {isFunding ? "Scanning..." : "Top-Up Wallets"}
+          </button>
+          <div className="flex items-center gap-3 bg-slate-100 py-2 px-4 rounded-full border border-slate-200 shadow-sm">
+            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-sm font-mono text-slate-700">
+              {account.slice(0, 6)}…{account.slice(-4)}
+            </span>
+          </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto p-6 md:p-8">
-        
+
         {/* Portal Tabs */}
         <div className="flex border-b border-slate-200 mb-8 gap-6">
           <button
             onClick={() => setActiveTab("reports")}
-            className={`pb-4 text-base font-bold transition-all relative ${
-              activeTab === "reports" ? "text-green-600 border-b-2 border-green-600" : "text-slate-400 hover:text-slate-600"
+            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
+              activeTab === "reports"
+                ? "text-green-600 border-b-2 border-green-600"
+                : "text-slate-400 hover:text-slate-600"
             }`}
           >
-            Civic Reports ({reports.length})
+            <FileText className="w-4 h-4" />
+            Civic Reports
+            {totalReports > 0 && (
+              <span className="ml-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {totalReports}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab("polls")}
-            className={`pb-4 text-base font-bold transition-all relative ${
-              activeTab === "polls" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
+            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
+              activeTab === "polls"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-slate-400 hover:text-slate-600"
             }`}
           >
-            Opinion Polls ({polls.length})
+            <BarChart2 className="w-4 h-4" />
+            Opinion Polls
+            {polls.length > 0 && (
+              <span className="ml-1 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {polls.length}
+              </span>
+            )}
           </button>
         </div>
 
-        {activeTab === "reports" ? (
+        {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
+        {activeTab === "reports" && (
           <>
-            <div className="mb-6 flex justify-between items-center">
+            {/* Reports Header */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Active Civic Reports</h2>
-                <p className="text-slate-500 mt-1">Review and manage issues reported by citizens.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Civic Reports</h2>
+                <p className="text-slate-500 mt-1 text-sm">
+                  Review and manage issues reported by citizens.
+                </p>
               </div>
-              <button 
-                onClick={fetchReports}
-                className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center gap-1.5"
+              <button
+                onClick={() => { setOffset(0); fetchReports(0); }}
+                className="flex items-center gap-1.5 text-green-600 hover:text-green-700 font-semibold text-sm"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh List
+                <RefreshCw className="w-4 h-4" />
+                Refresh
               </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {isLoading ? (
-                <div className="p-12 text-center text-slate-500">
-                  <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  Loading reports...
-                </div>
-              ) : reports.length === 0 ? (
-                <div className="p-12 text-center text-slate-500">
-                  <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  No reports found in the system.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
-                        <th className="p-4 font-medium">ID</th>
-                        <th className="p-4 font-medium">Status</th>
-                        <th className="p-4 font-medium">Report Hash</th>
-                        <th className="p-4 font-medium">Created</th>
-                        <th className="p-4 font-medium text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reports.map((report, idx) => (
-                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="p-4 font-mono text-slate-900">#{Number(report.id)}</td>
-                          <td className="p-4">
-                            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                              Status: {Number(report.status)}
-                            </span>
-                          </td>
-                          <td className="p-4 font-mono text-sm text-slate-500 truncate max-w-[200px]">
-                            {report.reportHash}
-                          </td>
-                          <td className="p-4 text-sm text-slate-500">
-                            {new Date(Number(report.createdAt) * 1000).toLocaleDateString()}
-                          </td>
-                          <td className="p-4 text-right">
-                            <button 
-                              onClick={() => handleResolve(Number(report.id))}
-                              className="px-4 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              Resolve Issue
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            {/* Status Filter Pills */}
+            <div className="flex items-center flex-wrap gap-2 mb-6">
+              {ADMIN_STATUS_FILTERS.map((filter) => {
+                const isActive = statusFilter.key === filter.key;
+                const colors = FILTER_COLORS[filter.key] ?? FILTER_COLORS.all;
+                const count =
+                  filter.statuses.length === 0
+                    ? allReports.length
+                    : allReports.filter((r) =>
+                        filter.statuses.includes(r.status)
+                      ).length;
+
+                return (
+                  <button
+                    key={filter.key}
+                    onClick={() => setStatusFilter(filter)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      isActive
+                        ? `${colors.active} border-current bg-white shadow-sm`
+                        : "text-slate-500 border-slate-200 bg-white hover:border-slate-300 hover:text-slate-700"
+                    }`}
+                  >
+                    {filter.label}
+                    {count > 0 && (
+                      <span className="ml-1.5 opacity-70">({count})</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Reports Grid */}
+            {reportsLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-500 font-medium">Loading reports…</p>
+              </div>
+            ) : filteredReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400">
+                <FileText className="w-16 h-16 text-slate-300" />
+                <p className="font-semibold text-slate-500">
+                  {allReports.length === 0
+                    ? "No reports found."
+                    : `No reports matching "${statusFilter.label}".`}
+                </p>
+                {allReports.length > 0 && statusFilter.key !== "all" && (
+                  <button
+                    onClick={() => setStatusFilter(ADMIN_STATUS_FILTERS[ADMIN_STATUS_FILTERS.length - 1])}
+                    className="text-xs text-green-600 font-semibold hover:underline"
+                  >
+                    Show all reports
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {filteredReports.map((report) => (
+                  <ReportCard
+                    key={report.id}
+                    report={report}
+                    currentAccount={account}
+                    reportingContract={reportingContract}
+                    onActionSuccess={handleActionSuccess}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalReports > PAGE_SIZE && (
+              <div className="mt-8 flex items-center justify-between">
+                <p className="text-sm text-slate-500">
+                  Page <span className="font-bold text-slate-700">{currentPage}</span> of{" "}
+                  <span className="font-bold text-slate-700">{totalPages}</span> — {totalReports} total reports
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={offset === 0}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Previous
+                  </button>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={offset + PAGE_SIZE >= totalReports}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
-        ) : (
+        )}
+
+        {/* ── POLLS TAB ─────────────────────────────────────────────────────── */}
+        {activeTab === "polls" && (
           <>
-            <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Decentralized Opinion Polls</h2>
-                <p className="text-slate-500 mt-1">Monitor, finalize, and publish public policy votes.</p>
+                <p className="text-slate-500 mt-1 text-sm">Monitor, finalize, and publish public policy votes.</p>
               </div>
               <div className="flex items-center gap-3">
-                <Link href="/polls/create" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-1">
+                <Link
+                  href="/polls/create"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-1.5"
+                >
                   + Create Poll
                 </Link>
-                <button 
+                <button
                   onClick={fetchPolls}
-                  className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-sm"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh Polls
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
                 </button>
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {isLoading ? (
+              {pollsLoading ? (
                 <div className="p-12 text-center text-slate-500">
-                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  Syncing poll ledger...
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  Syncing poll ledger…
                 </div>
               ) : polls.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
-                  <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
+                  <BarChart2 className="w-16 h-16 mx-auto text-slate-300 mb-4" />
                   No opinion polls found in the system.
                 </div>
               ) : (
@@ -386,12 +579,12 @@ export default function AuthorityAdminPage() {
                                       const count = poll.results?.[oIdx] || 0;
                                       const pct = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
                                       return (
-                                        <div 
-                                          key={oIdx} 
-                                          style={{ width: `${Math.max(8, pct)}%` }} 
+                                        <div
+                                          key={oIdx}
+                                          style={{ width: `${Math.max(8, pct)}%` }}
                                           title={`${opt}: ${count} votes (${Math.round(pct)}%)`}
                                           className={`h-2.5 rounded-full ${
-                                            poll.pollType === 0 
+                                            poll.pollType === 0
                                               ? oIdx === 0 ? "bg-rose-500" : "bg-emerald-500"
                                               : oIdx % 4 === 0 ? "bg-blue-500" : oIdx % 4 === 1 ? "bg-indigo-500" : oIdx % 4 === 2 ? "bg-sky-500" : "bg-violet-500"
                                           }`}
@@ -409,8 +602,8 @@ export default function AuthorityAdminPage() {
                             </td>
                             <td className="p-4">
                               <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                                isOpen 
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                isOpen
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                   : "bg-slate-100 text-slate-500 border border-slate-200"
                               }`}>
                                 {isOpen ? "Active" : "Closed"}
@@ -418,15 +611,15 @@ export default function AuthorityAdminPage() {
                             </td>
                             <td className="p-4 text-right">
                               {poll.isActive && isExpired ? (
-                                <button 
+                                <button
                                   disabled={finalizingMap[poll.id]}
                                   onClick={() => handleFinalizePoll(poll.id)}
                                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm disabled:opacity-50"
                                 >
-                                  {finalizingMap[poll.id] ? "Finalizing..." : "Finalize Poll"}
+                                  {finalizingMap[poll.id] ? "Finalizing…" : "Finalize Poll"}
                                 </button>
                               ) : poll.isActive ? (
-                                <span className="text-xs text-slate-400 italic font-medium">Running...</span>
+                                <span className="text-xs text-slate-400 italic font-medium">Running…</span>
                               ) : (
                                 <span className="text-xs text-green-600 font-bold flex items-center justify-end gap-1">
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
