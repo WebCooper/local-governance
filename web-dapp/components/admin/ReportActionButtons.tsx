@@ -277,7 +277,25 @@ export function ReportActionButtons({
       onActionSuccess(report.id);
     } catch (error: any) {
       console.error(`Authority action failed [${pendingAction}]:`, error);
-      const msg = error?.reason || error?.message || "Transaction failed.";
+      let msg = "";
+
+      // Decode Solidity custom error from ABI if available
+      if (reportingContract?.interface) {
+        const errorData = error?.data || error?.error?.data || error?.info?.error?.data;
+        if (errorData) {
+          try {
+            const parsed = reportingContract.interface.parseError(errorData);
+            if (parsed) {
+              msg = `Contract reverted: ${parsed.name}`;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!msg) {
+        msg = error?.reason || error?.message || "Transaction failed.";
+      }
+
       toast.error(`Failed: ${msg}`, { id: loadingToast });
     } finally {
       setExecutingAction(null);
