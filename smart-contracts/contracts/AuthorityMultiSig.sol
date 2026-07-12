@@ -5,6 +5,7 @@ interface IReporting {
     function setAuthority(address authority, bool authorized) external;
     function transferOwnership(address newOwner) external;
     function authorizedAuthorities(address account) external view returns (bool);
+    function setVotingWindowDuration(uint256 duration) external;
 }
 
 /**
@@ -173,6 +174,15 @@ contract AuthorityMultiSig {
     function setReportingContract(address _reportingContract) external onlySuperAdmin {
         reportingContract = IReporting(_reportingContract);
         emit ReportingContractUpdated(_reportingContract);
+    }
+
+    /**
+     * @notice Allows a Super Admin to directly update the voting window duration in Reporting.sol.
+     * @param duration  New duration in seconds.
+     */
+    function setVotingWindowDuration(uint256 duration) external onlySuperAdmin {
+        require(address(reportingContract) != address(0), "Reporting contract not set");
+        reportingContract.setVotingWindowDuration(duration);
     }
 
     // ─── Core Functions ───────────────────────────────────────────────────────

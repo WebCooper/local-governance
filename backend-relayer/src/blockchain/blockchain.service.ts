@@ -127,20 +127,27 @@ export class BlockchainService implements OnModuleInit {
 
   // Add this inside BlockchainService class in src/blockchain/blockchain.service.ts
 
-  async castVoteOnChain(reportId: number, phase: 'validation' | 'verification' | 'rejectionReview', nullifier: string, decision: boolean) {
+  async castVoteOnChain(
+    reportId: number,
+    phase: 'validation' | 'verification' | 'rejectionReview',
+    nullifier: string,
+    decision: boolean,
+    citizenPseudonym: string,
+  ) {
     if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain disabled');
 
     try {
       const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
-      this.logger.log(`Casting ${phase} vote for report ${reportId}`);
+      const pseudonymBytes = ethers.hexlify(ethers.getBytes(citizenPseudonym)) as `0x${string}`;
+      this.logger.log(`Casting ${phase} vote for report ${reportId} with pseudonym ${citizenPseudonym}`);
 
       let tx;
       if (phase === 'validation') {
-        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision, pseudonymBytes);
       } else if (phase === 'verification') {
-        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision, pseudonymBytes);
       } else if (phase === 'rejectionReview') {
-        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision, pseudonymBytes);
       }
 
       const receipt = await tx.wait();
