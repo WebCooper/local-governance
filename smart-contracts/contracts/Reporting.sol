@@ -82,6 +82,10 @@ contract Reporting is Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(bytes32 => bool))
         public usedRejectionReviewVoteNullifiers;
 
+    mapping(uint256 => mapping(bytes32 => bool)) public hasVotedValidation;
+    mapping(uint256 => mapping(bytes32 => bool)) public hasVotedVerification;
+    mapping(uint256 => mapping(bytes32 => bool)) public hasVotedRejectionReview;
+
     mapping(address => bool) public authorizedRelayers;
     mapping(address => bool) public authorizedAuthorities;
     address[] public authoritiesList;
@@ -94,6 +98,7 @@ contract Reporting is Ownable, ReentrancyGuard {
     error EmptyCID();
     error InvalidHash();
     error NullifierAlreadyUsed();
+    error CitizenAlreadyVoted();
     error InvalidNullifier();
     error InvalidPseudonym();
     error VotingWindowStillOpen();
@@ -508,7 +513,8 @@ contract Reporting is Ownable, ReentrancyGuard {
     function castValidationVote(
         uint256 reportId,
         bytes32 voteNullifier,
-        bool support
+        bool support,
+        bytes32 citizenPseudonym
     ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
 
@@ -527,7 +533,11 @@ contract Reporting is Ownable, ReentrancyGuard {
         // ─── NORMAL VOTING LOGIC ──────────────────────────────────────────────
         if (usedValidationVoteNullifiers[reportId][voteNullifier])
             revert NullifierAlreadyUsed();
+        if (hasVotedValidation[reportId][citizenPseudonym])
+            revert CitizenAlreadyVoted();
+
         usedValidationVoteNullifiers[reportId][voteNullifier] = true;
+        hasVotedValidation[reportId][citizenPseudonym] = true;
 
         if (support) {
             report.votes.validationUpvotes++;
@@ -547,7 +557,8 @@ contract Reporting is Ownable, ReentrancyGuard {
     function castVerificationVote(
         uint256 reportId,
         bytes32 voteNullifier,
-        bool accept
+        bool accept,
+        bytes32 citizenPseudonym
     ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
 
@@ -562,7 +573,11 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         if (usedVerificationVoteNullifiers[reportId][voteNullifier])
             revert NullifierAlreadyUsed();
+        if (hasVotedVerification[reportId][citizenPseudonym])
+            revert CitizenAlreadyVoted();
+
         usedVerificationVoteNullifiers[reportId][voteNullifier] = true;
+        hasVotedVerification[reportId][citizenPseudonym] = true;
 
         if (accept) {
             report.votes.verificationAcceptVotes++;
@@ -582,7 +597,8 @@ contract Reporting is Ownable, ReentrancyGuard {
     function castRejectionReviewVote(
         uint256 reportId,
         bytes32 voteNullifier,
-        bool uphold
+        bool uphold,
+        bytes32 citizenPseudonym
     ) external onlyRelayer nonReentrant {
         Report storage report = reports[reportId];
 
@@ -597,7 +613,11 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         if (usedRejectionReviewVoteNullifiers[reportId][voteNullifier])
             revert NullifierAlreadyUsed();
+        if (hasVotedRejectionReview[reportId][citizenPseudonym])
+            revert CitizenAlreadyVoted();
+
         usedRejectionReviewVoteNullifiers[reportId][voteNullifier] = true;
+        hasVotedRejectionReview[reportId][citizenPseudonym] = true;
 
         if (uphold) {
             report.votes.rejectionUpholdVotes++;

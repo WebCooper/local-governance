@@ -19,6 +19,7 @@ export default function SuperAdminPage() {
     isSuperAdmin, 
     isConnecting, 
     contract, 
+    reportingContract,
     connectWallet,
     superAdminsList,
     authoritiesList,
@@ -38,6 +39,10 @@ export default function SuperAdminPage() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"proposals" | "members">("proposals");
   const [isFunding, setIsFunding] = useState(false);
+
+  // Voting window duration states
+  const [votingDurationHours, setVotingDurationHours] = useState<number>(6);
+  const [isUpdatingDuration, setIsUpdatingDuration] = useState(false);
 
   // Profile data states for existing members
   const [superAdminProfiles, setSuperAdminProfiles] = useState<MemberProfile[]>([]);
@@ -101,6 +106,35 @@ export default function SuperAdminPage() {
     }
   };
 
+  const fetchVotingDuration = async () => {
+    if (!reportingContract) return;
+    try {
+      const durationSec = await reportingContract.votingWindowDuration();
+      setVotingDurationHours(Number(durationSec) / 3600);
+    } catch (e) {
+      console.error("Error fetching voting window duration:", e);
+    }
+  };
+
+  const handleUpdateDuration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contract) return;
+    setIsUpdatingDuration(true);
+    const loadToast = toast.loading("Updating voting window duration...");
+    try {
+      const durationInSeconds = Math.round(Number(votingDurationHours) * 3600);
+      const tx = await contract.setVotingWindowDuration(durationInSeconds);
+      await tx.wait();
+      toast.success("Voting window duration updated successfully!", { id: loadToast });
+      fetchVotingDuration();
+    } catch (error: any) {
+      console.error("Failed to update voting window duration:", error);
+      toast.error(error.message || "Failed to update duration.", { id: loadToast });
+    } finally {
+      setIsUpdatingDuration(false);
+    }
+  };
+
   const loadProfiles = async () => {
     if (!contract) return;
     try {
@@ -150,12 +184,15 @@ export default function SuperAdminPage() {
     }
   }, [contract, isSuperAdmin]);
 
-  // Load profiles when membership lists change
+  // Load profiles and voting window duration
   useEffect(() => {
     if (contract && (superAdminsList.length > 0 || authoritiesList.length > 0)) {
       loadProfiles();
     }
-  }, [contract, superAdminsList, authoritiesList]);
+    if (reportingContract) {
+      fetchVotingDuration();
+    }
+  }, [contract, reportingContract, superAdminsList, authoritiesList]);
 
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,8 +312,9 @@ export default function SuperAdminPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Submit Proposal Form */}
-        <div className="lg:col-span-1 space-y-8">
+        {/* Left Column Forms */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Submit Proposal Form */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4">Create Proposal</h2>
             <form onSubmit={handleSubmitProposal}>
@@ -363,6 +401,37 @@ export default function SuperAdminPage() {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? "Submitting..." : "Submit Proposal"}
+              </button>
+            </form>
+          </div>
+
+          {/* System Settings Card */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-2">System Configuration</h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Configure parameters directly without proposal approvals.
+            </p>
+            <form onSubmit={handleUpdateDuration}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Voting Window Duration (Hours)
+                </label>
+                <input 
+                  type="number" 
+                  min="0.1"
+                  step="0.1"
+                  value={votingDurationHours}
+                  onChange={(e) => setVotingDurationHours(Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-800 text-sm"
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={isUpdatingDuration}
+                className="w-full bg-slate-950 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+              >
+                {isUpdatingDuration ? "Updating..." : "Update Duration"}
               </button>
             </form>
           </div>
