@@ -128,14 +128,7 @@ export function getAvailableActions(
     case REPORT_STATUS.Reopened:
       return ["startWork", "rejectIssue"];
     case REPORT_STATUS.InProgress:
-      if (isAssigned || isUnassigned) {
-        const actions: AuthorityAction[] = ["markAsSolved", "rejectIssue"];
-        if (isAssigned) {
-          actions.push("addUpdate");
-        }
-        return actions;
-      }
-      return [];
+      return isAssigned ? ["markAsSolved"] : [];
     default:
       return [];
   }

@@ -22,9 +22,9 @@ import {
 import { useCitizen } from "@/context/CitizenContext";
 import { castVoteOnRelayer } from "@/lib/relayerAPI";
 import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
-import { getVotePhaseFromStatus } from "@/lib/reportHelpers";
+import { getVotePhaseFromStatus, getStatusMeta } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
-import { ReportingABI } from "@/lib/contracts/abis";
+import { ReportingABI, AuthorityMultiSigABI } from "@/lib/contracts/abis";
 import CountdownTimer from "@/components/ui/CountdownTimer";
 
 // Dynamic import to avoid SSR window issues
@@ -35,6 +35,7 @@ const MapPreview = dynamic(() => import("@/components/MapPreview"), {
 // ── ABI ──────────────────────────────────────────────────────────
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
+const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface VoteCounters {
@@ -46,6 +47,22 @@ interface VoteCounters {
   rejectionAppealVotes: number;
 }
 
+interface AuthorityProfile {
+  name: string;
+  position: string;
+  department: string;
+}
+
+interface ActionLogEntry {
+  authority: string;
+  stage: number;
+  commentCid: string;
+  imageCid: string;
+  timestamp: number;
+  commentText: string;
+  profile: AuthorityProfile | null;
+}
+
 interface ReportDetail {
   id: string;
   ipfsCid: string;
@@ -54,6 +71,7 @@ interface ReportDetail {
   phaseDeadline: number;
   votes: VoteCounters;
   assignedAuthority: string;
+  assignedAuthorityProfile?: AuthorityProfile | null;
 
   // IPFS
   description?: string;
@@ -269,6 +287,7 @@ export default function IssueDetailPage({
   const [selectedDecision, setSelectedDecision] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
+  const [actionsHistory, setActionsHistory] = useState<ActionLogEntry[]>([]);
 
   // Derive the correct vote phase from the report's on-chain status
   const votePhase: VotePhase | null = report ? getVotePhaseFromStatus(report.status) : null;
@@ -347,6 +366,30 @@ export default function IssueDetailPage({
 
         const r = await contract.getReport(Number(id));
 
+        let assignedProfile = null;
+        if (
+          MULTISIG_ADDRESS &&
+          r.assignedAuthority !== "0x0000000000000000000000000000000000000000"
+        ) {
+          try {
+            const multiSigContract = new ethers.Contract(
+              MULTISIG_ADDRESS,
+              AuthorityMultiSigABI,
+              provider
+            );
+            const prof = await multiSigContract.getProfile(r.assignedAuthority);
+            if (prof.isSet) {
+              assignedProfile = {
+                name: prof.name,
+                position: prof.position,
+                department: prof.department,
+              };
+            }
+          } catch (e) {
+            console.error("Error fetching assigned authority profile:", e);
+          }
+        }
+
         const base: ReportDetail = {
           id: r.id.toString(),
           ipfsCid: r.ipfsCid,
@@ -362,10 +405,77 @@ export default function IssueDetailPage({
             rejectionAppealVotes: Number(r.votes.rejectionAppealVotes),
           },
           assignedAuthority: r.assignedAuthority,
+          assignedAuthorityProfile: assignedProfile,
           ipfsLoaded: false,
         };
 
-        if (!cancelled) setReport(base);
+        // Fetch authority actions history
+        let enrichedActions: ActionLogEntry[] = [];
+        try {
+          const rawActions = await contract.getReportActions(Number(id));
+          const multiSigContract = new ethers.Contract(
+            MULTISIG_ADDRESS,
+            AuthorityMultiSigABI,
+            provider
+          );
+          enrichedActions = await Promise.all(
+            rawActions.map(async (act: any) => {
+              const authority = act.authority;
+              const stage = Number(act.stage);
+              const commentCid = act.comment;
+              const imageCid = act.imageCid;
+              const timestamp = Number(act.timestamp);
+
+              let commentText = "";
+              if (commentCid && commentCid.trim().length > 5) {
+                try {
+                  const textRes = await fetch(`/api/ipfs/text/${commentCid}`);
+                  if (textRes.ok) {
+                    const textData = await textRes.json();
+                    if (textData.success && textData.content) {
+                      commentText = textData.content;
+                    }
+                  }
+                } catch (e) {
+                  console.error("Error resolving action comment:", e);
+                }
+              }
+
+              let profile = null;
+              if (MULTISIG_ADDRESS) {
+                try {
+                  const prof = await multiSigContract.getProfile(authority);
+                  if (prof.isSet) {
+                    profile = {
+                      name: prof.name,
+                      position: prof.position,
+                      department: prof.department,
+                    };
+                  }
+                } catch (e) {
+                  console.error("Error fetching authority profile:", e);
+                }
+              }
+
+              return {
+                authority,
+                stage,
+                commentCid,
+                imageCid,
+                timestamp,
+                commentText,
+                profile,
+              };
+            })
+          );
+        } catch (err) {
+          console.error("Failed to load actions history:", err);
+        }
+
+        if (!cancelled) {
+          setReport(base);
+          setActionsHistory(enrichedActions.reverse());
+        }
 
         const cid = extractCid(r.ipfsCid);
 
@@ -589,6 +699,103 @@ export default function IssueDetailPage({
             </div>
           </div>
 
+          {/* Assigned Authority Mobile (No wallet addresses, CIDs, or hashes) */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+              <Landmark className="h-5 w-5 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                Assigned Authority
+              </p>
+              {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+              ) : (
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-slate-900">
+                    {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                  </p>
+                  {report.assignedAuthorityProfile && (
+                    <p className="text-xs text-slate-500 font-medium">
+                      {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Authority Action Log Mobile (No wallet addresses, CIDs, or hashes) */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h3 className="text-base font-bold text-slate-900 mb-4">
+              Authority Action Log
+            </h3>
+            {actionsHistory.length === 0 ? (
+              <p className="text-slate-400 italic text-sm text-center py-2">
+                No authority actions recorded on-chain yet.
+              </p>
+            ) : (
+              <div className="relative border-l border-slate-200 ml-3 pl-5 space-y-6">
+                {actionsHistory.map((act, index) => {
+                  const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  });
+
+                  const statusMeta = getStatusMeta(act.stage);
+
+                  return (
+                    <div key={index} className="relative">
+                      {/* Timeline dot */}
+                      <span className={`absolute -left-[27px] top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                            {statusMeta.label}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {actionDate}
+                          </span>
+                        </div>
+
+                        {/* Authority Name / Role (No wallet address) */}
+                        <div className="text-xs font-semibold text-slate-700">
+                          <span className="text-slate-800">
+                            {act.profile ? act.profile.name : "Official Representative"}
+                          </span>
+                          {act.profile && (
+                            <span className="text-slate-400 font-medium">
+                              {" "}({act.profile.position} &bull; {act.profile.department})
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Comment Content */}
+                        {act.commentText && (
+                          <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-2.5 leading-relaxed whitespace-pre-wrap">
+                            {act.commentText}
+                          </p>
+                        )}
+
+                        {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
+                        {act.imageCid && act.imageCid.length > 5 && (
+                          <div className="mt-1.5 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-xs aspect-video bg-slate-50">
+                            <img
+                              src={`/api/ipfs/image/${act.imageCid}`}
+                              alt="Action Attachment"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {voteControls}
 
           {voteMessage && (
@@ -768,6 +975,77 @@ export default function IssueDetailPage({
                 {report.ipfsCid}
               </p>
             </div> */}
+
+            {/* Authority Action Log Desktop (No wallet addresses, CIDs, or hashes) */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-2">
+              <h2 className="text-lg font-bold text-slate-900 mb-5">
+                Authority Action Log
+              </h2>
+              {actionsHistory.length === 0 ? (
+                <p className="text-slate-400 italic text-sm text-center py-4">
+                  No authority actions recorded on-chain yet.
+                </p>
+              ) : (
+                <div className="relative border-l border-slate-200 ml-4 pl-6 space-y-8">
+                  {actionsHistory.map((act, index) => {
+                    const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    });
+
+                    const statusMeta = getStatusMeta(act.stage);
+
+                    return (
+                      <div key={index} className="relative">
+                        {/* Timeline dot */}
+                        <span className={`absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                              {statusMeta.label}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">
+                              {actionDate}
+                            </span>
+                          </div>
+
+                          {/* Authority Name / Role (No wallet address) */}
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                            <span className="text-slate-800">
+                              {act.profile ? act.profile.name : "Official Representative"}
+                            </span>
+                            {act.profile && (
+                              <span className="text-slate-400 font-medium">
+                                ({act.profile.position} &bull; {act.profile.department})
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Comment Content */}
+                          {act.commentText && (
+                            <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                              {act.commentText}
+                            </p>
+                          )}
+
+                          {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
+                          {act.imageCid && act.imageCid.length > 5 && (
+                            <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-slate-50">
+                              <img
+                                src={`/api/ipfs/image/${act.imageCid}`}
+                                alt="Action Attachment"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* RIGHT */}
@@ -837,15 +1115,20 @@ export default function IssueDetailPage({
                   Assigned Authority
                 </p>
 
-                <p className="text-sm font-bold text-slate-900 mb-1 font-mono truncate">
-                  {report.assignedAuthority ===
-                  "0x0000000000000000000000000000000000000000"
-                    ? "Not yet assigned"
-                    : `${report.assignedAuthority.slice(
-                        0,
-                        6
-                      )}…${report.assignedAuthority.slice(-4)}`}
-                </p>
+                {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                  <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-900">
+                      {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                    </p>
+                    {report.assignedAuthorityProfile && (
+                      <p className="text-xs text-slate-500 font-medium">
+                        {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
