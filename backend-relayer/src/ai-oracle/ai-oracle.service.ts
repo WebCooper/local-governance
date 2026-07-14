@@ -6,6 +6,13 @@ export interface AiModerationResponse {
   success: boolean;
   isApproved: boolean;
   reason?: string;
+  blurredMedia?: {
+    file_name: string;
+    mime_type: string;
+    sha256: string;
+    base64: string;
+    size_bytes: number;
+  }[];
 }
 
 @Injectable()
@@ -153,6 +160,7 @@ export class AiOracleService {
         success: true,
         isApproved: result.final_decision === 'ACCEPT',
         reason: result.summary_explanation,
+        blurredMedia: result.blurred_media,
       };
 
     } catch (error: any) {

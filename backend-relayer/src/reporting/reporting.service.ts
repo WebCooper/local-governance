@@ -156,6 +156,19 @@ export class ReportingService implements OnModuleInit {
       }
       this.logger.log('✅ AI moderation passed: Content approved.');
 
+      // Update image buffers with blurred versions in-place if returned
+      if (images && aiVerdict.blurredMedia && aiVerdict.blurredMedia.length > 0) {
+        this.logger.log('[Face Blurring] AI Oracle returned blurred media. Updating image buffers in-place...');
+        for (const blurred of aiVerdict.blurredMedia) {
+          const matchingImage = images.find(img => img.originalname === blurred.file_name);
+          if (matchingImage) {
+            matchingImage.buffer = Buffer.from(blurred.base64, 'base64');
+            matchingImage.size = matchingImage.buffer.length;
+            this.logger.log(`[Face Blurring] Replaced original image ${blurred.file_name} with blurred version (${matchingImage.size} bytes).`);
+          }
+        }
+      }
+
       // STEP 5: Storage (IPFS)
       this.logger.log('Initiating IPFS storage pipeline...');
       const ipfsStoreResult = await this.ipfsService.uploadComplaint({
@@ -239,12 +252,16 @@ export class ReportingService implements OnModuleInit {
 
       this.logger.log(`Vote crypto-verification passed for report ${reportId}`);
 
+      // Derive citizen pseudonym to enforce one-vote-per-citizen restrictions
+      const { pseudonym } = this.getPseudonym(recoveredCitizenAddress);
+
       // 3. Submit to Blockchain
       const txResult = await this.blockchainService.castVoteOnChain(
         reportId,
         votePhase,
         zkpTicketId, // Using the ticket as the vote nullifier
-        decision
+        decision,
+        pseudonym
       );
 
       return {
