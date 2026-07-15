@@ -19,6 +19,7 @@ interface AdminContextType {
   superAdminsList: string[];
   authoritiesList: string[];
   connectWallet: () => Promise<void>;
+  disconnectWallet: () => void;
   fetchLists: () => Promise<void>;
 }
 
@@ -33,6 +34,7 @@ const AdminContext = createContext<AdminContextType>({
   superAdminsList: [],
   authoritiesList: [],
   connectWallet: async () => { },
+  disconnectWallet: () => { },
   fetchLists: async () => { },
 });
 
@@ -130,6 +132,16 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const disconnectWallet = () => {
+    setAccount(null);
+    setIsSuperAdmin(false);
+    setIsAuthority(false);
+    setContract(null);
+    setReportingContract(null);
+    setSuperAdminsList([]);
+    setAuthoritiesList([]);
+  };
+
   useEffect(() => {
     const autoConnect = async () => {
       if (typeof window !== "undefined" && (window as any).ethereum) {
@@ -176,6 +188,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         superAdminsList,
         authoritiesList,
         connectWallet,
+        disconnectWallet,
         fetchLists,
       }}
     >
