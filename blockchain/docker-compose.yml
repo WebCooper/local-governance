@@ -12,15 +12,30 @@ services:
         max-file: "5"
     entrypoint: ["/bin/sh", "-c"]
     ports:
-      - "8545:8545"      
-      - "30303:30303"    
-      - "30303:30303/udp" 
+      - "30303:30303"
+      - "30303:30303/udp"
     volumes:
       - ./node1:/root/node1
       - ./genesis.json:/root/genesis.json
       - node1_data:/root/node1/geth
-    command: 
-      - "if [ ! -d /root/node1/geth/chaindata ]; then echo 'Initializing Node 1...' && geth init --datadir /root/node1 /root/genesis.json; fi; exec geth --datadir=/root/node1 --networkid=1337 --http --http.addr=0.0.0.0 --http.port=8545 --http.corsdomain=* --http.vhosts=* --http.api=eth,net,web3,personal,miner,admin,clique --allow-insecure-unlock --mine --miner.etherbase=0x7E687086d737d5A06d13926505b7Fd5281aEdc23 --unlock=0x7E687086d737d5A06d13926505b7Fd5281aEdc23 --password=/root/node1/password.txt"
+    command:
+      - "if [ ! -s /root/node1/nodekey ] || [ $$(wc -c < /root/node1/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo 'c5ba367e9f33080ec1eda12a9447ded9e70b723d63fead5f5874acfbfb452477' > /root/node1/nodekey; fi;
+         if [ ! -d /root/node1/geth/chaindata ]; then echo 'Initializing Node 1...' && geth init --datadir /root/node1 /root/genesis.json; fi;
+         exec geth
+          --datadir=/root/node1
+          --nodekey=/root/node1/nodekey
+          --networkid=1337
+          --port=30303
+          --authrpc.port=8551
+          --syncmode=full
+          --bootnodes=enode://74e79b03a5941b1ed1943b396110626353e87d8836c8c3364e02b85cd2d972693d7889da627a95fd69202f01443d3c0e98b25977933ef16e8053bed9154f792f@node2:30304,enode://939196ba4db75fdb1ad677549cb602ffa5110787e55357fbea09e80f9db85e17a9ccac1d0c2f4cbf753bfa0bae3cddd2451368c2a89f950b5d0086a229b8f494@node3:30305,enode://0b2df285827f4fee271bfc7eaa5d7e536e7f2542f6b5f66a3d2b9a77f78d23114631817063920268dc4b4536a48b9b1a7dabdb1f12c4ee2326f2b4fdc20a8c40@node4:30306
+          --txpool.pricelimit=0
+          --allow-insecure-unlock
+          --mine
+          --miner.etherbase=0x7E687086d737d5A06d13926505b7Fd5281aEdc23
+          --unlock=0x7E687086d737d5A06d13926505b7Fd5281aEdc23
+          --password=/root/node1/password.txt
+          --rpc.allow-unprotected-txs"
 
   node2:
     image: ethereum/client-go:v1.13.15
@@ -41,8 +56,24 @@ services:
       - ./node2:/root/node2
       - ./genesis.json:/root/genesis.json
       - node2_data:/root/node2/geth
-    command: 
-      - "if [ ! -d /root/node2/geth/chaindata ]; then echo 'Initializing Node 2...' && geth init --datadir /root/node2 /root/genesis.json; fi; exec geth --datadir=/root/node2 --networkid=1337 --port=30304 --authrpc.port=8552 --mine --miner.etherbase=0x151e6113e425990Ea0fBe47f1EeE01Ada1a3798c --unlock=0x151e6113e425990Ea0fBe47f1EeE01Ada1a3798c --password=/root/node2/password.txt --bootnodes=enode://1ecf7b98e563689d79f2eca0b5ae67f7837a47845428d052a557a0bcbafab2c4f6c4b4cfd3e915d089bbdfafa41e6af076c38614d4cc68bc82b7e27615c23abf@node1:30303"
+    command:
+      - "sleep 10 && if [ ! -s /root/node2/nodekey ] || [ $$(wc -c < /root/node2/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '3b8b81d5a115960783805cf02faa7cb573ca101f5459793dc1ecb3a7ecb3be0b' > /root/node2/nodekey; fi;
+         if [ ! -d /root/node2/geth/chaindata ]; then echo 'Initializing Node 2...' && geth init --datadir /root/node2 /root/genesis.json; fi;
+         exec geth
+          --datadir=/root/node2
+          --nodekey=/root/node2/nodekey
+          --networkid=1337
+          --port=30304
+          --authrpc.port=8552
+          --syncmode=full
+          --bootnodes=enode://053c04feb485790df3dd6ee02e55a35bcffcff04ed57920323a418946ce195dd0d8b490898c8786605f2d55449c63c47ba73342326ebbed19b45145ee7383bf1@node1:30303,enode://939196ba4db75fdb1ad677549cb602ffa5110787e55357fbea09e80f9db85e17a9ccac1d0c2f4cbf753bfa0bae3cddd2451368c2a89f950b5d0086a229b8f494@node3:30305,enode://0b2df285827f4fee271bfc7eaa5d7e536e7f2542f6b5f66a3d2b9a77f78d23114631817063920268dc4b4536a48b9b1a7dabdb1f12c4ee2326f2b4fdc20a8c40@node4:30306
+          --txpool.pricelimit=0
+          --allow-insecure-unlock
+          --mine
+          --miner.etherbase=0x151e6113e425990Ea0fBe47f1EeE01Ada1a3798c
+          --unlock=0x151e6113e425990Ea0fBe47f1EeE01Ada1a3798c
+          --password=/root/node2/password.txt
+          --rpc.allow-unprotected-txs"
 
   node3:
     image: ethereum/client-go:v1.13.15
@@ -63,11 +94,67 @@ services:
       - ./node3:/root/node3
       - ./genesis.json:/root/genesis.json
       - node3_data:/root/node3/geth
-    command: 
-      - "if [ ! -d /root/node3/geth/chaindata ]; then echo 'Initializing Node 3...' && geth init --datadir /root/node3 /root/genesis.json; fi; exec geth --datadir=/root/node3 --networkid=1337 --port=30305 --authrpc.port=8553 --mine --miner.etherbase=0xAD0A0ed0e54954cF8CCe1e04991dAA6219e12105 --unlock=0xAD0A0ed0e54954cF8CCe1e04991dAA6219e12105 --password=/root/node3/password.txt --bootnodes=enode://1ecf7b98e563689d79f2eca0b5ae67f7837a47845428d052a557a0bcbafab2c4f6c4b4cfd3e915d089bbdfafa41e6af076c38614d4cc68bc82b7e27615c23abf@node1:30303"
+    command:
+      - "sleep 15 && if [ ! -s /root/node3/nodekey ] || [ $$(wc -c < /root/node3/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '94c15b2e48649fbc752b7a2e4ed23dc169a742984adfac980cfb8150204d8ea9' > /root/node3/nodekey; fi;
+         if [ ! -d /root/node3/geth/chaindata ]; then echo 'Initializing Node 3...' && geth init --datadir /root/node3 /root/genesis.json; fi;
+         exec geth
+          --datadir=/root/node3
+          --nodekey=/root/node3/nodekey
+          --networkid=1337
+          --port=30305
+          --authrpc.port=8553
+          --syncmode=full
+          --bootnodes=enode://053c04feb485790df3dd6ee02e55a35bcffcff04ed57920323a418946ce195dd0d8b490898c8786605f2d55449c63c47ba73342326ebbed19b45145ee7383bf1@node1:30303,enode://74e79b03a5941b1ed1943b396110626353e87d8836c8c3364e02b85cd2d972693d7889da627a95fd69202f01443d3c0e98b25977933ef16e8053bed9154f792f@node2:30304,enode://0b2df285827f4fee271bfc7eaa5d7e536e7f2542f6b5f66a3d2b9a77f78d23114631817063920268dc4b4536a48b9b1a7dabdb1f12c4ee2326f2b4fdc20a8c40@node4:30306
+          --txpool.pricelimit=0
+          --allow-insecure-unlock
+          --mine
+          --miner.etherbase=0xAD0A0ed0e54954cF8CCe1e04991dAA6219e12105
+          --unlock=0xAD0A0ed0e54954cF8CCe1e04991dAA6219e12105
+          --password=/root/node3/password.txt
+          --rpc.allow-unprotected-txs"
+
+  node4:
+    image: ethereum/client-go:v1.13.15
+    container_name: local-gov-node4
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      - node1
+    entrypoint: ["/bin/sh", "-c"]
+    ports:
+      - "8545:8545"
+      - "30306:30306"
+      - "30306:30306/udp"
+    volumes:
+      - ./node4:/root/node4
+      - ./genesis.json:/root/genesis.json
+      - node4_data:/root/node4/geth
+    command:
+      - "sleep 15 && if [ ! -s /root/node4/nodekey ] || [ $$(wc -c < /root/node4/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '6e8ce3664ebc1d168a43b818fa955574ec8065dd08e60cf8c75dda55a608f463' > /root/node4/nodekey; fi;
+         if [ ! -d /root/node4/geth/chaindata ]; then echo 'Initializing Node 4...' && geth init --datadir /root/node4 /root/genesis.json; fi;
+         exec geth
+          --datadir=/root/node4
+          --nodekey=/root/node4/nodekey
+          --networkid=1337
+          --port=30306
+          --authrpc.port=8554
+          --syncmode=full
+          --bootnodes=enode://053c04feb485790df3dd6ee02e55a35bcffcff04ed57920323a418946ce195dd0d8b490898c8786605f2d55449c63c47ba73342326ebbed19b45145ee7383bf1@node1:30303,enode://74e79b03a5941b1ed1943b396110626353e87d8836c8c3364e02b85cd2d972693d7889da627a95fd69202f01443d3c0e98b25977933ef16e8053bed9154f792f@node2:30304,enode://939196ba4db75fdb1ad677549cb602ffa5110787e55357fbea09e80f9db85e17a9ccac1d0c2f4cbf753bfa0bae3cddd2451368c2a89f950b5d0086a229b8f494@node3:30305
+          --http
+          --http.addr=0.0.0.0
+          --http.port=8545
+          --http.corsdomain=*
+          --http.vhosts=*
+          --http.api=eth,net,web3,personal,admin
+          --txpool.pricelimit=0
+          --rpc.allow-unprotected-txs"
 
 volumes:
   node1_data:
   node2_data:
   node3_data:
-
+  node4_data:

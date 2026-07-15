@@ -1,26 +1,37 @@
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+import hardhatEthersPlugin from "@nomicfoundation/hardhat-ethers";
 import { configVariable, defineConfig } from "hardhat/config";
 
 export default defineConfig({
-  plugins: [hardhatToolboxMochaEthersPlugin],
+  plugins: [hardhatToolboxMochaEthersPlugin, hardhatEthersPlugin],
   solidity: {
     profiles: {
       default: {
         version: "0.8.28",
-      },
-      production: {
-        version: "0.8.28",
         settings: {
+          evmVersion: "london",
           optimizer: {
             enabled: true,
             runs: 200,
           },
+          viaIR: true,
+        },
+      },
+      production: {
+        version: "0.8.28",
+        settings: {
+          evmVersion: "london", 
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
         },
       },
     },
   },
   networks: {
-    hardhatMainnet: {
+   hardhatMainnet: {
       type: "edr-simulated",
       chainType: "l1",
     },
@@ -34,5 +45,14 @@ export default defineConfig({
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
-  },
+    gethPrivate: {
+      type: "http",
+      chainType: "l1",
+      url: "https://rpc.internalbuildtools.online",
+      chainId: 1337,
+      accounts: [configVariable("DEPLOYER_PRIVATE_KEY")],
+      gasPrice: 1000000000,
+      timeout: 120000
+    },
+  }
 });

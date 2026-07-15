@@ -1,0 +1,52 @@
+{
+  "test_id": "AI-S08",
+  "name": "Valid civic text with safe garbage image",
+  "expected_http_status": 200,
+  "expected_decision": "ACCEPT",
+  "actual_http_status": 401,
+  "actual_decision": null,
+  "passed": false,
+  "elapsed_ms_client": 13.88,
+  "processing_time_ms_server": null,
+  "request_hash_local": "513bc4cb69907fa60c9235ea13402e2c307cc858a25dc6c596e6d112def5b708",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S08-c4bb8294-11a3-47fc-a55e-74ea73f8bd11",
+    "text": "Garbage has been dumped near the public road and it is causing a bad smell.",
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S08-c4bb8294-11a3-47fc-a55e-74ea73f8bd11",
+    "text_hash": "88f03d4890dff9d5694291f7410fc38297c15458d84d2e1941f9efc3c6303989",
+    "media_hashes": [
+      "919bffbfe8667da6224213e6d1ec911f0647f12f98cbc271c1360fe7ed2df3e3"
+    ],
+    "category": "Waste Management",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-07-07T09:42:18.627367+00:00",
+    "nonce": "3a0e9200-316f-4122-8765-1ef1ddacbdf5"
+  },
+  "file_summaries": [
+    {
+      "file_name": "garbage_street.png",
+      "mime_type": "image/png",
+      "size_bytes": 182608,
+      "sha256": "919bffbfe8667da6224213e6d1ec911f0647f12f98cbc271c1360fe7ed2df3e3"
+    }
+  ],
+  "response": {
+    "detail": {
+      "error": "Request not signed by trusted relayer",
+      "recovered_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "513bc4cb69907fa60c9235ea13402e2c307cc858a25dc6c596e6d112def5b708"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "test_id": "AI-S04",
+  "name": "Threatening text",
+  "expected_http_status": 200,
+  "expected_decision": "REJECT",
+  "actual_http_status": 401,
+  "actual_decision": null,
+  "passed": false,
+  "elapsed_ms_client": 13.17,
+  "processing_time_ms_server": null,
+  "request_hash_local": "551709de040577590a37062e90d86b6b67f5adb0546d18c59d3b62e811317182",
+  "relayer_address": "0x8B3d8A21B794544759EA04B15F2bAc1e61877A11",
+  "metadata": {
+    "report_id": "RPT-AI-S04-e0aea0f0-6cc9-4b85-9ccf-eb30df9f3696",
+    "text": "There is a pothole near the school and I will attack the officer if this is not fixed.",
+    "category": "Road Damage",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "citizen_signature": "0xmockcitizensignature",
+    "government_ticket_signature": "0xmockgovernmentsignature"
+  },
+  "signed_object": {
+    "report_id": "RPT-AI-S04-e0aea0f0-6cc9-4b85-9ccf-eb30df9f3696",
+    "text_hash": "81c202ebc2377c850c9a9735cc787830e288f3868a0d9ef33bf6806fb92bd256",
+    "media_hashes": [],
+    "category": "Road Damage",
+    "location": "Matara",
+    "ticket_hash": "0xabc123ticket",
+    "payload_hash": "0xdef456payload",
+    "timestamp": "2026-07-07T09:42:18.516201+00:00",
+    "nonce": "f1f45640-63dc-43f3-8db4-07b8d9deabf8"
+  },
+  "file_summaries": [],
+  "response": {
+    "detail": {
+      "error": "Request not signed by trusted relayer",
+      "recovered_address": "0x8b3d8a21b794544759ea04b15f2bac1e61877a11",
+      "trusted_relayer_address": "0x39685ab2fddb6954095786f2f259570786719ee2",
+      "request_hash": "551709de040577590a37062e90d86b6b67f5adb0546d18c59d3b62e811317182"
+    }
+  }
+}

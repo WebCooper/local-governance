@@ -1,36 +1,96 @@
 version: "3.9"
 
 services:
-  oracle-gov:
-    build: ./oracle-gov
-    container_name: oracle-gov
+  oracle-safety:
+    image: localgovernance-oracle-safety:latest
+    build:
+      context: ./oracle-safety
+      dockerfile: Dockerfile
+    container_name: oracle-safety
     restart: unless-stopped
+    environment:
+      ENABLE_AI_MODELS: ${ENABLE_AI_MODELS:-true}
+      ENABLE_FACE_BLURRING: ${ENABLE_FACE_BLURRING:-true}
+      HF_HOME: /models
     expose:
       - "8001"
+    volumes:
+      - hf-model-cache:/models
+    networks:
+      - oracle-net
 
-  oracle-intl:
-    build: ./oracle-intl
-    container_name: oracle-intl
+  oracle-spam:
+    image: localgovernance-oracle-spam:latest
+    build:
+      context: ./oracle-spam
+      dockerfile: Dockerfile
+    container_name: oracle-spam
     restart: unless-stopped
+    environment:
+      ENABLE_SPAM_AI_MODEL: ${ENABLE_SPAM_AI_MODEL:-true}
+      AI_STRONG_SPAM_THRESHOLD: ${AI_STRONG_SPAM_THRESHOLD:-0.85}
+      AI_SUPPORTING_SPAM_THRESHOLD: ${AI_SUPPORTING_SPAM_THRESHOLD:-0.65}
+      RULE_REJECT_THRESHOLD: ${RULE_REJECT_THRESHOLD:-0.60}
+      RULE_SUPPORT_THRESHOLD: ${RULE_SUPPORT_THRESHOLD:-0.25}
+      HF_HOME: /models
     expose:
       - "8002"
+    volumes:
+      - hf-model-cache:/models
+    networks:
+      - oracle-net
 
-  oracle-ngo:
-    build: ./oracle-ngo
-    container_name: oracle-ngo
+  oracle-civic:
+    image: localgovernance-oracle-civic:latest
+    build:
+      context: ./oracle-civic
+      dockerfile: Dockerfile
+    container_name: oracle-civic
     restart: unless-stopped
+    environment:
+      ENABLE_SEMANTIC_TEXT_RELEVANCE: ${ENABLE_SEMANTIC_TEXT_RELEVANCE:-true}
+      SEMANTIC_MODEL_NAME: ${SEMANTIC_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      TEXT_RELEVANCE_THRESHOLD: ${TEXT_RELEVANCE_THRESHOLD:-0.38}
+      CATEGORY_MATCH_THRESHOLD: ${CATEGORY_MATCH_THRESHOLD:-0.40}
+      ENABLE_CLIP_RELEVANCE: ${ENABLE_CLIP_RELEVANCE:-false}
+      HF_HOME: /models
     expose:
       - "8003"
+    volumes:
+      - hf-model-cache:/models
+    networks:
+      - oracle-net
 
   aggregator:
-    build: ./aggregator
+    image: localgovernance-oracle-aggregator:latest
+    build:
+      context: ./aggregator
+      dockerfile: Dockerfile
     container_name: oracle-aggregator
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      ORACLE_API_KEY: ${ORACLE_API_KEY}
+      AGGREGATOR_PRIVATE_KEY: ${AGGREGATOR_PRIVATE_KEY}
+      TRUSTED_RELAYER_ADDRESS: ${TRUSTED_RELAYER_ADDRESS}
+      MAX_REQUEST_AGE_SECONDS: ${MAX_REQUEST_AGE_SECONDS:-300}
+      MAX_FILES: ${MAX_FILES:-3}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-5}
+      ALLOWED_CORS_ORIGINS: ${ALLOWED_CORS_ORIGINS:-http://localhost:3001,https://relayer.internalbuildtools.online}
+    volumes:
+      - aggregator-data:/data
     depends_on:
-      - oracle-gov
-      - oracle-intl
-      - oracle-ngo
+      - oracle-safety
+      - oracle-spam
+      - oracle-civic
+    networks:
+      - oracle-net
+
+networks:
+  oracle-net:
+    driver: bridge
+
+volumes:
+  hf-model-cache:
+  aggregator-data:
