@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
+import toast from "react-hot-toast";
 
 export const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
 export const REPORTING_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
@@ -128,7 +129,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         setIsConnecting(false);
       }
     } else {
-      alert("MetaMask is not installed!");
+      toast.error("MetaMask is not installed!");
     }
   };
 
