@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { ethers } from 'ethers';
 import { useCitizen } from '@/context/CitizenContext';
+import toast from 'react-hot-toast';
 
 interface PollProps {
     pollId: number;
@@ -15,15 +16,15 @@ export default function PollCard({ pollId, title, description, options }: PollPr
 
     const handleVote = async (optionIndex: number) => {
         if (!wallet) {
-            alert("Please log in with your Citizen credentials first.");
+            toast.error("Please log in with your Citizen credentials first.");
             return;
         }
         if (availableTicketsCount === 0) {
-            alert("You have run out of ZKP action tickets! Please request more.");
+            toast.error("You have run out of ZKP action tickets! Please request more.");
             return;
         }
 
-        try {
+        const votePromise = async () => {
             const activeTicket = consumeTicket();
             if (!activeTicket) throw new Error("Ticket acquisition error");
 
@@ -56,12 +57,17 @@ export default function PollCard({ pollId, title, description, options }: PollPr
                 }
             });
 
-            if (response.data.success) {
-                alert('Vote registered successfully without exposing wallet address!');
+            if (!response.data.success) {
+                throw new Error("Vote registration failed");
             }
-        } catch (err: any) {
-            alert(`Voting rejected: ${err.response?.data?.message || err.message}`);
-        }
+            return response.data;
+        };
+
+        toast.promise(votePromise(), {
+            loading: 'Registering your vote anonymously...',
+            success: 'Vote registered successfully without exposing wallet address!',
+            error: (err: any) => `Voting rejected: ${err.response?.data?.message || err.message}`
+        });
     };
 
     return (

@@ -197,9 +197,7 @@ export default function SuperAdminPage() {
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contract) return;
-    
-    setIsSubmitting(true);
-    try {
+    const submitPromise = async () => {
       const safeAddress = targetAddress.trim().toLowerCase();
       const nameVal = (actionType === "0" || actionType === "2") ? targetName.trim() : "";
       const posVal = (actionType === "0" || actionType === "2") ? targetPosition.trim() : "";
@@ -214,31 +212,43 @@ export default function SuperAdminPage() {
         deptVal
       );
       await tx.wait();
-      alert("Proposal submitted successfully!");
+    };
+
+    setIsSubmitting(true);
+    toast.promise(submitPromise(), {
+      loading: 'Submitting proposal on-chain...',
+      success: 'Proposal submitted successfully!',
+      error: (err: any) => err.message || 'Failed to submit proposal.'
+    }).then(() => {
       setTargetAddress("");
       setTargetName("");
       setTargetPosition("");
       setTargetDepartment("");
       fetchProposals();
-    } catch (error: any) {
+    }).catch((error) => {
       console.error(error);
-      alert("Failed to submit proposal. See console.");
-    } finally {
+    }).finally(() => {
       setIsSubmitting(false);
-    }
+    });
   };
 
   const handleVote = async (proposalId: number, support: boolean) => {
     if (!contract) return;
-    try {
+    
+    const votePromise = async () => {
       const tx = await contract.vote(proposalId, support);
       await tx.wait();
-      alert(`Voted ${support ? 'Yes' : 'No'} successfully!`);
+    };
+
+    toast.promise(votePromise(), {
+      loading: 'Casting vote on-chain...',
+      success: `Voted ${support ? 'Yes' : 'No'} successfully!`,
+      error: (err: any) => err.message || 'Failed to cast vote.'
+    }).then(() => {
       fetchProposals();
-    } catch (error: any) {
+    }).catch((error) => {
       console.error(error);
-      alert("Failed to cast vote. See console for details.");
-    }
+    });
   };
 
   const getActionName = (type: number) => {

@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { ethers } from "ethers";
 import {
   ArrowLeft,
@@ -296,26 +297,28 @@ export default function IssueDetailPage({
     error instanceof Error ? error.message : "Unknown error";
   
   const handleCastVote = async (decision: boolean) => {
-    setVoteMessage(null);
-
     if (!wallet) {
-      setVoteMessage("Please connect your wallet first.");
+      toast.error("Please connect your Citizen wallet first.");
       return;
     }
 
     if (!report) {
-      setVoteMessage("Report data is not ready yet.");
+      toast.error("Report data is not ready yet.");
       return;
     }
 
-    // Guard: votePhase is null when there is no active voting window
     if (!votePhase) {
-      setVoteMessage("This report has no active voting window.");
+      toast.error("This report has no active voting window.");
+      return;
+    }
+
+    if (availableTicketsCount === 0) {
+      toast.error("You have run out of ZKP action tickets! Please request more.");
       return;
     }
 
     setIsSubmitting(true);
-    try {
+    const votePromise = async () => {
       const currentTicket = consumeTicket();
 
       if (!currentTicket) {
@@ -335,15 +338,18 @@ export default function IssueDetailPage({
       if (!data?.success) {
         throw new Error(data?.message || "Failed to cast vote.");
       }
+      return data;
+    };
 
+    toast.promise(votePromise(), {
+      loading: 'Submitting your vote securely...',
+      success: 'Vote cast successfully!',
+      error: (err: any) => getErrorMessage(err) || "Failed to cast vote."
+    }).then(() => {
       setSelectedDecision(decision);
-      setVoteMessage("Vote cast successfully.");
-    } catch (error: unknown) {
-      console.error("Voting error:", error);
-      setVoteMessage(getErrorMessage(error) || "Failed to cast vote.");
-    } finally {
+    }).finally(() => {
       setIsSubmitting(false);
-    }
+    });
   };
 
   useEffect(() => {
