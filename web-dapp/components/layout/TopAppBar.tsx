@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Shield, User, LogOut, Bell, Settings, Search } from "lucide-react";
+import { Shield, User, LogOut, Settings, Search } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export function TopAppBar({ className = "" }: { className?: string }) {
   const { wallet, logout: citizenLogout } = useCitizen();
@@ -62,10 +63,8 @@ export function TopAppBar({ className = "" }: { className?: string }) {
       <div className="flex items-center gap-3 md:gap-5 text-slate-500">
         {isLoggedIn ? (
           <>
-            <button className="p-2 hover:bg-slate-100 rounded-full transition-colors relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            {/* Live Notification Bell */}
+            <NotificationBell />
             <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
               <Settings className="h-5 w-5" />
             </button>

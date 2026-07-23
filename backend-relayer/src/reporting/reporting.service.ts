@@ -10,8 +10,10 @@ import { ethers } from 'ethers';
 import { AiOracleService } from '../ai-oracle/ai-oracle.service';
 import { BlockchainService } from 'src/blockchain/blockchain.service';
 import { IpfsService } from '../ipfs/ipfs.service';
-  // Add this inside ReportingService in src/reporting/reporting.service.ts
-  import { CastVoteDto } from './dto/cast-vote.dto';
+import { CastVoteDto } from './dto/cast-vote.dto';
+import { ReportQueueProducer } from '../queue/report-queue.producer';
+import { ReportFlowProducer } from '../queue/report-flow.producer';
+import { ReportJobData } from '../queue/report-queue.types';
 export interface SubmitReportPayload {
   description: string;
   category: string;
@@ -20,7 +22,7 @@ export interface SubmitReportPayload {
   zkpSignature: string;
   citizenPubKey: string;
   signature: string;
-  imageHashes: string;
+  imageHashes?: string;
 }
 
 
@@ -35,6 +37,8 @@ export class ReportingService implements OnModuleInit {
     private readonly aiOracleService: AiOracleService,
     private readonly blockchainService: BlockchainService,
     private readonly ipfsService: IpfsService,
+    private readonly reportQueueProducer: ReportQueueProducer,
+    private readonly reportFlowProducer: ReportFlowProducer,
   ) { }
 
   async onModuleInit() {
@@ -54,6 +58,119 @@ export class ReportingService implements OnModuleInit {
     this.logger.log(`Loaded Government Public Address from .env: ${this.govPublicKey}`);
   }
 
+  // ── NEW: Fast path — crypto verification then enqueue ─────────────────────
+  // Called by the controller. Returns immediately with a jobId so the
+  // citizen gets a 202 response instead of waiting 60+ seconds.
+  async validateAndEnqueue(
+    payload: SubmitReportPayload,
+    images?: Express.Multer.File[],
+  ): Promise<{ jobId: string }> {
+    const {
+      description,
+      category,
+      location,
+      zkpTicketId,
+      zkpSignature,
+      citizenPubKey,
+      signature,
+      imageHashes,
+    } = payload;
+
+    if (!description || !category || !location || !zkpTicketId || !zkpSignature || !citizenPubKey || !signature) {
+      throw new BadRequestException('Missing required fields in payload');
+    }
+
+    // STEP 1: Verify Government Ticket
+    const recoveredGovAddress = ethers.verifyMessage(ethers.getBytes(zkpTicketId), zkpSignature);
+    if (recoveredGovAddress.toLowerCase() !== this.govPublicKey.toLowerCase()) {
+      throw new UnauthorizedException('Invalid or forged government ticket');
+    }
+
+    // STEP 2: Parse & Verify Image Hashes
+    let parsedImageHashes: string[] = [];
+    if (imageHashes) {
+      try {
+        parsedImageHashes = JSON.parse(imageHashes);
+      } catch {
+        throw new BadRequestException('Invalid imageHashes format. Expected JSON array.');
+      }
+    }
+
+    if (images?.length) {
+      if (images.length !== parsedImageHashes.length) {
+        throw new BadRequestException('Mismatch between uploaded images count and provided hashes.');
+      }
+      for (let i = 0; i < images.length; i++) {
+        const computedHash = ethers.keccak256(images[i].buffer);
+        if (computedHash !== parsedImageHashes[i]) {
+          throw new UnauthorizedException(`Image at index ${i} tampered in transit or hash mismatch.`);
+        }
+      }
+    }
+
+    // STEP 3: Verify Citizen Payload Signature
+    const combinedImageHashes = parsedImageHashes.join('');
+    const messageHash = ethers.solidityPackedKeccak256(
+      ['string', 'string', 'string'],
+      [description, zkpTicketId, combinedImageHashes],
+    );
+    const recoveredCitizenAddress = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
+    if (recoveredCitizenAddress.toLowerCase() !== citizenPubKey.toLowerCase()) {
+      throw new UnauthorizedException('Invalid citizen signature. Payload may be tampered.');
+    }
+
+    const citizenPseudonym = ethers.keccak256(
+      ethers.solidityPacked(
+        ['address', 'string'],
+        [citizenPubKey, process.env.PSEUDONYM_DOMAIN_SALT],
+      ),
+    );
+
+    this.logger.log('✅ Cryptographic verification passed. Enqueueing background job…');
+
+    // Serialise Multer buffers → base64 so they survive the Redis round-trip
+    const serializedImages = (images ?? []).map((img) => ({
+      buffer: img.buffer.toString('base64'),
+      originalname: img.originalname,
+      mimetype: img.mimetype,
+      size: img.size,
+    }));
+
+    const jobData: ReportJobData = {
+      citizenPubKey,
+      description,
+      category,
+      location,
+      zkpTicketId,
+      zkpSignature,
+      signature,
+      imageHashes: imageHashes || '[]',
+      citizenPseudonym,
+      messageHash,
+      images: serializedImages,
+    };
+
+    const jobId = await this.reportFlowProducer.addReportFlow(jobData);
+    return { jobId };
+  }
+
+  // ── Thin proxy: called by the BullMQ worker to submit to blockchain ─────────
+  async submitToChain(
+    ipfsCID: string,
+    messageHash: string,
+    zkpTicketId: string,
+    citizenPseudonym: string,
+  ) {
+    return this.blockchainService.submitReportToChain(
+      ipfsCID,
+      messageHash,
+      zkpTicketId,
+      citizenPseudonym,
+    );
+  }
+
+  // ── DEPRECATED: synchronous pipeline kept for backward compatibility ────────
+  /** @deprecated Use validateAndEnqueue() instead. */
   async createReport(payload: SubmitReportPayload, images?: Express.Multer.File[]) {
     const {
       description,
