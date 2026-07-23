@@ -2,17 +2,20 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { FlowProducer } from 'bullmq';
 import { REPORT_QUEUE_NAME, REPORT_STEP_QUEUE_NAME } from './report-queue.producer';
 import { ReportJobData, STEP_JOB_NAMES } from './report-queue.types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class ReportFlowProducer implements OnModuleDestroy {
   private readonly logger = new Logger(ReportFlowProducer.name);
   private readonly flowProducer: FlowProducer;
 
-  constructor() {
+  constructor(private readonly configService: ConfigService) {
     this.flowProducer = new FlowProducer({
       connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        host: this.configService.get<string>('REDIS_HOST') || 'localhost',
+        port: this.configService.get<number>('REDIS_PORT') || 6379,
+        username: this.configService.get<string>('REDIS_USERNAME') || 'default',
+        password: this.configService.get<string>('REDIS_PASSWORD'),
       },
     });
   }
