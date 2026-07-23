@@ -18,6 +18,7 @@ import {
   Plus,
   Share2,
   Globe,
+  Camera,
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import Link from "next/link";
@@ -95,6 +96,8 @@ export default function ReportPage() {
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
 
   // ── Image handling ───────────────────────────────────────────────
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -303,8 +306,9 @@ export default function ReportPage() {
                     : "bg-slate-50 hover:bg-slate-100 cursor-pointer"
                 }`}
                 onClick={() => {
-                  if (images.length < MAX_IMAGES && !isSubmitting && !isProcessingImages)
-                    fileInputRef.current?.click();
+                  if (images.length < MAX_IMAGES && !isSubmitting && !isProcessingImages) {
+                    setShowUploadOptions(true);
+                  }
                 }}
               >
                 <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
@@ -318,6 +322,15 @@ export default function ReportPage() {
                   ref={fileInputRef}
                   className="hidden"
                   accept="image/png, image/jpeg, image/webp"
+                  onChange={handleImageChange}
+                  disabled={isSubmitting || images.length >= MAX_IMAGES || isProcessingImages}
+                />
+                <input
+                  type="file"
+                  ref={cameraInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  capture="environment"
                   onChange={handleImageChange}
                   disabled={isSubmitting || images.length >= MAX_IMAGES || isProcessingImages}
                 />
@@ -471,8 +484,9 @@ export default function ReportPage() {
                       : "bg-slate-50 hover:bg-slate-100 cursor-pointer"
                   }`}
                   onClick={() => {
-                    if (images.length < MAX_IMAGES && !isSubmitting && !isProcessingImages)
-                      fileInputRef.current?.click();
+                    if (images.length < MAX_IMAGES && !isSubmitting && !isProcessingImages) {
+                      setShowUploadOptions(true);
+                    }
                   }}
                 >
                   <UploadCloud className="h-10 w-10 text-slate-400 mb-3" />
@@ -586,6 +600,42 @@ export default function ReportPage() {
           </footer>
         </form>
       </div>
+
+      {/* Upload Options Modal */}
+      {showUploadOptions && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">Add Media</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowUploadOptions(false);
+                fileInputRef.current?.click();
+              }}
+              className="w-full py-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
+            >
+              <UploadCloud className="w-5 h-5 text-blue-600" /> Upload from Device
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowUploadOptions(false);
+                cameraInputRef.current?.click();
+              }}
+              className="w-full py-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
+            >
+              <Camera className="w-5 h-5 text-blue-600" /> Take Photo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUploadOptions(false)}
+              className="w-full py-3 mt-2 text-slate-500 font-medium hover:text-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
