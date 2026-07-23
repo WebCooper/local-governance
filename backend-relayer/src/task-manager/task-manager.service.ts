@@ -162,6 +162,7 @@ export class TaskManagerService implements OnModuleInit {
           name,
           description,
           type: 'project',
+          position: 65536, // Explicitly define position to satisfy Planka database constraint
         },
         this.getHeaders()
       );
@@ -170,6 +171,7 @@ export class TaskManagerService implements OnModuleInit {
 
     return card.id;
   }
+
 
 
   async updateCardList(cardId: string, onChainStatus: number): Promise<void> {
