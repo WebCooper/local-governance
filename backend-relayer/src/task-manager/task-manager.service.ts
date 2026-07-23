@@ -153,23 +153,24 @@ export class TaskManagerService implements OnModuleInit {
 
   async createCard(name: string, description: string): Promise<string> {
     if (!this.todoListId) throw new Error('ToDo list ID is not discovered.');
-    const url = `${this.plankaUrl}/api/cards`;
+    const url = `${this.plankaUrl}/api/lists/${this.todoListId}/cards`;
 
     const card = await this.requestWrapper(async () => {
       const res = await axios.post(
         url,
         {
-          listId: this.todoListId,
           name,
           description,
+          type: 'project',
         },
         this.getHeaders()
       );
-      return res.data;
+      return res.data?.item || res.data;
     });
 
     return card.id;
   }
+
 
   async updateCardList(cardId: string, onChainStatus: number): Promise<void> {
     let targetListId = '';
