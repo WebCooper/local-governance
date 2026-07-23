@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule, getQueueToken } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -17,14 +17,18 @@ import { TaskManagerModule } from './task-manager/task-manager.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
-    // ── BullMQ: global Redis connection ──────────────────────────────────────
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        password: process.env.REDIS_PASSWORD
-      },
+    ConfigModule.forRoot({ isGlobal: true }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        connection: {
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: configService.get<number>('REDIS_PORT') || 6379,
+          username: configService.get<string>('REDIS_USERNAME') || 'default',
+          password: configService.get<string>('REDIS_PASSWORD'),
+        },
+      }),
     }),
     // ── EventEmitter: bridges worker progress events → SSE gateway ───────────
     EventEmitterModule.forRoot(),
