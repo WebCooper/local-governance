@@ -75,9 +75,7 @@ export class TaskManagerController {
       // Auto-sync/create Planka card if it doesn't exist
       const plankaCardId = await this.taskManagerService.syncReportToPlanka(
         reportId,
-        2, // default: Open
-        `Report #${reportId}`,
-        `Report ID: ${reportId}`
+        2 // default: Open
       );
       if (!plankaCardId) {
         throw new BadRequestException('Could not create/sync Planka card.');
@@ -187,9 +185,7 @@ export class TaskManagerController {
   ) {
     const plankaCardId = await this.taskManagerService.syncReportToPlanka(
       Number(reportId),
-      body.status,
-      body.category,
-      body.description
+      body.status
     );
     return {
       success: true,
