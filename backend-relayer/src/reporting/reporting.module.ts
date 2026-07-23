@@ -7,10 +7,12 @@ import { IpfsService } from 'src/ipfs/ipfs.service';
 import { CitizenAuthGuard } from './guards/citizen-auth.guard';
 import { AiOracleModule } from 'src/ai-oracle/ai-oracle.module';
 import { CronService } from './cron.service';
+import { ReportQueueModule } from '../queue/report-queue.module';
 
 @Module({
-  imports: [BlockchainModule, AiOracleModule],
+  imports: [BlockchainModule, AiOracleModule, ReportQueueModule],
   controllers: [ReportingController],
   providers: [ReportingService, IpfsService, CitizenAuthGuard, CronService]
 })
 export class ReportingModule {}
+
