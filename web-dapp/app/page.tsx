@@ -26,7 +26,7 @@ export default function Home() {
         </div>
 
         <div className="flex flex-col items-center w-full max-w-xs gap-6">
-          <Link href="/auth" className="w-full">
+          <Link href="/login" className="w-full">
             <button className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm transition-colors text-center">
               Get Started
             </button>
@@ -62,7 +62,7 @@ export default function Home() {
             </p>
 
             <div className="flex items-center gap-4 mb-12">
-              <Link href="/auth">
+              <Link href="/login">
                 <button className="py-3 px-8 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full shadow-sm transition-colors">
                   Get Started
                 </button>

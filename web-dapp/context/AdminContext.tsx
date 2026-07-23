@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
+import toast from "react-hot-toast";
 
 export const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
 export const REPORTING_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
@@ -19,6 +20,7 @@ interface AdminContextType {
   superAdminsList: string[];
   authoritiesList: string[];
   connectWallet: () => Promise<void>;
+  disconnectWallet: () => void;
   fetchLists: () => Promise<void>;
 }
 
@@ -33,6 +35,7 @@ const AdminContext = createContext<AdminContextType>({
   superAdminsList: [],
   authoritiesList: [],
   connectWallet: async () => { },
+  disconnectWallet: () => { },
   fetchLists: async () => { },
 });
 
@@ -126,8 +129,18 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         setIsConnecting(false);
       }
     } else {
-      alert("MetaMask is not installed!");
+      toast.error("MetaMask is not installed!");
     }
+  };
+
+  const disconnectWallet = () => {
+    setAccount(null);
+    setIsSuperAdmin(false);
+    setIsAuthority(false);
+    setContract(null);
+    setReportingContract(null);
+    setSuperAdminsList([]);
+    setAuthoritiesList([]);
   };
 
   useEffect(() => {
@@ -176,6 +189,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         superAdminsList,
         authoritiesList,
         connectWallet,
+        disconnectWallet,
         fetchLists,
       }}
     >

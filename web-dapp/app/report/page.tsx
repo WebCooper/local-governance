@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ethers } from "ethers";
+import toast from "react-hot-toast";
 import {
   AlertCircle,
   CheckCircle2,
@@ -101,7 +102,7 @@ export default function ReportPage() {
     const newFiles = Array.from(e.target.files);
 
     if (images.length + newFiles.length > MAX_IMAGES) {
-      setStatusMessage({ type: "error", text: `You can only upload a maximum of ${MAX_IMAGES} images.` });
+      toast.error(`You can only upload a maximum of ${MAX_IMAGES} images.`);
       return;
     }
 
@@ -113,7 +114,7 @@ export default function ReportPage() {
       setImages((prev) => [...prev, ...convertedFiles]);
     } catch (error) {
       console.error("Image processing error:", error);
-      setStatusMessage({ type: "error", text: "Failed to process images. Please try different files." });
+      toast.error("Failed to process images. Please try different files.");
     } finally {
       setIsProcessingImages(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -127,35 +128,31 @@ export default function ReportPage() {
   // ── Submit ───────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatusMessage(null);
 
     if (!wallet) {
-      setStatusMessage({ type: "error", text: "You must be logged in to submit a report." });
+      toast.error("You must be logged in to submit a report.");
       return;
     }
 
     if (!location) {
-      setStatusMessage({ type: "error", text: "You must provide a location." });
+      toast.error("You must provide a location.");
       return;
     }
 
     if (!description.trim() || description.length > MAX_DESC_LENGTH) {
-      setStatusMessage({ type: "error", text: "Please provide a valid description within the character limit." });
+      toast.error("Please provide a valid description within the character limit.");
+      return;
+    }
+
+    const currentTicket = consumeTicket();
+    if (!currentTicket) {
+      toast.error("Security session expired (no tickets left). Please log in again.");
       return;
     }
 
     setIsSubmitting(true);
-
-    try {
-      const currentTicket = consumeTicket();
-      if (!currentTicket) {
-        setStatusMessage({
-          type: "error",
-          text: "Security session expired (no tickets left). Please log in again.",
-        });
-        return;
-      }
-
+    
+    const submitPromise = async () => {
       // Step 1: Hash all WebP images
       const imageHashes = await Promise.all(images.map(hashFile));
       const combinedImageHashes = imageHashes.join("");
@@ -193,21 +190,20 @@ export default function ReportPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.error || data.message || "Failed to submit report to relayer.");
       }
+      return data;
+    };
 
-      setStatusMessage({
-        type: "success",
-        text: `Report submitted successfully! You have ${availableTicketsCount - 1} anonymous submissions remaining.`,
-      });
-
+    toast.promise(submitPromise(), {
+      loading: 'Encrypting and submitting your report anonymously...',
+      success: `Report submitted successfully! You have ${availableTicketsCount - 1} anonymous submissions remaining.`,
+      error: (err: any) => err.message
+    }).then(() => {
       // Reset form
       setDescription("");
       setImages([]);
-    } catch (err: any) {
-      console.error(err);
-      setStatusMessage({ type: "error", text: err.message });
-    } finally {
+    }).finally(() => {
       setIsSubmitting(false);
-    }
+    });
   };
 
   // ── Shared status banner ─────────────────────────────────────────
