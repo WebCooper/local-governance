@@ -205,7 +205,15 @@ export class TaskManagerService implements OnModuleInit {
       const res = await this.requestWrapper(async () => {
         return await axios.get(url, this.getHeaders());
       });
-      return res.data || [];
+      const comments = res.data?.items || [];
+      const users = res.data?.included?.users || [];
+      return comments.map((comment: any) => {
+        const user = users.find((u: any) => u.id === comment.userId);
+        return {
+          ...comment,
+          user: user || null,
+        };
+      });
     } catch (e) {
       this.logger.error(`Failed to get card comments for card ${cardId}: ${e}`);
       return [];
@@ -227,12 +235,13 @@ export class TaskManagerService implements OnModuleInit {
       const res = await this.requestWrapper(async () => {
         return await axios.get(url, this.getHeaders());
       });
-      return res.data || [];
+      return res.data?.items || res.data || [];
     } catch (e: any) {
       this.logger.error(`Failed to get Planka users: ${e.message}`);
       return [];
     }
   }
+
 
   async assignCard(cardId: string, plankaUserId: string): Promise<void> {
     const url = `${this.plankaUrl}/api/cards/${cardId}/card-memberships`;
