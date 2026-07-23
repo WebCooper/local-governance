@@ -8,6 +8,7 @@ import { CitizenProvider } from "@/context/CitizenContext";
 import { AdminProvider } from "@/context/AdminContext";
 import { ClientToaster } from "@/components/layout/ClientToaster";
 import { RouteGuard } from "@/components/layout/RouteGuard";
+import { PinScreen } from "@/components/auth/PinScreen";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
           <AdminProvider>
             <RouteGuard>
               <ClientToaster />
+              <PinScreen />
               
               {/* Global Top App Bar */}
               <TopAppBar />
