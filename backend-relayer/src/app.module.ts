@@ -13,6 +13,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { ReportQueueModule } from './queue/report-queue.module';
 import { PollingModule } from './polling/polling.module';
 import { REPORT_QUEUE_NAME, REPORT_STEP_QUEUE_NAME } from './queue/report-queue.producer';
+import { TaskManagerModule } from './task-manager/task-manager.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { REPORT_QUEUE_NAME, REPORT_STEP_QUEUE_NAME } from './queue/report-queue.
     ReportingModule,
     ReportQueueModule,
     PollingModule,
+    TaskManagerModule,
     ScheduleModule.forRoot(),
     // ── BullStudio: job monitoring dashboard at /ops/bullstudio ──────────────
     BullstudioModule.forRootAsync({
@@ -63,5 +65,5 @@ import { REPORT_QUEUE_NAME, REPORT_STEP_QUEUE_NAME } from './queue/report-queue.
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
 

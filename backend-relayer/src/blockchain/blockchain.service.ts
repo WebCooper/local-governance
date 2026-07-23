@@ -74,6 +74,11 @@ export class BlockchainService implements OnModuleInit {
     }
   }
 
+  getReportingContract(): ethers.Contract | null {
+    return this.reportingContract || null;
+  }
+
+
   /**
    * Submits a validated report to the private blockchain.
    * This is called AFTER the Express ZKP server issues the nullifier 
