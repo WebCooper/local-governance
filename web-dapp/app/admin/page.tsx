@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import { getPollingContract } from "@/lib/contracts/polling";
@@ -7,7 +7,7 @@ import axios from "axios";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
-import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus } from "lucide-react";
 import { ReportCard } from "@/components/admin/ReportCard";
 import {
   rawToEnriched,
@@ -16,6 +16,13 @@ import {
   type EnrichedReport,
   type StatusFilter,
 } from "@/lib/reportHelpers";
+import {
+  getWorkers,
+  getTasks,
+  getPlankaUsers,
+  registerWorker,
+} from "@/lib/relayerAPI";
+
 
 // ─── Poll Type ────────────────────────────────────────────────────────────────
 interface PollStructure {
@@ -86,7 +93,7 @@ export default function AuthorityAdminPage() {
   };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"reports" | "polls">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce">("reports");
 
   // ── Reports State ─────────────────────────────────────────────────────────
   const [allReports, setAllReports] = useState<EnrichedReport[]>([]);
@@ -102,6 +109,20 @@ export default function AuthorityAdminPage() {
   const [polls, setPolls] = useState<PollStructure[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [finalizingMap, setFinalizingMap] = useState<Record<number, boolean>>({});
+
+  // ── Workforce State ───────────────────────────────────────────────────────
+  const [workers, setWorkers] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Record<number, any>>({});
+  const [plankaUsers, setPlankaUsers] = useState<any[]>([]);
+  const [workforceLoading, setWorkforceLoading] = useState(false);
+
+  // Forms for registering workers
+  const [newWorkerAddress, setNewWorkerAddress] = useState("");
+  const [newWorkerName, setNewWorkerName] = useState("");
+  const [newWorkerDept, setNewWorkerDept] = useState("");
+  const [newWorkerPlankaId, setNewWorkerPlankaId] = useState("");
+  const [isRegisteringWorker, setIsRegisteringWorker] = useState(false);
+
 
   // ─── Fetch Reports ─────────────────────────────────────────────────────────
   const fetchReports = useCallback(
@@ -187,12 +208,70 @@ export default function AuthorityAdminPage() {
     }
   }, [provider]);
 
+  const fetchWorkforceData = async () => {
+    setWorkforceLoading(true);
+    try {
+      const workersRes = await getWorkers();
+      const tasksRes = await getTasks();
+      const pUsersRes = await getPlankaUsers();
+
+      if (workersRes.success) setWorkers(workersRes.data);
+      if (pUsersRes.success) setPlankaUsers(pUsersRes.data);
+      if (tasksRes.success) {
+        const taskMap: Record<number, any> = {};
+        tasksRes.data.forEach((t: any) => {
+          taskMap[t.reportId] = t;
+        });
+        setTasks(taskMap);
+      }
+    } catch (e) {
+      console.error("Error fetching workforce data:", e);
+      toast.error("Failed to load workforce tracking records from the relayer.");
+    } finally {
+      setWorkforceLoading(false);
+    }
+  };
+
+  const handleRegisterWorker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWorkerAddress || !newWorkerPlankaId || !newWorkerName || !newWorkerDept) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    setIsRegisteringWorker(true);
+    const loadToast = toast.loading("Registering workforce member...");
+    try {
+      const res = await registerWorker(
+        newWorkerAddress,
+        newWorkerName,
+        newWorkerDept,
+        newWorkerPlankaId
+      );
+      if (res.success) {
+        toast.success("Worker mapped and registered successfully!", { id: loadToast });
+        setNewWorkerAddress("");
+        setNewWorkerName("");
+        setNewWorkerDept("");
+        setNewWorkerPlankaId("");
+        fetchWorkforceData();
+      } else {
+        toast.error(res.message || "Failed to register worker.", { id: loadToast });
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to register worker.", { id: loadToast });
+    } finally {
+      setIsRegisteringWorker(false);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthority) return;
     if (activeTab === "reports" && reportingContract) fetchReports(0);
     else if (activeTab === "polls" && provider) fetchPolls();
+    else if (activeTab === "workforce") fetchWorkforceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthority, activeTab, reportingContract, provider]);
+
 
   // ─── Pagination Handlers ───────────────────────────────────────────────────
   const handleNextPage = () => {
@@ -383,7 +462,24 @@ export default function AuthorityAdminPage() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("workforce")}
+            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
+              activeTab === "workforce"
+                ? "text-purple-600 border-b-2 border-purple-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Workforce Tracking
+            {workers.length > 0 && (
+              <span className="ml-1 bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {workers.length}
+              </span>
+            )}
+          </button>
         </div>
+
 
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
@@ -639,7 +735,183 @@ export default function AuthorityAdminPage() {
             </div>
           </>
         )}
+
+        {/* ── WORKFORCE TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "workforce" && (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-in fade-in duration-300">
+            {/* Left: Workers List */}
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Workforce Mappings</h2>
+                  <p className="text-slate-500 text-sm mt-1">Directory of registered workers and their Planka configurations.</p>
+                </div>
+                <button
+                  onClick={fetchWorkforceData}
+                  className="flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-semibold text-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </button>
+              </div>
+
+              {workforceLoading ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-slate-500 font-medium">Syncing workforce ledger…</p>
+                </div>
+              ) : workers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-2xl border border-slate-200 shadow-sm text-slate-400">
+                  <Users className="w-16 h-16 text-slate-300 animate-pulse" />
+                  <p className="font-semibold text-slate-500">No registered workers found.</p>
+                  <p className="text-sm text-slate-400 text-center max-w-xs">Map a worker wallet address to a Planka user in the panel on the right.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {workers.map((worker) => {
+                    const assignedTasks = Object.values(tasks).filter(
+                      (t) => t.assignedWorkerAddress?.toLowerCase() === worker.walletAddress?.toLowerCase()
+                    );
+
+                    return (
+                      <div key={worker.walletAddress} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                            <Users className="w-6 h-6 text-purple-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-sm">{worker.name}</h3>
+                            <p className="text-[10px] text-slate-500 font-medium">{worker.department}</p>
+                          </div>
+                          <span className="ml-auto bg-purple-50 text-purple-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-purple-100">
+                            {assignedTasks.length} Active Task{assignedTasks.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                          <div className="flex justify-between">
+                            <span className="font-medium text-slate-400">Wallet</span>
+                            <span className="font-mono text-slate-800">{worker.walletAddress.slice(0, 8)}...{worker.walletAddress.slice(-6)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="font-medium text-slate-400">Planka User ID</span>
+                            <span className="font-mono text-slate-800">{worker.plankaUserId.slice(0, 8)}...</span>
+                          </div>
+                        </div>
+
+                        {assignedTasks.length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Assigned Reports:</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {assignedTasks.map((t) => (
+                                <Link
+                                  key={t.reportId}
+                                  href={`/admin/reports/${t.reportId}`}
+                                  className="px-2 py-1 bg-slate-50 border border-slate-200 text-[10px] font-bold rounded-lg text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition-colors flex items-center gap-1"
+                                >
+                                  Report #{t.reportId}
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    t.priority === 'HIGH' ? 'bg-red-500' : t.priority === 'MEDIUM' ? 'bg-orange-400' : 'bg-green-400'
+                                  }`} title={`Priority: ${t.priority}`} />
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Map Worker Panel */}
+            <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-purple-600" />
+                  Map Workforce Member
+                </h3>
+                <p className="text-slate-500 text-xs">
+                  Link a faculty worker's Ethereum wallet address with their user account in the self-hosted Planka task manager.
+                </p>
+
+                <form onSubmit={handleRegisterWorker} className="space-y-4 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Dr. Subodha Gunawardena"
+                      value={newWorkerName}
+                      onChange={(e) => setNewWorkerName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-800 font-sans"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Department
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Electrical Engineering"
+                      value={newWorkerDept}
+                      onChange={(e) => setNewWorkerDept(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-800 font-sans"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Wallet Address
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="0x..."
+                      value={newWorkerAddress}
+                      onChange={(e) => setNewWorkerAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-mono text-xs text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+                      Planka User Account
+                    </label>
+                    <select
+                      required
+                      value={newWorkerPlankaId}
+                      onChange={(e) => setNewWorkerPlankaId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-800 font-sans"
+                    >
+                      <option value="">Select Planka Account</option>
+                      {plankaUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isRegisteringWorker}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {isRegisteringWorker ? "Mapping..." : "Register & Map Worker"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
+
