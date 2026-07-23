@@ -21,14 +21,20 @@ import { TaskManagerModule } from './task-manager/task-manager.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get<string>('REDIS_HOST') || 'localhost',
-          port: configService.get<number>('REDIS_PORT') || 6379,
-          username: configService.get<string>('REDIS_USERNAME') || 'default',
-          password: configService.get<string>('REDIS_PASSWORD'),
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const pass = configService.get<string>('REDIS_PASSWORD');
+        console.log(
+          `[DEBUG] Redis Config - Host: ${configService.get<string>('REDIS_HOST') || 'localhost'}, Port: ${configService.get<number>('REDIS_PORT') || 6379}, Password set: ${pass ? `YES (${pass.substring(0, 3)}***)` : 'NO'}`,
+        );
+        return {
+          connection: {
+            host: configService.get<string>('REDIS_HOST') || 'localhost',
+            port: configService.get<number>('REDIS_PORT') || 6379,
+            username: configService.get<string>('REDIS_USERNAME') || 'default',
+            password: pass,
+          },
+        };
+      },
     }),
     // ── EventEmitter: bridges worker progress events → SSE gateway ───────────
     EventEmitterModule.forRoot(),
