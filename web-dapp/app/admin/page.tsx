@@ -54,11 +54,13 @@ export default function AuthorityAdminPage() {
   const {
     account,
     isAuthority,
+    isSuperAdmin,
     isConnecting,
     provider,
     reportingContract,
     connectWallet,
   } = useAdmin();
+
   const { wallet } = useCitizen();
   const [isFunding, setIsFunding] = useState(false);
 
@@ -265,12 +267,13 @@ export default function AuthorityAdminPage() {
   };
 
   useEffect(() => {
-    if (!isAuthority) return;
+    if (!isAuthority && !isSuperAdmin) return;
     if (activeTab === "reports" && reportingContract) fetchReports(0);
     else if (activeTab === "polls" && provider) fetchPolls();
     else if (activeTab === "workforce") fetchWorkforceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthority, activeTab, reportingContract, provider]);
+  }, [isAuthority, isSuperAdmin, activeTab, reportingContract, provider]);
+
 
 
   // ─── Pagination Handlers ───────────────────────────────────────────────────
@@ -368,7 +371,7 @@ export default function AuthorityAdminPage() {
     );
   }
 
-  if (!isAuthority) {
+  if (!isAuthority && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center border border-red-100">
@@ -379,11 +382,12 @@ export default function AuthorityAdminPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h1>
           <p className="text-slate-600 mb-6 font-mono text-sm break-all bg-slate-50 p-3 rounded">{account}</p>
-          <p className="text-slate-500 mb-8">This wallet address is not registered as an Authority on the blockchain.</p>
+          <p className="text-slate-500 mb-8">This wallet address is not registered as an Admin or Authority on the blockchain.</p>
         </div>
       </div>
     );
   }
+
 
   // ─── Main Dashboard ────────────────────────────────────────────────────────
   return (

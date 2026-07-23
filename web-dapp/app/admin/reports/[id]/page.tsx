@@ -69,7 +69,7 @@ export default function AuthorityReportDetailPage({
 }) {
   const router = useRouter();
   const { id } = use(params);
-  const { account, isAuthority, isConnecting, reportingContract, connectWallet } = useAdmin();
+  const { account, isAuthority, isSuperAdmin, isConnecting, reportingContract, connectWallet } = useAdmin();
   const { wallet } = useCitizen();
 
   const [report, setReport] = useState<EnrichedReport | null>(null);
@@ -311,7 +311,7 @@ export default function AuthorityReportDetailPage({
   }
 
   // ─── Guard: connected but not authority ─────────────────────────────────────
-  if (!isAuthority) {
+  if (!isAuthority && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center border border-red-100">
@@ -320,7 +320,7 @@ export default function AuthorityReportDetailPage({
           </div>
           <h1 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h1>
           <p className="text-slate-500 text-sm mb-4">
-            This wallet is not registered as an Authority on-chain.
+            This wallet is not registered as an Admin or Authority on-chain.
           </p>
           <p className="font-mono text-xs text-slate-600 bg-slate-50 p-3 rounded-lg break-all">
             {account}
@@ -329,6 +329,7 @@ export default function AuthorityReportDetailPage({
       </div>
     );
   }
+
 
   // ─── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
