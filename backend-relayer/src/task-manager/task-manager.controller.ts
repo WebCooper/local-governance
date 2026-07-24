@@ -106,6 +106,9 @@ export class TaskManagerController {
         dueDate: dueDate || assignment.dueDate || null,
       });
 
+      // Automatically move Planka card to In Progress column upon assignment
+      await this.taskManagerService.syncReportToPlanka(reportId, 3);
+
       return {
         success: true,
         message: `Task successfully assigned to ${worker.name}`,
@@ -212,29 +215,33 @@ export class TaskManagerController {
       return { success: false, error: 'Unauthorized' };
     }
 
-    this.logger.log(`Received Planka webhook event: ${payload.action?.type}`);
+    const eventType = payload.event || payload.action?.type || payload.type || 'unknown';
+    this.logger.log(`Received Planka webhook event [${eventType}]: ${JSON.stringify(payload)}`);
 
-    // If a card was moved or updated in Planka
-    if (payload.action?.type === 'updateCard' && payload.action?.data?.card) {
-      const card = payload.action.data.card;
-      const assignment = this.dbService.getAssignmentByCardId(card.id);
+    // Flexible extraction of card object from Planka payload variations
+    const card = payload.action?.data?.card || payload.data?.card || payload.card || payload.data;
+    const cardId = card?.id || payload.cardId;
+
+    if (cardId) {
+      const assignment = this.dbService.getAssignmentByCardId(cardId);
 
       if (assignment) {
         // 1. If listId changed (card dragged to another column in Planka)
-        if (card.listId) {
+        const targetListId = card.listId || payload.data?.listId || payload.listId;
+        if (targetListId) {
           const listIds = this.taskManagerService.getListIds();
-          if (listIds.inProgressListId && card.listId === listIds.inProgressListId) {
-            this.logger.log(`Planka Webhook: Card #${card.id} moved to InProgress. Triggering startWork on-chain for Report #${assignment.reportId}`);
+          if (listIds.inProgressListId && targetListId === listIds.inProgressListId) {
+            this.logger.log(`Planka Webhook: Card #${cardId} moved to InProgress. Triggering startWork on-chain for Report #${assignment.reportId}`);
             await this.blockchainService.startWorkOnChain(assignment.reportId);
-          } else if (listIds.doneListId && card.listId === listIds.doneListId) {
-            this.logger.log(`Planka Webhook: Card #${card.id} moved to Done. Triggering markAsSolved on-chain for Report #${assignment.reportId}`);
+          } else if (listIds.doneListId && targetListId === listIds.doneListId) {
+            this.logger.log(`Planka Webhook: Card #${cardId} moved to Done. Triggering markAsSolved on-chain for Report #${assignment.reportId}`);
             await this.blockchainService.markAsSolvedOnChain(assignment.reportId);
           }
         }
 
         // 2. If the assignee changed in Planka, sync to local DB
-        if (payload.action.data.cardMemberships) {
-          const memberships = payload.action.data.cardMemberships;
+        const memberships = payload.action?.data?.cardMemberships || payload.data?.cardMemberships || payload.cardMemberships;
+        if (Array.isArray(memberships)) {
           if (memberships.length > 0) {
             const firstMember = memberships[0];
             const worker = this.dbService.getWorkerByPlankaId(firstMember.userId);
@@ -252,3 +259,4 @@ export class TaskManagerController {
     return { success: true };
   }
 }
+
