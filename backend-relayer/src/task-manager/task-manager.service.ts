@@ -204,11 +204,13 @@ export class TaskManagerService implements OnModuleInit {
         url,
         {
           listId: targetListId,
+          position: 65536, // Required by Planka when moving a card to a new list
         },
         this.getHeaders()
       );
     });
   }
+
 
   async getCardComments(cardId: string): Promise<any[]> {
     const url = `${this.plankaUrl}/api/cards/${cardId}/comments`;
