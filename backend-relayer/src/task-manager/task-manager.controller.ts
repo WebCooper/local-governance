@@ -203,16 +203,29 @@ export class TaskManagerController {
       cardId: plankaCardId,
     };
   }
+}
 
-  // --- Webhook receiver endpoint from Planka ---
-  @Post('../webhooks/planka')
+@Controller('webhooks')
+export class PlankaWebhookController {
+  private readonly logger = new Logger(PlankaWebhookController.name);
+
+  constructor(
+    private readonly taskManagerService: TaskManagerService,
+    private readonly dbService: TaskDbService,
+    private readonly blockchainService: BlockchainService,
+  ) {}
+
+  @Post('planka')
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() payload: any, @Headers('Authorization') authHeader: string) {
     // Check webhook authorization secret if configured
     const expectedSecret = process.env.WEBHOOK_SECRET;
-    if (expectedSecret && authHeader !== `Bearer ${expectedSecret}`) {
-      this.logger.warn('Unauthorized Planka Webhook event received.');
-      return { success: false, error: 'Unauthorized' };
+    if (expectedSecret) {
+      const isValid = authHeader === `Bearer ${expectedSecret}` || authHeader === expectedSecret;
+      if (!isValid) {
+        this.logger.warn('Unauthorized Planka Webhook event received.');
+        return { success: false, error: 'Unauthorized' };
+      }
     }
 
     const eventType = payload.event || payload.action?.type || payload.type || 'unknown';
@@ -220,16 +233,18 @@ export class TaskManagerController {
 
     // Flexible extraction of card object from Planka payload variations
     const card = payload.action?.data?.card || payload.data?.card || payload.card || payload.data;
-    const cardId = card?.id || payload.cardId;
+    const cardId = card?.id || payload.cardId || payload.action?.data?.cardId;
 
     if (cardId) {
       const assignment = this.dbService.getAssignmentByCardId(cardId);
 
       if (assignment) {
         // 1. If listId changed (card dragged to another column in Planka)
-        const targetListId = card.listId || payload.data?.listId || payload.listId;
+        const targetListId = card?.listId || payload.data?.listId || payload.listId || payload.action?.data?.listId;
         if (targetListId) {
           const listIds = this.taskManagerService.getListIds();
+          this.logger.log(`Webhook check list ID: target=${targetListId}, inProgress=${listIds.inProgressListId}, done=${listIds.doneListId}`);
+
           if (listIds.inProgressListId && targetListId === listIds.inProgressListId) {
             this.logger.log(`Planka Webhook: Card #${cardId} moved to InProgress. Triggering startWork on-chain for Report #${assignment.reportId}`);
             await this.blockchainService.startWorkOnChain(assignment.reportId);
@@ -253,6 +268,8 @@ export class TaskManagerController {
           }
           this.dbService.saveAssignment(assignment.reportId, assignment);
         }
+      } else {
+        this.logger.warn(`No assignment found for Planka Card #${cardId}`);
       }
     }
 

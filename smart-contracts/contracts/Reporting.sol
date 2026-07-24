@@ -189,6 +189,12 @@ contract Reporting is Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyAuthorityOrRelayer() {
+        if (!authorizedAuthorities[msg.sender] && !authorizedRelayers[msg.sender])
+            revert Unauthorized();
+        _;
+    }
+
     constructor() Ownable(msg.sender) {
         // Hardcoded relayer
         authorizedRelayers[0x3253678aF33758255f6d97069d9102597AFFf92c] = true;
@@ -716,14 +722,16 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
             report.status != ReportStatus.Reopened
         ) revert InvalidState();
 
-        report.assignedAuthority = msg.sender;
+        if (report.assignedAuthority == address(0) || authorizedAuthorities[msg.sender]) {
+            report.assignedAuthority = msg.sender;
+        }
         _changeStatus(reportId, ReportStatus.InProgress);
         _recordAuthorityAction(reportId, ReportStatus.InProgress, comment, imageCid);
 
@@ -740,10 +748,13 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (report.status != ReportStatus.InProgress) revert InvalidState();
-        if (report.assignedAuthority != msg.sender) revert Unauthorized();
+        if (
+            !authorizedRelayers[msg.sender] &&
+            report.assignedAuthority != msg.sender
+        ) revert Unauthorized();
 
         _changeStatus(reportId, ReportStatus.PendingVerification);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
@@ -762,7 +773,7 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
@@ -772,6 +783,7 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         if (
             report.status == ReportStatus.InProgress &&
+            !authorizedRelayers[msg.sender] &&
             report.assignedAuthority != msg.sender
         ) {
             revert Unauthorized();
