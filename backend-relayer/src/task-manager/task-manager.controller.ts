@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { TaskManagerService } from './task-manager.service';
 import { TaskDbService, TaskAssignment, WorkerMapping } from './task-db.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 interface AssignTaskDto {
   reportId: number;
@@ -39,6 +40,7 @@ export class TaskManagerController {
   constructor(
     private readonly taskManagerService: TaskManagerService,
     private readonly dbService: TaskDbService,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   @Get('tasks')
@@ -129,7 +131,13 @@ export class TaskManagerController {
 
   @Post('tasks/:reportId/comments')
   async addComment(@Param('reportId') reportId: string, @Body() dto: AddCommentDto) {
-    const assignment = this.dbService.getAssignment(Number(reportId));
+    let assignment = this.dbService.getAssignment(Number(reportId));
+    if (!assignment) {
+      const cardId = await this.taskManagerService.syncReportToPlanka(Number(reportId), 2);
+      if (cardId) {
+        assignment = this.dbService.getAssignment(Number(reportId));
+      }
+    }
     if (!assignment) {
       throw new BadRequestException('Task is not synced to Planka.');
     }
@@ -196,7 +204,7 @@ export class TaskManagerController {
   // --- Webhook receiver endpoint from Planka ---
   @Post('../webhooks/planka')
   @HttpCode(HttpStatus.OK)
-  handleWebhook(@Body() payload: any, @Headers('Authorization') authHeader: string) {
+  async handleWebhook(@Body() payload: any, @Headers('Authorization') authHeader: string) {
     // Check webhook authorization secret if configured
     const expectedSecret = process.env.WEBHOOK_SECRET;
     if (expectedSecret && authHeader !== `Bearer ${expectedSecret}`) {
@@ -206,13 +214,25 @@ export class TaskManagerController {
 
     this.logger.log(`Received Planka webhook event: ${payload.action?.type}`);
 
-    // If a card was moved, update our local db state
+    // If a card was moved or updated in Planka
     if (payload.action?.type === 'updateCard' && payload.action?.data?.card) {
       const card = payload.action.data.card;
       const assignment = this.dbService.getAssignmentByCardId(card.id);
 
       if (assignment) {
-        // If the assignee changed in Planka, we sync it to our DB
+        // 1. If listId changed (card dragged to another column in Planka)
+        if (card.listId) {
+          const listIds = this.taskManagerService.getListIds();
+          if (listIds.inProgressListId && card.listId === listIds.inProgressListId) {
+            this.logger.log(`Planka Webhook: Card #${card.id} moved to InProgress. Triggering startWork on-chain for Report #${assignment.reportId}`);
+            await this.blockchainService.startWorkOnChain(assignment.reportId);
+          } else if (listIds.doneListId && card.listId === listIds.doneListId) {
+            this.logger.log(`Planka Webhook: Card #${card.id} moved to Done. Triggering markAsSolved on-chain for Report #${assignment.reportId}`);
+            await this.blockchainService.markAsSolvedOnChain(assignment.reportId);
+          }
+        }
+
+        // 2. If the assignee changed in Planka, sync to local DB
         if (payload.action.data.cardMemberships) {
           const memberships = payload.action.data.cardMemberships;
           if (memberships.length > 0) {

@@ -255,4 +255,28 @@ export class BlockchainService implements OnModuleInit {
       return false;
     }
   }
-}
+
+  async startWorkOnChain(reportId: number, comment = 'Started work via Planka', imageCid = '') {
+    if (!this.blockchainEnabled) return;
+    try {
+      this.logger.log(`Broadcasting startWork on-chain transaction for report #${reportId}...`);
+      const tx = await this.reportingContract.startWork(reportId, comment, imageCid);
+      await tx.wait();
+      this.logger.log(`✅ Report #${reportId} status successfully transitioned to InProgress on-chain.`);
+    } catch (e: any) {
+      this.logger.error(`Failed to execute startWork on-chain for report #${reportId}: ${e.message}`);
+    }
+  }
+
+  async markAsSolvedOnChain(reportId: number, comment = 'Marked solved via Planka', imageCid = '') {
+    if (!this.blockchainEnabled) return;
+    try {
+      this.logger.log(`Broadcasting markAsSolved on-chain transaction for report #${reportId}...`);
+      const tx = await this.reportingContract.markAsSolved(reportId, comment, imageCid);
+      await tx.wait();
+      this.logger.log(`✅ Report #${reportId} status successfully transitioned to PendingVerification on-chain.`);
+    } catch (e: any) {
+      this.logger.error(`Failed to execute markAsSolved on-chain for report #${reportId}: ${e.message}`);
+    }
+  }
+}

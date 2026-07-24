@@ -18,7 +18,17 @@ export class TaskManagerService implements OnModuleInit {
   private inProgressListId = '';
   private doneListId = '';
 
+  getListIds() {
+    return {
+      todoListId: this.todoListId,
+      inProgressListId: this.inProgressListId,
+      doneListId: this.doneListId,
+    };
+  }
+
   constructor(
+
+
     private readonly configService: ConfigService,
     private readonly dbService: TaskDbService,
     private readonly blockchainService: BlockchainService,
