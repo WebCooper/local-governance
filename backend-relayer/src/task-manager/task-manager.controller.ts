@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { TaskManagerService } from './task-manager.service';
 import { TaskDbService, TaskAssignment, WorkerMapping } from './task-db.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 interface AssignTaskDto {
   reportId: number;
@@ -39,6 +40,7 @@ export class TaskManagerController {
   constructor(
     private readonly taskManagerService: TaskManagerService,
     private readonly dbService: TaskDbService,
+    private readonly blockchainService: BlockchainService,
   ) {}
 
   @Get('tasks')
@@ -75,9 +77,7 @@ export class TaskManagerController {
       // Auto-sync/create Planka card if it doesn't exist
       const plankaCardId = await this.taskManagerService.syncReportToPlanka(
         reportId,
-        2, // default: Open
-        `Report #${reportId}`,
-        `Report ID: ${reportId}`
+        2 // default: Open
       );
       if (!plankaCardId) {
         throw new BadRequestException('Could not create/sync Planka card.');
@@ -106,6 +106,9 @@ export class TaskManagerController {
         dueDate: dueDate || assignment.dueDate || null,
       });
 
+      // Automatically move Planka card to In Progress column upon assignment
+      await this.taskManagerService.syncReportToPlanka(reportId, 3);
+
       return {
         success: true,
         message: `Task successfully assigned to ${worker.name}`,
@@ -131,7 +134,13 @@ export class TaskManagerController {
 
   @Post('tasks/:reportId/comments')
   async addComment(@Param('reportId') reportId: string, @Body() dto: AddCommentDto) {
-    const assignment = this.dbService.getAssignment(Number(reportId));
+    let assignment = this.dbService.getAssignment(Number(reportId));
+    if (!assignment) {
+      const cardId = await this.taskManagerService.syncReportToPlanka(Number(reportId), 2);
+      if (cardId) {
+        assignment = this.dbService.getAssignment(Number(reportId));
+      }
+    }
     if (!assignment) {
       throw new BadRequestException('Task is not synced to Planka.');
     }
@@ -187,38 +196,67 @@ export class TaskManagerController {
   ) {
     const plankaCardId = await this.taskManagerService.syncReportToPlanka(
       Number(reportId),
-      body.status,
-      body.category,
-      body.description
+      body.status
     );
     return {
       success: true,
       cardId: plankaCardId,
     };
   }
+}
 
-  // --- Webhook receiver endpoint from Planka ---
-  @Post('../webhooks/planka')
+@Controller('webhooks')
+export class PlankaWebhookController {
+  private readonly logger = new Logger(PlankaWebhookController.name);
+
+  constructor(
+    private readonly taskManagerService: TaskManagerService,
+    private readonly dbService: TaskDbService,
+    private readonly blockchainService: BlockchainService,
+  ) {}
+
+  @Post('planka')
   @HttpCode(HttpStatus.OK)
-  handleWebhook(@Body() payload: any, @Headers('Authorization') authHeader: string) {
+  async handleWebhook(@Body() payload: any, @Headers('Authorization') authHeader: string) {
     // Check webhook authorization secret if configured
     const expectedSecret = process.env.WEBHOOK_SECRET;
-    if (expectedSecret && authHeader !== `Bearer ${expectedSecret}`) {
-      this.logger.warn('Unauthorized Planka Webhook event received.');
-      return { success: false, error: 'Unauthorized' };
+    if (expectedSecret) {
+      const isValid = authHeader === `Bearer ${expectedSecret}` || authHeader === expectedSecret;
+      if (!isValid) {
+        this.logger.warn('Unauthorized Planka Webhook event received.');
+        return { success: false, error: 'Unauthorized' };
+      }
     }
 
-    this.logger.log(`Received Planka webhook event: ${payload.action?.type}`);
+    const eventType = payload.event || payload.action?.type || payload.type || 'unknown';
+    this.logger.log(`Received Planka webhook event [${eventType}]: ${JSON.stringify(payload)}`);
 
-    // If a card was moved, update our local db state
-    if (payload.action?.type === 'updateCard' && payload.action?.data?.card) {
-      const card = payload.action.data.card;
-      const assignment = this.dbService.getAssignmentByCardId(card.id);
+    // Flexible extraction of card object from Planka payload variations
+    const card = payload.action?.data?.card || payload.data?.card || payload.card || payload.data;
+    const cardId = card?.id || payload.cardId || payload.action?.data?.cardId;
+
+    if (cardId) {
+      const assignment = this.dbService.getAssignmentByCardId(cardId);
 
       if (assignment) {
-        // If the assignee changed in Planka, we sync it to our DB
-        if (payload.action.data.cardMemberships) {
-          const memberships = payload.action.data.cardMemberships;
+        // 1. If listId changed (card dragged to another column in Planka)
+        const targetListId = card?.listId || payload.data?.listId || payload.listId || payload.action?.data?.listId;
+        if (targetListId) {
+          const listIds = this.taskManagerService.getListIds();
+          this.logger.log(`Webhook check list ID: target=${targetListId}, inProgress=${listIds.inProgressListId}, done=${listIds.doneListId}`);
+
+          if (listIds.inProgressListId && targetListId === listIds.inProgressListId) {
+            this.logger.log(`Planka Webhook: Card #${cardId} moved to InProgress. Triggering startWork on-chain for Report #${assignment.reportId}`);
+            await this.blockchainService.startWorkOnChain(assignment.reportId);
+          } else if (listIds.doneListId && targetListId === listIds.doneListId) {
+            this.logger.log(`Planka Webhook: Card #${cardId} moved to Done. Triggering markAsSolved on-chain for Report #${assignment.reportId}`);
+            await this.blockchainService.markAsSolvedOnChain(assignment.reportId);
+          }
+        }
+
+        // 2. If the assignee changed in Planka, sync to local DB
+        const memberships = payload.action?.data?.cardMemberships || payload.data?.cardMemberships || payload.cardMemberships;
+        if (Array.isArray(memberships)) {
           if (memberships.length > 0) {
             const firstMember = memberships[0];
             const worker = this.dbService.getWorkerByPlankaId(firstMember.userId);
@@ -230,9 +268,12 @@ export class TaskManagerController {
           }
           this.dbService.saveAssignment(assignment.reportId, assignment);
         }
+      } else {
+        this.logger.warn(`No assignment found for Planka Card #${cardId}`);
       }
     }
 
     return { success: true };
   }
 }
+

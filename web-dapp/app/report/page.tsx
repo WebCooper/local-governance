@@ -21,6 +21,7 @@ import {
   Camera,
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
+import { useNotifications } from "@/context/NotificationContext";
 import Link from "next/link";
 import type { PickedLocation } from "@/components/LocationPicker";
 
@@ -83,6 +84,7 @@ const hashFile = async (file: File): Promise<string> => {
 export default function ReportPage() {
   const router = useRouter();
   const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
+  const { addPendingJob } = useNotifications();
 
   const [category, setCategory] = useState("Infrastructure Damage");
   const [description, setDescription] = useState("");
@@ -155,7 +157,7 @@ export default function ReportPage() {
 
     setIsSubmitting(true);
     
-    const submitPromise = async () => {
+    try {
       // Step 1: Hash all WebP images
       const imageHashes = await Promise.all(images.map(hashFile));
       const combinedImageHashes = imageHashes.join("");
@@ -193,20 +195,24 @@ export default function ReportPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.error || data.message || "Failed to submit report to relayer.");
       }
-      return data;
-    };
 
-    toast.promise(submitPromise(), {
-      loading: 'Encrypting and submitting your report anonymously...',
-      success: `Report submitted successfully! You have ${availableTicketsCount - 1} anonymous submissions remaining.`,
-      error: (err: any) => err.message
-    }).then(() => {
-      // Reset form
+      // Register the job with the notification system so the bell tracks it
+      addPendingJob(data.jobId, category);
+
+      // Reset form immediately — no need to wait for pipeline
       setDescription("");
       setImages([]);
-    }).finally(() => {
+
+      toast.success(
+        `Report submitted! Track progress in the notification bell. You have ${availableTicketsCount - 1} tickets remaining.`,
+        { duration: 5000 }
+      );
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      toast.error(error.message || "Failed to submit report.");
+    } finally {
       setIsSubmitting(false);
-    });
+    }
   };
 
   // ── Shared status banner ─────────────────────────────────────────

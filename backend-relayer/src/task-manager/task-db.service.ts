@@ -25,8 +25,11 @@ interface DbSchema {
 @Injectable()
 export class TaskDbService implements OnModuleInit {
   private readonly logger = new Logger(TaskDbService.name);
-  private readonly dbPath = path.join(process.cwd(), 'data', 'task-assignments.json');
+  private readonly dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  private readonly dbPath = path.join(this.dataDir, 'task-assignments.json');
   private data: DbSchema = { assignments: {}, workers: {} };
+
+
 
   onModuleInit() {
     this.ensureDbExists();

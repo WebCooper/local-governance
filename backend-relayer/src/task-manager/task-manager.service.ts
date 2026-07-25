@@ -18,7 +18,17 @@ export class TaskManagerService implements OnModuleInit {
   private inProgressListId = '';
   private doneListId = '';
 
+  getListIds() {
+    return {
+      todoListId: this.todoListId,
+      inProgressListId: this.inProgressListId,
+      doneListId: this.doneListId,
+    };
+  }
+
   constructor(
+
+
     private readonly configService: ConfigService,
     private readonly dbService: TaskDbService,
     private readonly blockchainService: BlockchainService,
@@ -54,9 +64,7 @@ export class TaskManagerService implements OnModuleInit {
           this.logger.log(`Blockchain Event: ReportStatusChanged for Report #${reportId} to status ${newStatus}`);
           await this.syncReportToPlanka(
             Number(reportId),
-            Number(newStatus),
-            `Report #${reportId}`,
-            `Report ID: ${reportId}`
+            Number(newStatus)
           );
         });
       } else {
@@ -153,23 +161,26 @@ export class TaskManagerService implements OnModuleInit {
 
   async createCard(name: string, description: string): Promise<string> {
     if (!this.todoListId) throw new Error('ToDo list ID is not discovered.');
-    const url = `${this.plankaUrl}/api/cards`;
+    const url = `${this.plankaUrl}/api/lists/${this.todoListId}/cards`;
 
     const card = await this.requestWrapper(async () => {
       const res = await axios.post(
         url,
         {
-          listId: this.todoListId,
           name,
           description,
+          type: 'project',
+          position: 65536, // Explicitly define position to satisfy Planka database constraint
         },
         this.getHeaders()
       );
-      return res.data;
+      return res.data?.item || res.data;
     });
 
     return card.id;
   }
+
+
 
   async updateCardList(cardId: string, onChainStatus: number): Promise<void> {
     let targetListId = '';
@@ -193,11 +204,13 @@ export class TaskManagerService implements OnModuleInit {
         url,
         {
           listId: targetListId,
+          position: 65536, // Required by Planka when moving a card to a new list
         },
         this.getHeaders()
       );
     });
   }
+
 
   async getCardComments(cardId: string): Promise<any[]> {
     const url = `${this.plankaUrl}/api/cards/${cardId}/comments`;
@@ -244,11 +257,27 @@ export class TaskManagerService implements OnModuleInit {
 
 
   async assignCard(cardId: string, plankaUserId: string): Promise<void> {
+    // Ensure the user is a member of the board first (editor role)
+    try {
+      await this.requestWrapper(async () => {
+        await axios.post(
+          `${this.plankaUrl}/api/boards/${this.boardId}/board-memberships`,
+          { userId: plankaUserId, role: 'editor' },
+          this.getHeaders()
+        );
+      });
+      this.logger.log(`Ensured Planka user ${plankaUserId} is a member of board ${this.boardId}`);
+    } catch (e: any) {
+      // Ignore if they are already a member or if it fails
+      this.logger.log(`User board membership auto-ensure completed/skipped: ${e.message}`);
+    }
+
     const url = `${this.plankaUrl}/api/cards/${cardId}/card-memberships`;
     await this.requestWrapper(async () => {
       await axios.post(url, { userId: plankaUserId }, this.getHeaders());
     });
   }
+
 
   async unassignCard(cardId: string, plankaUserId: string): Promise<void> {
     const url = `${this.plankaUrl}/api/cards/${cardId}/card-memberships/userId:${plankaUserId}`;
@@ -265,21 +294,59 @@ export class TaskManagerService implements OnModuleInit {
 
   async syncReportToPlanka(
     reportId: number,
-    onChainStatus: number,
-    title: string,
-    description: string
+    onChainStatus: number
   ): Promise<string> {
     if (!this.plankaUrl) return '';
 
     let assignment = this.dbService.getAssignment(reportId);
 
     if (!assignment) {
+      // Resolve title and description from Blockchain and IPFS
+      let title = `Report #${reportId}`;
+      let description = `Report ID: ${reportId}`;
+
+      try {
+        const contract = this.blockchainService.getReportingContract();
+        if (contract) {
+          const report = await contract.getReport(reportId);
+          if (report && report.ipfsCid) {
+            const rawCid = report.ipfsCid;
+            const cid = rawCid.startsWith("ipfs://") ? rawCid.slice(7) : rawCid;
+            const ipfsBaseUrl = this.configService.get<string>('IPFS_UPLOAD_ENDPOINT') || 'http://51.210.111.188:4000';
+            
+            try {
+              const ipfsRes = await axios.get(`${ipfsBaseUrl}/api/ipfs/complaint/${cid}`, { timeout: 5000 });
+              if (ipfsRes.data && ipfsRes.data.success) {
+                const ipfsData = ipfsRes.data;
+                const category = ipfsData.category || 'Civic Issue';
+                title = `Report #${reportId}: ${category}`;
+                
+                const imagesList = ipfsData.images || [];
+                let attachmentsMd = '';
+                if (imagesList.length > 0) {
+                  attachmentsMd = `\n\n### Attachments\n` +
+                    imagesList.map((imgCid: string) => `![Report Attachment](${ipfsBaseUrl}/api/ipfs/image/${imgCid})`).join('\n\n');
+                }
+
+                description = `**Report ID**: ${reportId}\n` +
+                  `**Category**: ${category}\n` +
+                  `**Location**: ${ipfsData.location || 'Unknown'}\n` +
+                  `**Submitted On**: ${new Date(Number(report.createdAt) * 1000).toLocaleString()}\n\n` +
+                  `### Detailed Description\n${ipfsData.description || 'No description provided.'}` +
+                  attachmentsMd;
+              }
+            } catch (ipfsErr: any) {
+              this.logger.warn(`Failed to fetch IPFS data for report #${reportId} at CID ${cid}: ${ipfsErr.message}`);
+            }
+          }
+        }
+      } catch (contractErr: any) {
+        this.logger.warn(`Failed to retrieve report #${reportId} from smart contract: ${contractErr.message}`);
+      }
+
       // Create new card
       this.logger.log(`Sync: Creating Planka card for Report #${reportId}`);
-      const cardId = await this.createCard(
-        `Report #${reportId}: ${title.slice(0, 50)}`,
-        `**Report ID**: ${reportId}\n\n**Description**: ${description}`
-      );
+      const cardId = await this.createCard(title, description);
       this.dbService.saveAssignment(reportId, {
         reportId,
         plankaCardId: cardId,
