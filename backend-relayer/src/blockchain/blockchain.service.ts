@@ -84,7 +84,7 @@ export class BlockchainService implements OnModuleInit {
    * This is called AFTER the Express ZKP server issues the nullifier 
    * and the AI Oracle approves the IPFS content.
    */
-  async submitReportToChain(ipfsCID: string, reportHash: string, submissionNullifier: string, citizenPseudonym: string) {
+  async submitReportToChain(ipfsCID: string, reportHash: string, submissionNullifier: string, citizenPseudonym: string, isEmergency: boolean) {
     if (!this.blockchainEnabled) {
       this.logger.warn('submitReportToChain called while blockchain submission is disabled.');
       return {
@@ -108,7 +108,8 @@ export class BlockchainService implements OnModuleInit {
         ipfsCID,
         reportHashBytes,      // bytes32 reportHash
         nullifierBytes,       // bytes32 submissionNullifier
-        citizenPseudonym      // bytes32 citizenPseudonym
+        citizenPseudonym,     // bytes32 citizenPseudonym
+        isEmergency           // bool isEmergency
       );
 
       this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
@@ -127,6 +128,30 @@ export class BlockchainService implements OnModuleInit {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Blockchain submission failed: ${message}`);
       throw new InternalServerErrorException('Failed to record report on-chain.');
+    }
+  }
+
+  async downgradeEmergencyOnChain(reportId: number) {
+    if (!this.blockchainEnabled) {
+      this.logger.warn('downgradeEmergencyOnChain called while blockchain submission is disabled.');
+      return { success: true };
+    }
+
+    try {
+      this.logger.log(`Initiating blockchain transaction to downgrade emergency for report: ${reportId}`);
+      const tx = await this.reportingContract.reclassifyEmergency(reportId);
+      this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
+      const receipt = await tx.wait();
+      this.logger.log(`Success! Emergency downgraded in block: ${receipt.blockNumber}`);
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Blockchain submission failed: ${message}`);
+      throw new InternalServerErrorException('Failed to downgrade emergency on-chain.');
     }
   }
 

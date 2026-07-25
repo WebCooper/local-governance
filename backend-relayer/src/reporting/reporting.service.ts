@@ -23,6 +23,7 @@ export interface SubmitReportPayload {
   citizenPubKey: string;
   signature: string;
   imageHashes?: string;
+  isEmergency?: string | boolean;
 }
 
 
@@ -74,6 +75,7 @@ export class ReportingService implements OnModuleInit {
       citizenPubKey,
       signature,
       imageHashes,
+      isEmergency,
     } = payload;
 
     if (!description || !category || !location || !zkpTicketId || !zkpSignature || !citizenPubKey || !signature) {
@@ -147,6 +149,7 @@ export class ReportingService implements OnModuleInit {
       imageHashes: imageHashes || '[]',
       citizenPseudonym,
       messageHash,
+      isEmergency: isEmergency === 'true' || isEmergency === true,
       images: serializedImages,
     };
 
@@ -160,12 +163,14 @@ export class ReportingService implements OnModuleInit {
     messageHash: string,
     zkpTicketId: string,
     citizenPseudonym: string,
+    isEmergency: boolean,
   ) {
     return this.blockchainService.submitReportToChain(
       ipfsCID,
       messageHash,
       zkpTicketId,
       citizenPseudonym,
+      isEmergency,
     );
   }
 
@@ -303,7 +308,8 @@ export class ReportingService implements OnModuleInit {
         ipfsCID,
         messageHash,       // this is the solidityPackedKeccak256 hash — already a bytes32 hex string
         zkpTicketId,       // used as the submission nullifier
-        citizenPseudonym
+        citizenPseudonym,
+        payload.isEmergency === 'true' || payload.isEmergency === true
       );
 
       return {

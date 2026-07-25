@@ -269,6 +269,7 @@ export class ReportQueueProcessor extends WorkerHost {
             job.data.messageHash,
             job.data.zkpTicketId,
             job.data.citizenPseudonym,
+            job.data.isEmergency ?? false,
           ),
         3,
         2_000,
