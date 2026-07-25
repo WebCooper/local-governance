@@ -385,6 +385,31 @@ export default function ReportPage() {
               <LocationPicker value={location} onChange={setLocation} />
             </div>
 
+            {/* ── Emergency Toggle ── */}
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+              <div className="flex-1">
+                <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 shrink-0" /> Urgent / Emergency Report
+                </h3>
+                <p className="text-red-600 text-xs leading-relaxed">
+                  Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEmergency(!isEmergency)}
+                className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner self-end sm:self-auto ${
+                  isEmergency ? 'bg-red-600' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                    isEmergency ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             <button
               type="submit"
               disabled={isSubmitting || isProcessingImages || !wallet}

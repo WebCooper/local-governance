@@ -697,12 +697,7 @@ export default function IssueDetailPage({
               <span>Reported {reportedAt}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="font-mono text-xs break-all">
-                {report.ipfsCid}
-              </span>
-            </div>
+
           </div>
 
           {/* Assigned Authority Mobile (No wallet addresses, CIDs, or hashes) */}
