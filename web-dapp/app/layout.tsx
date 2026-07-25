@@ -31,6 +31,7 @@ export default function RootLayout({
             <NotificationProvider>
               <RouteGuard>
                 <ClientToaster />
+                <PinScreen />
                 
                 {/* Global Top App Bar */}
                 <TopAppBar />
