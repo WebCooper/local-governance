@@ -44,7 +44,7 @@ export function TopAppBar({ className = "" }: { className?: string }) {
   return (
     <header className={`flex items-center justify-between px-4 md:px-8 py-3 bg-white shadow-sm border-b border-slate-100 z-50 ${className}`}>
       {/* Brand */}
-      <Link href="/" className="flex items-center gap-2">
+      <Link href={isLoggedIn ? "/feed" : "/"} className="flex items-center gap-2">
         <Shield className="h-6 w-6 text-blue-600" />
         <span className="font-bold text-xl text-blue-600 tracking-tight hidden md:inline-block">AURACHAIN</span>
       </Link>

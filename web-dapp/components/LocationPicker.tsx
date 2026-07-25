@@ -273,7 +273,7 @@ export default function LocationPicker({ value, onChange }: Props) {
       )}
 
       {/* Map */}
-      <div className="rounded-xl overflow-hidden border border-slate-200" style={{ height: "320px" }}>
+      <div className="relative z-0 rounded-xl overflow-hidden border border-slate-200" style={{ height: "320px" }}>
         <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
       </div>
 
