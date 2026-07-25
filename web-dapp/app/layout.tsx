@@ -9,6 +9,7 @@ import { AdminProvider } from "@/context/AdminContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { ClientToaster } from "@/components/layout/ClientToaster";
 import { RouteGuard } from "@/components/layout/RouteGuard";
+import { PinScreen } from "@/components/auth/PinScreen";
 
 const inter = Inter({ subsets: ["latin"] });
 

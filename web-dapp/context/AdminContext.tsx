@@ -85,6 +85,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
 
   const connectWallet = async () => {
     if (typeof window !== "undefined" && (window as any).ethereum) {
+      localStorage.removeItem("admin_disconnected");
       setIsConnecting(true);
       try {
         const chainIdHex = "0x539"; // 1337 in hex for Geth Private Network
@@ -141,11 +142,14 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
     setReportingContract(null);
     setSuperAdminsList([]);
     setAuthoritiesList([]);
+    localStorage.setItem("admin_disconnected", "true");
   };
 
   useEffect(() => {
     const autoConnect = async () => {
       if (typeof window !== "undefined" && (window as any).ethereum) {
+        if (localStorage.getItem("admin_disconnected") === "true") return;
+        
         try {
           const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
           // Check if there are any connected accounts already
