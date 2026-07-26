@@ -315,8 +315,8 @@ export default function SuperAdminPage() {
             )}
             {isFunding ? "Scanning..." : "Top-Up Wallets"}
           </button>
-          <div className="bg-white border border-slate-200 px-4 py-2 rounded-full text-sm font-mono text-slate-600 shadow-sm">
-            🟢 Connected: {account.substring(0, 6)}...{account.substring(account.length - 4)}
+          <div className="bg-white border border-slate-200 px-4 py-2 rounded-full text-sm font-medium text-slate-600 shadow-sm">
+            🟢 Connected
           </div>
         </div>
       </div>

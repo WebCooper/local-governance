@@ -92,7 +92,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
   }
 
   return (
-    <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 pb-safe z-50 ${className}`}>
+    <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 pb-safe z-[9999] ${className}`}>
       <div className="flex items-center justify-around p-3">
         {citizenItems.slice(0, 5).map((item) => {
           const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");

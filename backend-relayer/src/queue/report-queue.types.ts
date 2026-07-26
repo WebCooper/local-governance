@@ -19,6 +19,7 @@ export interface ReportJobData {
   description: string;
   category: string;
   location: string;
+  isEmergency?: boolean;
 
   // ── Cryptographic proofs (already verified before enqueueing) ──
   zkpTicketId: string;

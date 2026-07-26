@@ -59,7 +59,7 @@ export function getVotePhaseFromStatus(status: number): VotePhase | null {
 }
 
 // ─── Authority Action Definitions ─────────────────────────────────────────────
-export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue" | "addUpdate";
+export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue" | "addUpdate" | "downgradeEmergency";
 
 export interface AuthorityActionMeta {
   action: AuthorityAction;
@@ -107,6 +107,15 @@ const ACTION_META: Record<AuthorityAction, AuthorityActionMeta> = {
       "You are about to post a progress update for this report on-chain. This will not change the report status.",
     color: "green",
   },
+  downgradeEmergency: {
+    action: "downgradeEmergency",
+    label: "Downgrade Fake Emergency",
+    description: "Reclassify this as non-emergency. Applies a 30-day penalty to the citizen.",
+    confirmTitle: "Downgrade Emergency?",
+    confirmMessage:
+      "You are about to downgrade this emergency report. This will strip its emergency status and immediately lock the citizen's ID in the cryptographic penalty box for 30 days.",
+    color: "red",
+  },
 };
 
 export function getActionMeta(action: AuthorityAction): AuthorityActionMeta {
@@ -116,22 +125,31 @@ export function getActionMeta(action: AuthorityAction): AuthorityActionMeta {
 export function getAvailableActions(
   status: number,
   assignedAuthority: string,
-  currentAccount: string
+  currentAccount: string,
+  isEmergency: boolean = false
 ): AuthorityAction[] {
   const nullAddress = "0x0000000000000000000000000000000000000000";
   const isAssigned =
     assignedAuthority.toLowerCase() === currentAccount.toLowerCase();
   const isUnassigned = assignedAuthority === nullAddress;
 
+  let actions: AuthorityAction[] = [];
+
   switch (status) {
     case REPORT_STATUS.Open:
     case REPORT_STATUS.Reopened:
-      return ["startWork", "rejectIssue"];
+      actions = ["startWork", "rejectIssue"];
+      break;
     case REPORT_STATUS.InProgress:
-      return isAssigned ? ["markAsSolved"] : [];
-    default:
-      return [];
+      if (isAssigned) actions = ["markAsSolved", "rejectIssue", "addUpdate"];
+      break;
   }
+
+  if (isEmergency && status !== REPORT_STATUS.Closed) {
+    actions.push("downgradeEmergency");
+  }
+
+  return actions;
 }
 
 // ─── Admin Status Filter Tabs ─────────────────────────────────────────────────
@@ -177,6 +195,7 @@ export interface EnrichedReport {
   location?: string;
   images?: { data: string; mimeType: string; originalName: string }[];
   ipfsLoaded: boolean;
+  isEmergency: boolean;
 }
 
 // ─── Converters ───────────────────────────────────────────────────────────────
@@ -201,6 +220,7 @@ export function rawToEnriched(raw: any): EnrichedReport {
     authorityComment: raw.authorityComment,
     authorityImageCid: raw.authorityImageCid,
     ipfsLoaded: false,
+    isEmergency: Boolean(raw.isEmergency),
   };
 }
 

@@ -45,6 +45,7 @@ contract Reporting is Ownable, ReentrancyGuard {
         // Latest authority update (comment + image) for quick display
         string authorityComment;
         string authorityImageCid;
+        bool isEmergency;
     }
 
     /**
@@ -69,6 +70,9 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     // Index: citizenPseudonym → list of reportIds submitted by that citizen
     mapping(bytes32 => uint256[]) private reportsByCitizen;
+
+    // Penalty box for fake emergency reports: citizenPseudonym -> unlock timestamp
+    mapping(bytes32 => uint256) public emergencyPenaltyBox;
 
     // Full authority action history per report
     mapping(uint256 => AuthorityAction[]) public reportActions;
@@ -262,7 +266,8 @@ contract Reporting is Ownable, ReentrancyGuard {
         string calldata ipfsCid,
         bytes32 reportHash,
         bytes32 submissionNullifier,
-        bytes32 citizenPseudonym
+        bytes32 citizenPseudonym,
+        bool isEmergency
     ) external onlyRelayer nonReentrant returns (uint256 reportId) {
         // ── Input validation ──────────────────────────────────────────────────
 
@@ -270,6 +275,10 @@ contract Reporting is Ownable, ReentrancyGuard {
         if (reportHash == bytes32(0)) revert InvalidHash();
         if (submissionNullifier == bytes32(0)) revert InvalidNullifier();
         if (citizenPseudonym == bytes32(0)) revert InvalidPseudonym();
+
+        if (isEmergency && block.timestamp <= emergencyPenaltyBox[citizenPseudonym]) {
+            revert("Emergency reporting locked");
+        }
 
         // Nullifier must not have been used before (replay attack prevention)
         if (usedSubmissionNullifiers[submissionNullifier])
@@ -294,6 +303,7 @@ contract Reporting is Ownable, ReentrancyGuard {
         report.status = ReportStatus.PendingValidation;
         report.createdAt = block.timestamp;
         report.updatedAt = block.timestamp;
+        report.isEmergency = isEmergency;
 
         // ── Open the validation voting window ─────────────────────────────────
         report.phaseDeadline = block.timestamp + votingWindowDuration;
@@ -310,6 +320,17 @@ contract Reporting is Ownable, ReentrancyGuard {
             citizenPseudonym,
             block.timestamp
         );
+    }
+
+    /**
+     * @notice Downgrades an emergency report to standard and penalizes the citizen.
+     */
+    function reclassifyEmergency(uint256 reportId) external onlyAuthorityOrRelayer {
+        Report storage report = reports[reportId];
+        require(report.isEmergency, "Not an emergency");
+        
+        report.isEmergency = false;
+        emergencyPenaltyBox[report.citizenPseudonym] = block.timestamp + 30 days;
     }
 
     // ─── Internal State Transition Helper ────────────────────────────────────

@@ -151,6 +151,12 @@ export class TaskManagerController {
     };
   }
 
+  @Post('tasks/:reportId/downgrade-emergency')
+  async downgradeEmergency(@Param('reportId') reportId: string) {
+    const result = await this.blockchainService.downgradeEmergencyOnChain(Number(reportId));
+    return result;
+  }
+
   // --- Worker Directory management ---
 
   @Get('workers')

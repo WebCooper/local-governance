@@ -712,7 +712,7 @@ export default function FeedPage() {
         {activeFeedTab === "reports" ? (
           <>
             {/* FILTERS */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-2 flex-wrap">
                 {FILTERS.map((f) => (
                   <button

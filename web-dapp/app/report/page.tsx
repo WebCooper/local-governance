@@ -24,6 +24,7 @@ import { useCitizen } from "@/context/CitizenContext";
 import { useNotifications } from "@/context/NotificationContext";
 import Link from "next/link";
 import type { PickedLocation } from "@/components/LocationPicker";
+import { useDuplicateChecker, type DuplicateReport } from "@/lib/hooks/useDuplicateChecker";
 
 // Leaflet must not render on the server
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
@@ -100,6 +101,11 @@ export default function ReportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const { duplicates, isChecking } = useDuplicateChecker(category, location);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [previewReport, setPreviewReport] = useState<DuplicateReport | null>(null);
 
   // ── Image handling ───────────────────────────────────────────────
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,6 +155,25 @@ export default function ReportPage() {
       return;
     }
 
+    if (duplicates.length > 0 && !showDuplicateModal) {
+      setShowDuplicateModal(true);
+      return;
+    }
+
+    if (isEmergency && !showEmergencyModal) {
+      setShowEmergencyModal(true);
+      return;
+    }
+
+    executeSubmission();
+  };
+
+  const executeSubmission = async () => {
+    if (!wallet) {
+      toast.error("You must be logged in to submit a report.");
+      return;
+    }
+
     const currentTicket = consumeTicket();
     if (!currentTicket) {
       toast.error("Security session expired (no tickets left). Please log in again.");
@@ -183,6 +208,7 @@ export default function ReportPage() {
       if (location) {
         formData.append("location", JSON.stringify({ lat: location.lat, lng: location.lng, address: location.address }));
       }
+      formData.append("isEmergency", String(isEmergency));
 
       const RELAYER_URL = process.env.NEXT_PUBLIC_RELAYER_URL || "";
       const response = await fetch(`${RELAYER_URL}/report`, {
@@ -202,6 +228,7 @@ export default function ReportPage() {
       // Reset form immediately — no need to wait for pipeline
       setDescription("");
       setImages([]);
+      setIsEmergency(false);
 
       toast.success(
         `Report submitted! Track progress in the notification bell. You have ${availableTicketsCount - 1} tickets remaining.`,
@@ -365,6 +392,31 @@ export default function ReportPage() {
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Location (Optional)</label>
               <LocationPicker value={location} onChange={setLocation} />
+            </div>
+
+            {/* ── Emergency Toggle ── */}
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+              <div className="flex-1">
+                <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 shrink-0" /> Urgent / Emergency Report
+                </h3>
+                <p className="text-red-600 text-xs leading-relaxed">
+                  Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEmergency(!isEmergency)}
+                className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner self-end sm:self-auto ${
+                  isEmergency ? 'bg-red-600' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                    isEmergency ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
 
             <button
@@ -554,6 +606,31 @@ export default function ReportPage() {
             </div>
           </div>
 
+          {/* ── Emergency Toggle ── */}
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 mt-6">
+            <div className="flex-1">
+              <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5" /> Urgent / Emergency Report
+              </h3>
+              <p className="text-red-600 text-sm">
+                Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEmergency(!isEmergency)}
+              className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner ${
+                isEmergency ? 'bg-red-600' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                  isEmergency ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           {/* ── Sticky Bottom Action Bar ── */}
           <div className="sticky bottom-0 bg-white border-t border-slate-100 px-8 py-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgb(0,0,0,0.04)]">
             <div className="flex items-start gap-3 text-slate-500 text-xs leading-relaxed max-w-md">
@@ -630,7 +707,7 @@ export default function ReportPage() {
               }}
               className="w-full py-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
             >
-              <Camera className="w-5 h-5 text-blue-600" /> Take Photo
+              <Camera className="w-5 h-5 text-blue-600" /> Take a Photo
             </button>
             <button
               type="button"
@@ -639,6 +716,153 @@ export default function ReportPage() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Consent Modal */}
+      {showEmergencyModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl flex flex-col gap-6 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center self-center shrink-0">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="text-center space-y-3">
+              <h3 className="text-2xl font-black text-slate-900">Skin-in-the-Game Warning</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                You are about to trigger a direct siren to city dispatchers. This is for immediate hazards only (e.g., exposed power lines, severe flooding). 
+              </p>
+              <p className="text-red-600 font-bold leading-relaxed text-sm">
+                If authorities determine this is a routine issue, your cryptographic ID will be locked in the Penalty Box for 30 days. You will be unable to report further emergencies.
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-4">
+              <button
+                type="button"
+                onClick={executeSubmission}
+                disabled={isSubmitting}
+                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-600/20"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "I Understand — Submit Emergency"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEmergencyModal(false)}
+                disabled={isSubmitting}
+                className="w-full py-4 text-slate-500 font-bold hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Potential Duplicate Popup Modal ── */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl flex flex-col gap-6 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center self-center shrink-0">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-black text-slate-900">Similar Reports Found Nearby</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                We found <strong className="font-bold">{duplicates.length}</strong> active report(s) within <strong className="font-bold">1 km</strong> matching the <strong className="font-bold">{category}</strong> category.
+              </p>
+              <p className="text-amber-700 font-medium text-xs">
+                Please check if your incident is already reported below to prevent duplicate governance proposals:
+              </p>
+            </div>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1 text-left">
+              {duplicates.map((dup) => (
+                <div key={dup.id} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs text-slate-700 flex justify-between items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-900 mb-0.5">Report #{dup.id} • {dup.category}</div>
+                    <div className="line-clamp-2 text-slate-600 italic">{dup.description || "No description available"}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewReport(dup)}
+                    className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-900 font-bold rounded-lg shrink-0 transition-colors shadow-sm"
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDuplicateModal(false);
+                  if (isEmergency && !showEmergencyModal) {
+                    setShowEmergencyModal(true);
+                  } else {
+                    executeSubmission();
+                  }
+                }}
+                disabled={isSubmitting}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Submit Anyway (New Separate Incident)"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDuplicateModal(false)}
+                disabled={isSubmitting}
+                className="w-full py-4 text-slate-500 font-bold hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors"
+              >
+                Cancel Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Individual Report Preview Modal (shows /issues/[id] in iframe) ── */}
+      {previewReport && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/75 backdrop-blur-md p-3 md:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-600 text-white font-bold text-xs rounded-full uppercase tracking-wider">
+                  Report #{previewReport.id}
+                </span>
+                <span className="text-slate-900 font-bold text-sm md:text-base">
+                  {previewReport.category} — Issue Preview
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewReport(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <span>Close Preview</span>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content (/issues/[id] page via iframe) */}
+            <div className="flex-1 w-full bg-slate-100 relative">
+              <iframe
+                src={`/issues/${previewReport.id}?embed=true`}
+                className="w-full h-full border-0"
+                title={`Issue #${previewReport.id} preview`}
+              />
+            </div>
           </div>
         </div>
       )}
