@@ -24,6 +24,7 @@ import { useCitizen } from "@/context/CitizenContext";
 import { useNotifications } from "@/context/NotificationContext";
 import Link from "next/link";
 import type { PickedLocation } from "@/components/LocationPicker";
+import { useDuplicateChecker, type DuplicateReport } from "@/lib/hooks/useDuplicateChecker";
 
 // Leaflet must not render on the server
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
@@ -102,6 +103,9 @@ export default function ReportPage() {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [isEmergency, setIsEmergency] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const { duplicates, isChecking } = useDuplicateChecker(category, location);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [previewReport, setPreviewReport] = useState<DuplicateReport | null>(null);
 
   // ── Image handling ───────────────────────────────────────────────
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +152,11 @@ export default function ReportPage() {
 
     if (!description.trim() || description.length > MAX_DESC_LENGTH) {
       toast.error("Please provide a valid description within the character limit.");
+      return;
+    }
+
+    if (duplicates.length > 0 && !showDuplicateModal) {
+      setShowDuplicateModal(true);
       return;
     }
 
@@ -749,6 +758,110 @@ export default function ReportPage() {
               >
                 Go Back
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Potential Duplicate Popup Modal ── */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl flex flex-col gap-6 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center self-center shrink-0">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-black text-slate-900">Similar Reports Found Nearby</h3>
+              <p className="text-slate-600 leading-relaxed text-sm">
+                We found <strong className="font-bold">{duplicates.length}</strong> active report(s) within <strong className="font-bold">1 km</strong> matching the <strong className="font-bold">{category}</strong> category.
+              </p>
+              <p className="text-amber-700 font-medium text-xs">
+                Please check if your incident is already reported below to prevent duplicate governance proposals:
+              </p>
+            </div>
+
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1 text-left">
+              {duplicates.map((dup) => (
+                <div key={dup.id} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs text-slate-700 flex justify-between items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-900 mb-0.5">Report #{dup.id} • {dup.category}</div>
+                    <div className="line-clamp-2 text-slate-600 italic">{dup.description || "No description available"}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewReport(dup)}
+                    className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-900 font-bold rounded-lg shrink-0 transition-colors shadow-sm"
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex flex-col gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDuplicateModal(false);
+                  if (isEmergency && !showEmergencyModal) {
+                    setShowEmergencyModal(true);
+                  } else {
+                    executeSubmission();
+                  }
+                }}
+                disabled={isSubmitting}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Submit Anyway (New Separate Incident)"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDuplicateModal(false)}
+                disabled={isSubmitting}
+                className="w-full py-4 text-slate-500 font-bold hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors"
+              >
+                Cancel Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Individual Report Preview Modal (shows /issues/[id] in iframe) ── */}
+      {previewReport && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/75 backdrop-blur-md p-3 md:p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 bg-blue-600 text-white font-bold text-xs rounded-full uppercase tracking-wider">
+                  Report #{previewReport.id}
+                </span>
+                <span className="text-slate-900 font-bold text-sm md:text-base">
+                  {previewReport.category} — Issue Preview
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewReport(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <span>Close Preview</span>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content (/issues/[id] page via iframe) */}
+            <div className="flex-1 w-full bg-slate-100 relative">
+              <iframe
+                src={`/issues/${previewReport.id}?embed=true`}
+                className="w-full h-full border-0"
+                title={`Issue #${previewReport.id} preview`}
+              />
             </div>
           </div>
         </div>

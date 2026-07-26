@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ethers } from "ethers";
 import {
@@ -278,6 +278,8 @@ export default function IssueDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEmbed = searchParams?.get("embed") === "true";
 
   const { id } = use(params);
   const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
@@ -630,12 +632,14 @@ export default function IssueDetailPage({
             </div>
           )}
 
-          <button
-            onClick={() => router.back()}
-            className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
-          >
-            <ArrowLeft className="h-4 w-4 text-slate-700" />
-          </button>
+          {!isEmbed && (
+            <button
+              onClick={() => router.back()}
+              className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
+            >
+              <ArrowLeft className="h-4 w-4 text-slate-700" />
+            </button>
+          )}
 
           <span
             className={`absolute bottom-4 left-4 px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
@@ -812,25 +816,27 @@ export default function IssueDetailPage({
       <div className="hidden md:flex flex-col w-full">
 
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-8 py-4">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Report Detail
-          </button>
-
-          <div className="flex items-center gap-4 text-slate-500">
-            <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-              <Bell className="h-5 w-5" />
+        {!isEmbed && (
+          <div className="flex items-center justify-between px-8 py-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Report Detail
             </button>
 
-            <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-              <Settings className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-4 text-slate-500">
+              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <Bell className="h-5 w-5" />
+              </button>
+
+              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Grid */}
         <div className="grid grid-cols-[1fr_320px] gap-8 px-8 pb-8">

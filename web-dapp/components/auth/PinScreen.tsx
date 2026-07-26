@@ -4,10 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useCitizen } from '@/context/CitizenContext';
 import { Lock, Delete, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export function PinScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEmbed =
+    searchParams?.get("embed") === "true" ||
+    (typeof window !== "undefined" && window.self !== window.top);
   const { isLocked, isSettingPin, setupLock, unlockSession, logout } = useCitizen();
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -22,7 +26,7 @@ export function PinScreen() {
     setIsProcessing(false);
   }, [isLocked, isSettingPin]);
 
-  if (!isLocked && !isSettingPin) return null;
+  if (isEmbed || (!isLocked && !isSettingPin)) return null;
 
   const mode = isSettingPin ? "setup" : "unlock";
 
