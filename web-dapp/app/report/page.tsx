@@ -103,7 +103,7 @@ export default function ReportPage() {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [isEmergency, setIsEmergency] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
-  const { duplicates, isChecking } = useDuplicateChecker(category, location);
+  const { duplicates, setDuplicates, isChecking } = useDuplicateChecker(category, location);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [previewReport, setPreviewReport] = useState<DuplicateReport | null>(null);
 
@@ -155,9 +155,34 @@ export default function ReportPage() {
       return;
     }
 
-    if (duplicates.length > 0 && !showDuplicateModal) {
-      setShowDuplicateModal(true);
-      return;
+    if (!showDuplicateModal) {
+      if (duplicates.length > 0) {
+        setShowDuplicateModal(true);
+        return;
+      }
+
+      // Live fallback check in case the user clicked submit before debounce finished
+      try {
+        const res = await fetch("/api/reports/check-duplicate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category,
+            lat: location.lat,
+            lng: location.lng,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.duplicates && data.duplicates.length > 0) {
+            setDuplicates(data.duplicates);
+            setShowDuplicateModal(true);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Live duplicate check error:", err);
+      }
     }
 
     if (isEmergency && !showEmergencyModal) {

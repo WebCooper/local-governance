@@ -67,5 +67,5 @@ export function useDuplicateChecker(
     };
   }, [category, location?.lat, location?.lng]);
 
-  return { duplicates, isChecking };
+  return { duplicates, setDuplicates, isChecking };
 }
