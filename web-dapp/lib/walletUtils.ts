@@ -5,10 +5,13 @@ export interface CitizenWallet {
   publicKey: string;
 }
 
-export const deriveCitizenWallet = (citizenSeed: string): CitizenWallet => {
+export const deriveCitizenWallet = (citizenSeed: string, customSalt?: string): CitizenWallet => {
   try {
-    // 1. Hash the seed to ensure it is exactly 32 bytes (valid private key format)
-    const privateKey = ethers.keccak256(ethers.toUtf8Bytes(citizenSeed));
+    const salt = customSalt || process.env.NEXT_PUBLIC_CITIZEN_WALLET_SALT || 'aurachain_citizen_dapp_salt_secret_2026';
+    const saltedSeed = `${citizenSeed}:${salt}`;
+
+    // 1. Hash the salted seed to ensure it is exactly 32 bytes (valid private key format)
+    const privateKey = ethers.keccak256(ethers.toUtf8Bytes(saltedSeed));
 
     // 2. Instantiate the wallet
     const wallet = new ethers.Wallet(privateKey);
