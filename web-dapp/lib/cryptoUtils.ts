@@ -20,13 +20,13 @@ function base64ToBuffer(b64: string): ArrayBuffer {
   for (let i = 0; i < binStr.length; i++) {
     arr[i] = binStr.charCodeAt(i);
   }
-  return arr.buffer;
+  return arr.buffer as ArrayBuffer;
 }
 
-// Convert ArrayBuffer to base64
-function bufferToBase64(buffer: ArrayBuffer): string {
+// Convert ArrayBuffer or Uint8Array to base64
+function bufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   let binStr = "";
-  const arr = new Uint8Array(buffer);
+  const arr = new Uint8Array(buffer instanceof ArrayBuffer ? buffer : buffer.buffer);
   for (let i = 0; i < arr.byteLength; i++) {
     binStr += String.fromCharCode(arr[i]);
   }
@@ -39,7 +39,7 @@ function bufferToBase64(buffer: ArrayBuffer): string {
 async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
   const material = await crypto.subtle.importKey(
     "raw",
-    strToBuffer(pin),
+    strToBuffer(pin) as unknown as BufferSource,
     { name: "PBKDF2" },
     false,
     ["deriveBits", "deriveKey"]
@@ -48,7 +48,7 @@ async function deriveKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: salt as unknown as BufferSource,
       iterations: ITERATIONS,
       hash: "SHA-256",
     },
@@ -74,7 +74,7 @@ export async function encryptSessionData(data: string, pin: string): Promise<str
   const encrypted = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
-    strToBuffer(data)
+    strToBuffer(data) as unknown as BufferSource
   );
 
   return [
@@ -83,6 +83,7 @@ export async function encryptSessionData(data: string, pin: string): Promise<str
     bufferToBase64(encrypted)
   ].join(":");
 }
+
 
 /**
  * Decrypts a base64 encoded string format "salt:iv:ciphertext" back into the original data string using the PIN.
