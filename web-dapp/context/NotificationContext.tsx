@@ -11,6 +11,7 @@ import React, {
 import toast from "react-hot-toast";
 import { useCitizen } from "./CitizenContext";
 import { useReportStatus, ReportJobProgress, ReportJobStatus } from "@/lib/useReportStatus";
+import { useVoteStatus } from "@/lib/useVoteStatus";
 
 // ── Notification record stored in state + localStorage ───────────────────────
 
@@ -112,6 +113,7 @@ export const NotificationProvider = ({
 
   // SSE hook — opens a stream keyed by wallet address
   const { events: sseEvents } = useReportStatus(address);
+  const { events: voteEvents } = useVoteStatus(address);
 
   // ── Load persisted notifications when wallet connects ─────────────────────
   useEffect(() => {
@@ -230,6 +232,53 @@ export const NotificationProvider = ({
       return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
     });
   }, [sseEvents]);
+
+  // ── Apply incoming Vote SSE events to the notifications list ────────────────
+  useEffect(() => {
+    if (voteEvents.size === 0) return;
+
+    setNotifications((prev) => {
+      let changed = false;
+      const map = new Map(prev.map((n) => [n.jobId, n]));
+
+      voteEvents.forEach((event, jobId) => {
+        const existing = map.get(jobId);
+        if (existing) {
+          if (isTerminal(existing.status)) return;
+          if (
+            existing.status !== event.step ||
+            existing.percent !== event.percent ||
+            existing.message !== event.message
+          ) {
+            changed = true;
+            map.set(jobId, {
+              ...existing,
+              status: event.step,
+              percent: event.percent,
+              message: event.message,
+              data: { ...existing.data, ...event.data },
+              timestamp: Date.now(),
+            });
+          }
+        } else {
+          changed = true;
+          map.set(jobId, {
+            jobId: event.jobId,
+            category: "Vote",
+            status: event.step,
+            percent: event.percent,
+            message: event.message,
+            data: event.data,
+            timestamp: Date.now(),
+            isRead: false,
+          });
+        }
+      });
+
+      if (!changed) return prev;
+      return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+    });
+  }, [voteEvents]);
 
   // ── Fire toasts for newly-terminal notifications ──────────────────────────
   const toastedRef = useRef<Set<string>>(new Set());
