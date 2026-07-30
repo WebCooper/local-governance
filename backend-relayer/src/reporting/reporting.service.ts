@@ -14,6 +14,7 @@ import { CastVoteDto } from './dto/cast-vote.dto';
 import { ReportQueueProducer } from '../queue/report-queue.producer';
 import { ReportFlowProducer } from '../queue/report-flow.producer';
 import { ReportJobData } from '../queue/report-queue.types';
+import { VoteQueueProducer } from '../queue/vote-queue.producer';
 export interface SubmitReportPayload {
   description: string;
   category: string;
@@ -40,6 +41,7 @@ export class ReportingService implements OnModuleInit {
     private readonly ipfsService: IpfsService,
     private readonly reportQueueProducer: ReportQueueProducer,
     private readonly reportFlowProducer: ReportFlowProducer,
+    private readonly voteQueueProducer: VoteQueueProducer,
   ) { }
 
   async onModuleInit() {
@@ -350,8 +352,12 @@ export class ReportingService implements OnModuleInit {
 
 
 
-  async castVote(payload: CastVoteDto) {
+  async validateAndEnqueueVote(payload: CastVoteDto): Promise<{ jobId: string }> {
     const { reportId, votePhase, decision, zkpTicketId, zkpSignature, citizenPubKey, signature } = payload;
+
+    if (reportId === undefined || !votePhase || decision === undefined || !zkpTicketId || !zkpSignature || !citizenPubKey || !signature) {
+      throw new BadRequestException('Missing required fields in vote payload');
+    }
 
     try {
       // 1. Verify Government Ticket (Nullifier)
@@ -373,29 +379,27 @@ export class ReportingService implements OnModuleInit {
         throw new UnauthorizedException('Invalid citizen signature on vote payload.');
       }
 
-      this.logger.log(`Vote crypto-verification passed for report ${reportId}`);
+      this.logger.log(`✅ Vote crypto-verification passed for report ${reportId}. Enqueueing background job…`);
 
       // Derive citizen pseudonym to enforce one-vote-per-citizen restrictions
       const { pseudonym } = this.getPseudonym(recoveredCitizenAddress);
 
-      // 3. Submit to Blockchain
-      const txResult = await this.blockchainService.castVoteOnChain(
-        reportId,
+      const jobId = await this.voteQueueProducer.addVoteJob({
+        reportId: String(reportId),
         votePhase,
-        zkpTicketId, // Using the ticket as the vote nullifier
         decision,
-        pseudonym
-      );
+        zkpTicketId,
+        zkpSignature,
+        citizenPubKey,
+        signature,
+        pseudonym,
+      });
 
-      return {
-        success: true,
-        message: 'Vote successfully cast.',
-        transactionHash: txResult.transactionHash
-      };
+      return { jobId };
     } catch (error: any) {
-      this.logger.error(`Vote pipeline failed: ${error.message}`);
+      this.logger.error(`Vote verification failed: ${error.message}`);
       if (error.status) throw error;
-      throw new BadRequestException('Vote verification or blockchain submission failed');
+      throw new BadRequestException('Vote verification failed');
     }
   }
 }
