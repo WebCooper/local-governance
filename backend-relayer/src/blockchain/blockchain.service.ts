@@ -5,6 +5,7 @@ import { ethers } from 'ethers';
 // Monorepo Magic: Import the ABI directly from your Hardhat artifacts!
 import * as ReportingArtifact from './Reporting.json';
 import * as OpinionPollingArtifact from './OpinionPolling.json';
+import * as EmergencyReportingArtifact from './EmergencyReporting.json';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit {
@@ -13,6 +14,7 @@ export class BlockchainService implements OnModuleInit {
   private relayerWallet!: ethers.Wallet;
   private reportingContract!: ethers.Contract;
   private pollingContract!: ethers.Contract;
+  private emergencyReportingContract!: ethers.Contract;
   private blockchainEnabled = false;
 
   constructor(private configService: ConfigService) { }
@@ -67,6 +69,14 @@ export class BlockchainService implements OnModuleInit {
         this.relayerWallet
       );
 
+      // INITIALIZE EMERGENCY REPORTING CONTRACT
+      const emergencyAddress = this.configService.get<string>('EMERGENCY_REPORTING_CONTRACT_ADDRESS') || '0x43be8a06956637b5dFaeDddb5f92ffA95EecfCcc';
+      this.emergencyReportingContract = new ethers.Contract(
+        emergencyAddress,
+        EmergencyReportingArtifact.abi,
+        this.relayerWallet
+      );
+
       this.logger.log(`Blockchain connected. Relayer Address: ${this.relayerWallet.address}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -76,6 +86,10 @@ export class BlockchainService implements OnModuleInit {
 
   getReportingContract(): ethers.Contract | null {
     return this.reportingContract || null;
+  }
+
+  getEmergencyReportingContract(): ethers.Contract | null {
+    return this.emergencyReportingContract || null;
   }
 
 
@@ -102,15 +116,24 @@ export class BlockchainService implements OnModuleInit {
       const reportHashBytes = ethers.hexlify(ethers.getBytes(reportHash)) as `0x${string}`;
       const nullifierBytes = ethers.hexlify(ethers.getBytes(submissionNullifier)) as `0x${string}`;
 
-      this.logger.log(`Initiating blockchain transaction for nullifier: ${submissionNullifier}`);
+      this.logger.log(`Initiating blockchain transaction for nullifier: ${submissionNullifier} (Emergency: ${isEmergency})`);
 
-      const tx = await this.reportingContract.submitReport(   // ← was createReport
-        ipfsCID,
-        reportHashBytes,      // bytes32 reportHash
-        nullifierBytes,       // bytes32 submissionNullifier
-        citizenPseudonym,     // bytes32 citizenPseudonym
-        isEmergency           // bool isEmergency
-      );
+      let tx;
+      if (isEmergency && this.emergencyReportingContract) {
+        tx = await this.emergencyReportingContract.submitEmergencyReport(
+          ipfsCID,
+          reportHashBytes,      // bytes32 reportHash
+          nullifierBytes,       // bytes32 submissionNullifier
+          citizenPseudonym      // bytes32 citizenPseudonym
+        );
+      } else {
+        tx = await this.reportingContract.submitReport(
+          ipfsCID,
+          reportHashBytes,      // bytes32 reportHash
+          nullifierBytes,       // bytes32 submissionNullifier
+          citizenPseudonym      // bytes32 citizenPseudonym
+        );
+      }
 
       this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
 
@@ -131,7 +154,7 @@ export class BlockchainService implements OnModuleInit {
     }
   }
 
-  async downgradeEmergencyOnChain(reportId: number) {
+  async downgradeEmergencyOnChain(reportId: number, comment = "Not an emergency") {
     if (!this.blockchainEnabled) {
       this.logger.warn('downgradeEmergencyOnChain called while blockchain submission is disabled.');
       return { success: true };
@@ -139,7 +162,7 @@ export class BlockchainService implements OnModuleInit {
 
     try {
       this.logger.log(`Initiating blockchain transaction to downgrade emergency for report: ${reportId}`);
-      const tx = await this.reportingContract.reclassifyEmergency(reportId);
+      const tx = await this.emergencyReportingContract.reclassifyEmergency(reportId, comment);
       this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
       const receipt = await tx.wait();
       this.logger.log(`Success! Emergency downgraded in block: ${receipt.blockNumber}`);

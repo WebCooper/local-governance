@@ -1,16 +1,15 @@
-// const { expect } = require("chai");
-// const { ethers } = require("hardhat");
-// const { time } = require("@nomicfoundation/hardhat-network-helpers");
-
-import { ethers } from "ethers";
+import hre from "hardhat";
 import { expect } from "chai";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
-
 
 describe("Reporting", function () {
+  let ethers: any;
+  let reporting: any;
+  let owner: any, relayer: any, authority: any, citizen1: any, citizen2: any;
 
-  let reporting;
-  let owner, relayer, authority, citizen1, citizen2;
+  before(async function () {
+    const connection = await hre.network.connect() as any;
+    ethers = connection.ethers;
+  });
 
   // Runs before every test — gives us a fresh contract each time
   beforeEach(async function () {
