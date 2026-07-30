@@ -167,7 +167,6 @@ export default function ProfilePage() {
   const joinDate   = reports.length > 0 ? formatDate(reports[reports.length - 1].timestamp) : "—";
   const shortAddr  = wallet ? `${wallet.publicKey.slice(0, 6)}...${wallet.publicKey.slice(-4)}` : "—";
   const shortPseud = pseudonym ? `aura_${pseudonym.slice(2, 8)}_node` : "—";
-  const repScore   = Math.min(100, reports.length * 4 + resolved * 2);
 
   // ── Not logged in ──────────────────────────────────────────────
   if (!wallet && !loading) {
@@ -275,11 +274,10 @@ export default function ProfilePage() {
             </Link>
 
             {/* Quick stats */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Submitted", value: reports.length },
-                { label: "Resolved", value: resolved },
-                { label: "Rep Score", value: `${repScore}%` },
+                { label: "Submitted Reports", value: reports.length },
+                { label: "Resolved Issues", value: resolved },
               ].map(s => (
                 <div key={s.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 text-center">
                   <p className="text-2xl font-extrabold text-slate-900">{s.value}</p>
@@ -423,15 +421,6 @@ export default function ProfilePage() {
                       )}
                     </div>
                   ))}
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs font-medium text-slate-500 mb-2">
-                    <span>Governance Participation</span>
-                    <span className="font-bold text-blue-600">{repScore}% Reputation Score</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${repScore}%` }} />
-                  </div>
                 </div>
               </div>
 

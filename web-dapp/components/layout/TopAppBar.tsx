@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Shield, User, LogOut, Settings, Search } from "lucide-react";
+import { Shield, User, LogOut, Settings } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
@@ -62,15 +62,7 @@ export function TopAppBar({ className = "" }: { className?: string }) {
         <span className="font-bold text-xl text-blue-600 tracking-tight hidden md:inline-block">AURACHAIN</span>
       </Link>
 
-      {/* Desktop Search Bar (Centered) */}
-      <div className="hidden md:flex flex-1 max-w-md relative mx-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input 
-          type="text" 
-          placeholder="Search proposals, reports..." 
-          className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-100" 
-        />
-      </div>
+
 
       {/* Right Actions */}
       <div className="flex items-center gap-3 md:gap-5 text-slate-500">
