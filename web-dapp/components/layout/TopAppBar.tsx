@@ -14,7 +14,20 @@ export function TopAppBar({ className = "" }: { className?: string }) {
   const { account, disconnectWallet } = useAdmin();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [avatarStyle, setAvatarStyle] = useState<string>("bottts");
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateStyle = () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("ac_avatar_style");
+        if (saved) setAvatarStyle(saved);
+      }
+    };
+    updateStyle();
+    window.addEventListener("avatar_updated", updateStyle);
+    return () => window.removeEventListener("avatar_updated", updateStyle);
+  }, []);
 
   const handleLogout = () => {
     if (wallet) {
@@ -74,7 +87,11 @@ export function TopAppBar({ className = "" }: { className?: string }) {
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center justify-center rounded-full hover:ring-2 hover:ring-slate-200 transition-all ml-1"
               >
-                <img src="/avatar_1.png" alt="Profile" className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+                <img 
+                  src={wallet ? `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(wallet.publicKey)}` : "/avatar_1.png"} 
+                  alt="Profile" 
+                  className="w-9 h-9 rounded-full object-cover border border-slate-200 bg-blue-50" 
+                />
               </button>
 
               {dropdownOpen && (

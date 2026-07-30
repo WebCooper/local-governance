@@ -36,22 +36,22 @@ export const VOTE_PHASE_OPTIONS: Array<{
 
 const VOTE_DECISION_COPY: Record<VotePhase, VoteDecisionCopy> = {
   validation: {
-    positiveLabel: "Legitimate",
-    negativeLabel: "Spam/Invalid",
-    positiveHint: "Support the report as valid.",
-    negativeHint: "Mark the report as invalid.",
+    positiveLabel: "Confirm Real Issue",
+    negativeLabel: "Flag Invalid Report",
+    positiveHint: "Verify that this is a real problem in your community.",
+    negativeHint: "Flag this report as inaccurate, duplicate, or invalid.",
   },
   verification: {
-    positiveLabel: "Verify",
-    negativeLabel: "Reject",
-    positiveHint: "Confirm the report should advance.",
-    negativeHint: "Reject the report from verification.",
+    positiveLabel: "Approve Report",
+    negativeLabel: "Reject Report",
+    positiveHint: "Confirm details are accurate and resolution is needed.",
+    negativeHint: "Reject this report due to insufficient info or incorrect details.",
   },
   rejectionReview: {
     positiveLabel: "Uphold Rejection",
     negativeLabel: "Overturn Rejection",
-    positiveHint: "Keep the rejection decision in place.",
-    negativeHint: "Send the rejection back for review.",
+    positiveHint: "Agree that this report should remain rejected.",
+    negativeHint: "Appeal to re-open and re-investigate this report.",
   },
 };
 

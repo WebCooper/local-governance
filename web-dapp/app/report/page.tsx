@@ -122,13 +122,18 @@ export default function ReportPage() {
 
     try {
       const convertedFiles = await Promise.all(newFiles.map(compressToWebP));
-      setImages((prev) => [...prev, ...convertedFiles]);
+      setImages((prev) => {
+        const updated = [...prev, ...convertedFiles];
+        toast.success(`Added ${convertedFiles.length} photo${convertedFiles.length > 1 ? "s" : ""} (${updated.length}/${MAX_IMAGES})`);
+        return updated;
+      });
     } catch (error) {
       console.error("Image processing error:", error);
       toast.error("Failed to process images. Please try different files.");
     } finally {
       setIsProcessingImages(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   };
 
@@ -394,21 +399,38 @@ export default function ReportPage() {
                 />
               </div>
               {images.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {images.map((img, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 py-1.5 pl-3 pr-2 rounded-lg border border-blue-100">
-                      <FileImage className="h-4 w-4" />
-                      <span className="font-medium truncate max-w-[120px] text-xs">{img.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        disabled={isSubmitting}
-                        className="text-blue-400 hover:text-red-500 hover:bg-red-50 rounded-full p-1 transition-colors ml-1"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center justify-between">
+                    <span>Attached Photos ({images.length}/{MAX_IMAGES})</span>
+                    <span className="text-[11px] text-green-600 font-medium">✓ Ready for report</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {images.map((img, idx) => {
+                      const objectUrl = URL.createObjectURL(img);
+                      return (
+                        <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
+                          <img
+                            src={objectUrl}
+                            alt={`Upload ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onLoad={() => URL.revokeObjectURL(objectUrl)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(idx)}
+                            disabled={isSubmitting}
+                            className="absolute top-1.5 right-1.5 bg-slate-900/70 hover:bg-red-600 text-white rounded-full p-1 transition-colors shadow-md"
+                            title="Remove photo"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                          <div className="absolute bottom-0 inset-x-0 bg-slate-900/60 text-white text-[10px] px-1.5 py-0.5 truncate font-mono">
+                            Photo #{idx + 1}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -747,27 +769,27 @@ export default function ReportPage() {
 
       {/* Emergency Consent Modal */}
       {showEmergencyModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl flex flex-col gap-6 transform scale-100 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center self-center shrink-0">
-              <AlertCircle className="w-8 h-8" />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-3 py-4">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 w-full max-w-md shadow-2xl flex flex-col gap-4 sm:gap-6 transform scale-100 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center self-center shrink-0">
+              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
-            <div className="text-center space-y-3">
-              <h3 className="text-2xl font-black text-slate-900">Skin-in-the-Game Warning</h3>
-              <p className="text-slate-600 leading-relaxed text-sm">
+            <div className="text-center space-y-2 sm:space-y-3">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900">Skin-in-the-Game Warning</h3>
+              <p className="text-slate-600 leading-relaxed text-xs sm:text-sm">
                 You are about to trigger a direct siren to city dispatchers. This is for immediate hazards only (e.g., exposed power lines, severe flooding). 
               </p>
-              <p className="text-red-600 font-bold leading-relaxed text-sm">
+              <p className="text-red-600 font-bold leading-relaxed text-xs sm:text-sm">
                 If authorities determine this is a routine issue, your cryptographic ID will be locked in the Penalty Box for 30 days. You will be unable to report further emergencies.
               </p>
             </div>
             
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-2.5 sm:gap-3 mt-2 sm:mt-4">
               <button
                 type="button"
                 onClick={executeSubmission}
                 disabled={isSubmitting}
-                className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-600/20"
+                className="w-full py-3 sm:py-4 bg-red-600 hover:bg-red-700 text-white font-bold text-sm sm:text-base rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-600/20"
               >
                 {isSubmitting ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -779,7 +801,7 @@ export default function ReportPage() {
                 type="button"
                 onClick={() => setShowEmergencyModal(false)}
                 disabled={isSubmitting}
-                className="w-full py-4 text-slate-500 font-bold hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors"
+                className="w-full py-3 sm:py-4 text-slate-500 font-bold text-sm hover:text-slate-800 hover:bg-slate-50 rounded-xl transition-colors"
               >
                 Go Back
               </button>
