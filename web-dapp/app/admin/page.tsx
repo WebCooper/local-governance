@@ -49,6 +49,8 @@ const FILTER_COLORS: Record<string, { active: string; border: string }> = {
   all:                 { active: "text-slate-700 border-slate-600",  border: "border-slate-600" },
 };
 
+const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
+
 // ─── Page Component ───────────────────────────────────────────────────────────
 export default function AuthorityAdminPage() {
   const {
@@ -270,7 +272,7 @@ export default function AuthorityAdminPage() {
     if (!isAuthority && !isSuperAdmin) return;
     if (activeTab === "reports" && reportingContract) fetchReports(0);
     else if (activeTab === "polls" && provider) fetchPolls();
-    else if (activeTab === "workforce") fetchWorkforceData();
+    else if (activeTab === "workforce" && ENABLE_WORKFORCE_TRACKING) fetchWorkforceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthority, isSuperAdmin, activeTab, reportingContract, provider]);
 
@@ -466,22 +468,24 @@ export default function AuthorityAdminPage() {
               </span>
             )}
           </button>
-          <button
-            onClick={() => setActiveTab("workforce")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "workforce"
-                ? "text-purple-600 border-b-2 border-purple-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Workforce Tracking
-            {workers.length > 0 && (
-              <span className="ml-1 bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {workers.length}
-              </span>
-            )}
-          </button>
+          {ENABLE_WORKFORCE_TRACKING && (
+            <button
+              onClick={() => setActiveTab("workforce")}
+              className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
+                activeTab === "workforce"
+                  ? "text-purple-600 border-b-2 border-purple-600"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Workforce Tracking
+              {workers.length > 0 && (
+                <span className="ml-1 bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {workers.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
 
@@ -741,7 +745,7 @@ export default function AuthorityAdminPage() {
         )}
 
         {/* ── WORKFORCE TAB ─────────────────────────────────────────────────── */}
-        {activeTab === "workforce" && (
+        {activeTab === "workforce" && ENABLE_WORKFORCE_TRACKING && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-in fade-in duration-300">
             {/* Left: Workers List */}
             <div className="space-y-6">
