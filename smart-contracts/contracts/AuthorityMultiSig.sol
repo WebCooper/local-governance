@@ -92,12 +92,14 @@ contract AuthorityMultiSig {
     mapping(uint256 => mapping(address => VoteInfo)) public voteInfo;
 
     IReporting public reportingContract;
+    IReporting public emergencyReportingContract;
 
     // ─── Events ───────────────────────────────────────────────────────────────
     event ProposalSubmitted(uint256 indexed proposalId, address indexed target, ActionType actionType, address indexed proposer);
     event VoteCast(uint256 indexed proposalId, address indexed voter);
     event ProposalExecuted(uint256 indexed proposalId, address indexed target, ActionType actionType);
     event ReportingContractUpdated(address indexed newContract);
+    event EmergencyReportingContractUpdated(address indexed newContract);
     event ProfileUpdated(address indexed account, string name, string position, string department);
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
@@ -126,7 +128,8 @@ contract AuthorityMultiSig {
         string[] memory initialNames,
         string[] memory initialPositions,
         string[] memory initialDepartments,
-        address _reportingContract
+        address _reportingContract,
+        address _emergencyReportingContract
     ) {
         require(initialSuperAdmins.length > 0, "Must have at least 1 super admin");
         require(
@@ -168,12 +171,23 @@ contract AuthorityMultiSig {
             });
             emit ProfileUpdated(initialAuthority, "Initial Authority", "Field Officer", "Municipal Works Department");
         }
+
+        if (_emergencyReportingContract != address(0)) {
+            emergencyReportingContract = IReporting(_emergencyReportingContract);
+        }
     }
 
     // ─── Admin Functions ──────────────────────────────────────────────────────
     function setReportingContract(address _reportingContract) external onlySuperAdmin {
+        require(_reportingContract != address(0), "Invalid address");
         reportingContract = IReporting(_reportingContract);
         emit ReportingContractUpdated(_reportingContract);
+    }
+
+    function setEmergencyReportingContract(address _emergencyContract) external onlySuperAdmin {
+        require(_emergencyContract != address(0), "Invalid address");
+        emergencyReportingContract = IReporting(_emergencyContract);
+        emit EmergencyReportingContractUpdated(_emergencyContract);
     }
 
     /**
@@ -346,6 +360,9 @@ contract AuthorityMultiSig {
         } else if (proposal.actionType == ActionType.AddAuthority) {
             require(address(reportingContract) != address(0), "Reporting contract not set");
             reportingContract.setAuthority(proposal.target, true);
+            if (address(emergencyReportingContract) != address(0)) {
+                emergencyReportingContract.setAuthority(proposal.target, true);
+            }
 
             // Set profile for the newly added Authority Worker
             profiles[proposal.target] = Profile({
@@ -358,6 +375,9 @@ contract AuthorityMultiSig {
         } else if (proposal.actionType == ActionType.RemoveAuthority) {
             require(address(reportingContract) != address(0), "Reporting contract not set");
             reportingContract.setAuthority(proposal.target, false);
+            if (address(emergencyReportingContract) != address(0)) {
+                emergencyReportingContract.setAuthority(proposal.target, false);
+            }
 
             // Clear the profile
             delete profiles[proposal.target];

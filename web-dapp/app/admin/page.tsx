@@ -7,8 +7,9 @@ import axios from "axios";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
-import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle } from "lucide-react";
 import { ReportCard } from "@/components/admin/ReportCard";
+import { EmergencyReportCard } from "@/components/admin/EmergencyReportCard";
 import {
   rawToEnriched,
   enrichReportWithIPFS,
@@ -60,6 +61,7 @@ export default function AuthorityAdminPage() {
     isConnecting,
     provider,
     reportingContract,
+    emergencyReportingContract,
     connectWallet,
   } = useAdmin();
 
@@ -97,7 +99,7 @@ export default function AuthorityAdminPage() {
   };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce">("reports");
+  const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce" | "emergency">("reports");
 
   // ── Reports State ─────────────────────────────────────────────────────────
   const [allReports, setAllReports] = useState<EnrichedReport[]>([]);
@@ -159,6 +161,43 @@ export default function AuthorityAdminPage() {
       }
     },
     [reportingContract]
+  );
+
+  // ─── Fetch Emergency Reports ───────────────────────────────────────────────
+  const [emergencyReports, setEmergencyReports] = useState<EnrichedReport[]>([]);
+  const [totalEmergencyReports, setTotalEmergencyReports] = useState(0);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+  const [emergencyOffset, setEmergencyOffset] = useState(0);
+
+  const fetchEmergencyReports = useCallback(
+    async (pageOffset: number = 0) => {
+      if (!emergencyReportingContract) return;
+      setEmergencyLoading(true);
+      try {
+        const [page, total] = await emergencyReportingContract.getAllReports(
+          pageOffset,
+          PAGE_SIZE
+        );
+        const base: EnrichedReport[] = page.map((r: any) => rawToEnriched(r, true));
+        setTotalEmergencyReports(Number(total));
+        setEmergencyReports(base);
+
+        base.forEach(async (report, i) => {
+          const enriched = await enrichReportWithIPFS(report);
+          setEmergencyReports((prev) => {
+            const updated = [...prev];
+            updated[i] = enriched;
+            return updated;
+          });
+        });
+      } catch (err) {
+        console.error("Error fetching emergency reports", err);
+        toast.error("Failed to fetch emergency reports from the blockchain.");
+      } finally {
+        setEmergencyLoading(false);
+      }
+    },
+    [emergencyReportingContract]
   );
 
   // ─── Fetch Polls ───────────────────────────────────────────────────────────
@@ -271,10 +310,11 @@ export default function AuthorityAdminPage() {
   useEffect(() => {
     if (!isAuthority && !isSuperAdmin) return;
     if (activeTab === "reports" && reportingContract) fetchReports(0);
+    else if (activeTab === "emergency" && emergencyReportingContract) fetchEmergencyReports(0);
     else if (activeTab === "polls" && provider) fetchPolls();
     else if (activeTab === "workforce" && ENABLE_WORKFORCE_TRACKING) fetchWorkforceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthority, isSuperAdmin, activeTab, reportingContract, provider]);
+  }, [isAuthority, isSuperAdmin, activeTab, reportingContract, emergencyReportingContract, provider]);
 
 
 
@@ -453,6 +493,22 @@ export default function AuthorityAdminPage() {
             )}
           </button>
           <button
+            onClick={() => setActiveTab("emergency")}
+            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
+              activeTab === "emergency"
+                ? "text-red-600 border-b-2 border-red-600"
+                : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+            Emergency Reports
+            {totalEmergencyReports > 0 && (
+              <span className="ml-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {totalEmergencyReports}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab("polls")}
             className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
               activeTab === "polls"
@@ -596,6 +652,92 @@ export default function AuthorityAdminPage() {
                   <button
                     onClick={handleNextPage}
                     disabled={offset + PAGE_SIZE >= totalReports}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── EMERGENCY REPORTS TAB ─────────────────────────────────────────── */}
+        {activeTab === "emergency" && (
+          <>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 mb-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                  HIGH PRIORITY INCIDENTS
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900">Emergency Reports</h2>
+                <p className="text-slate-500 mt-1 text-sm">
+                  Urgent civic incidents requiring immediate authority dispatch and resolution.
+                </p>
+              </div>
+              <button
+                onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
+                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-semibold text-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+
+            {emergencyLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-500 font-medium">Loading emergency reports…</p>
+              </div>
+            ) : emergencyReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400">
+                <AlertTriangle className="w-16 h-16 text-slate-300" />
+                <p className="font-semibold text-slate-500">No emergency reports found.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {emergencyReports.map((report) => (
+                  <EmergencyReportCard
+                    key={report.id}
+                    report={report}
+                    currentAccount={account}
+                    emergencyReportingContract={emergencyReportingContract}
+                    onActionSuccess={() => fetchEmergencyReports(emergencyOffset)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {totalEmergencyReports > PAGE_SIZE && (
+              <div className="mt-8 flex items-center justify-between">
+                <p className="text-sm text-slate-500">
+                  Page <span className="font-bold text-slate-700">{Math.floor(emergencyOffset / PAGE_SIZE) + 1}</span> of{" "}
+                  <span className="font-bold text-slate-700">{Math.ceil(totalEmergencyReports / PAGE_SIZE)}</span> — {totalEmergencyReports} total emergency reports
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const newOffset = Math.max(0, emergencyOffset - PAGE_SIZE);
+                      setEmergencyOffset(newOffset);
+                      fetchEmergencyReports(newOffset);
+                    }}
+                    disabled={emergencyOffset === 0}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newOffset = emergencyOffset + PAGE_SIZE;
+                      if (newOffset < totalEmergencyReports) {
+                        setEmergencyOffset(newOffset);
+                        fetchEmergencyReports(newOffset);
+                      }
+                    }}
+                    disabled={emergencyOffset + PAGE_SIZE >= totalEmergencyReports}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
