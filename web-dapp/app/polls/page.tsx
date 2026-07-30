@@ -56,10 +56,11 @@ export default function PollsFeedPage() {
   }, [wallet]);
 
   const fetchActiveSlate = async () => {
-    if (!provider) return;
     try {
       if (firstLoad) setLoading(true);
-      const contract = getPollingContract(provider);
+      const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
+      const readProvider = provider || new ethers.JsonRpcProvider(RPC_URL);
+      const contract = getPollingContract(readProvider);
       const chainCount = Number(await contract.pollCount());
 
       if (chainCount > 0) {
@@ -128,7 +129,7 @@ export default function PollsFeedPage() {
   };
 
   useEffect(() => {
-    if (provider) fetchActiveSlate();
+    fetchActiveSlate();
   }, [provider]);
 
   const handleCastVote = async (pollId: number, optionIndex: number) => {
