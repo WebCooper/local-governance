@@ -2,11 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
-import { AuthorityMultiSigABI, ReportingABI } from "@/lib/contracts/abis";
+import { AuthorityMultiSigABI, ReportingABI, EmergencyReportingABI } from "@/lib/contracts/abis";
 import toast from "react-hot-toast";
 
 export const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
 export const REPORTING_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+export const EMERGENCY_REPORTING_ADDRESS = process.env.NEXT_PUBLIC_EMERGENCY_REPORTING_ADDRESS || "0x43be8a06956637b5dFaeDddb5f92ffA95EecfCcc";
 
 
 interface AdminContextType {
@@ -17,6 +18,7 @@ interface AdminContextType {
   provider: ethers.BrowserProvider | null;
   contract: ethers.Contract | null;
   reportingContract: ethers.Contract | null;
+  emergencyReportingContract: ethers.Contract | null;
   superAdminsList: string[];
   authoritiesList: string[];
   connectWallet: () => Promise<void>;
@@ -32,6 +34,7 @@ const AdminContext = createContext<AdminContextType>({
   provider: null,
   contract: null,
   reportingContract: null,
+  emergencyReportingContract: null,
   superAdminsList: [],
   authoritiesList: [],
   connectWallet: async () => { },
@@ -47,6 +50,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [contract, setContract] = useState<ethers.Contract | null>(null);
   const [reportingContract, setReportingContract] = useState<ethers.Contract | null>(null);
+  const [emergencyReportingContract, setEmergencyReportingContract] = useState<ethers.Contract | null>(null);
   const [superAdminsList, setSuperAdminsList] = useState<string[]>([]);
   const [authoritiesList, setAuthoritiesList] = useState<string[]>([]);
 
@@ -116,11 +120,13 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
 
         const multiSig = new ethers.Contract(MULTISIG_ADDRESS, AuthorityMultiSigABI, signer);
         const reporting = new ethers.Contract(REPORTING_ADDRESS, ReportingABI, signer);
+        const emergencyReporting = new ethers.Contract(EMERGENCY_REPORTING_ADDRESS, EmergencyReportingABI, signer);
 
         setProvider(browserProvider);
         setAccount(accounts[0]);
         setContract(multiSig);
         setReportingContract(reporting);
+        setEmergencyReportingContract(emergencyReporting);
 
         await checkAdminStatus(accounts[0], multiSig, reporting);
         await fetchLists(multiSig, reporting);
@@ -140,6 +146,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
     setIsAuthority(false);
     setContract(null);
     setReportingContract(null);
+    setEmergencyReportingContract(null);
     setSuperAdminsList([]);
     setAuthoritiesList([]);
     localStorage.setItem("admin_disconnected", "true");
@@ -170,6 +177,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
             setIsAuthority(false);
             setContract(null);
             setReportingContract(null);
+            setEmergencyReportingContract(null);
             setSuperAdminsList([]);
             setAuthoritiesList([]);
           }
@@ -190,6 +198,7 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
         provider,
         contract,
         reportingContract,
+        emergencyReportingContract,
         superAdminsList,
         authoritiesList,
         connectWallet,

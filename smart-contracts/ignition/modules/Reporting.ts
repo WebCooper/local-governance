@@ -53,12 +53,15 @@ export default buildModule("ReportingLocalGovernance", (m) => {
     "Municipal Council"
   ];
 
+  const emergencyReporting = m.contract("EmergencyReporting");
+
   const authorityMultiSig = m.contract("AuthorityMultiSig", [
     initialSuperAdmins,
     initialNames,
     initialPositions,
     initialDepartments,
-    reporting
+    reporting,
+    emergencyReporting
   ]);
 
   // OpinionPolling reads authorizedAuthorities from Reporting to gate createOfficialPoll
@@ -67,7 +70,8 @@ export default buildModule("ReportingLocalGovernance", (m) => {
   // Transfer Reporting ownership to AuthorityMultiSig so that only multi-sig
   // approved proposals can call setAuthority() to add/remove Authority Workers.
   // After this, the deployer wallet can no longer modify the authority list directly.
-  m.call(reporting, "transferOwnership", [authorityMultiSig]);
+  m.call(reporting, "transferOwnership", [authorityMultiSig], { id: "transferReportingOwnership" });
+  m.call(emergencyReporting, "transferOwnership", [authorityMultiSig], { id: "transferEmergencyReportingOwnership" });
 
-  return { reporting, authorityMultiSig, opinionPolling };
+  return { reporting, emergencyReporting, authorityMultiSig, opinionPolling };
 });
