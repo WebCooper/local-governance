@@ -660,16 +660,39 @@ export default function IssueDetailPage({
             </div>
           )}
 
-          {/* Pending Validation Phase Explanation */}
+          {/* Voting Phase Explanations */}
           {report.status === 0 && (
-            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
-              <div className="flex items-center gap-2 text-amber-900 font-semibold">
-                <Info className="h-5 w-5 text-amber-600 shrink-0" />
-                <span>About Pending Validation Phase</span>
+            <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
+                <span>Community Validation Phase</span>
               </div>
-              <p className="leading-relaxed">
-                When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
-                Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+              <p className="leading-relaxed text-xs sm:text-sm text-amber-900/90 font-medium">
+                Community members vote to confirm if this report is genuine. If validated by votes, it opens for local authorities to take action. If flagged as fake or duplicate, it is rejected.
+              </p>
+            </div>
+          )}
+
+          {report.status === 5 && (
+            <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
+                <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
+                <span>Community Verification Phase</span>
+              </div>
+              <p className="leading-relaxed text-xs sm:text-sm text-purple-900/90 font-medium">
+                An authority has submitted work to solve this issue. Citizens vote to verify if the resolution was completed properly or if further work is required.
+              </p>
+            </div>
+          )}
+
+          {report.status === 4 && (
+            <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
+                <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
+                <span>Community Rejection Review Phase</span>
+              </div>
+              <p className="leading-relaxed text-xs sm:text-sm text-orange-900/90 font-medium">
+                An authority rejected this issue. Citizens vote to either uphold the authority&apos;s rejection or overturn it to reopen the report for investigation.
               </p>
             </div>
           )}
@@ -918,16 +941,39 @@ export default function IssueDetailPage({
               )}
             </div>
 
-            {/* Pending Validation Phase Explanation */}
+            {/* Voting Phase Explanations */}
             {report.status === 0 && (
-              <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
-                <div className="flex items-center gap-2 text-amber-900 font-semibold">
-                  <Info className="h-5 w-5 text-amber-600 shrink-0" />
-                  <span>About Pending Validation Phase</span>
+              <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                  <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
+                  <span>Community Validation Phase</span>
                 </div>
-                <p className="leading-relaxed">
-                  When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
-                  Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+                <p className="leading-relaxed text-xs sm:text-sm text-amber-900/90 font-medium">
+                  Community members vote to confirm if this report is genuine. If validated by votes, it opens for local authorities to take action. If flagged as fake or duplicate, it is rejected.
+                </p>
+              </div>
+            )}
+
+            {report.status === 5 && (
+              <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
+                  <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
+                  <span>Community Verification Phase</span>
+                </div>
+                <p className="leading-relaxed text-xs sm:text-sm text-purple-900/90 font-medium">
+                  An authority has submitted work to solve this issue. Citizens vote to verify if the resolution was completed properly or if further work is required.
+                </p>
+              </div>
+            )}
+
+            {report.status === 4 && (
+              <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
+                  <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
+                  <span>Community Rejection Review Phase</span>
+                </div>
+                <p className="leading-relaxed text-xs sm:text-sm text-orange-900/90 font-medium">
+                  An authority rejected this issue. Citizens vote to either uphold the authority&apos;s rejection or overturn it to reopen the report for investigation.
                 </p>
               </div>
             )}
