@@ -44,6 +44,30 @@ export function getStatusMeta(status: number): StatusMeta {
   };
 }
 
+export const EMERGENCY_STATUS = {
+  Open: 0,
+  InProgress: 1,
+  Resolved: 2,
+  Reclassified: 3,
+} as const;
+
+export const EMERGENCY_STATUS_MAP: Record<number, StatusMeta> = {
+  0: { label: "Emergency - Open",         bg: "bg-red-100",    text: "text-red-800",    border: "border-red-300",    dot: "bg-red-500" },
+  1: { label: "Emergency - In Progress",  bg: "bg-indigo-100", text: "text-indigo-800", border: "border-indigo-300", dot: "bg-indigo-500" },
+  2: { label: "Emergency - Resolved",     bg: "bg-green-100",  text: "text-green-800",  border: "border-green-300",  dot: "bg-green-500" },
+  3: { label: "Reclassified (Penalized)", bg: "bg-slate-100",  text: "text-slate-800",  border: "border-slate-300",  dot: "bg-slate-500" },
+};
+
+export function getEmergencyStatusMeta(status: number): StatusMeta {
+  return EMERGENCY_STATUS_MAP[status] ?? {
+    label: "Unknown Emergency",
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-400",
+  };
+}
+
 // ─── Vote Phase Detection ─────────────────────────────────────────────────────
 export function getVotePhaseFromStatus(status: number): VotePhase | null {
   switch (status) {
@@ -199,7 +223,7 @@ export interface EnrichedReport {
 }
 
 // ─── Converters ───────────────────────────────────────────────────────────────
-export function rawToEnriched(raw: any): EnrichedReport {
+export function rawToEnriched(raw: any, forceEmergency = false): EnrichedReport {
   return {
     id: Number(raw.id),
     ipfsCid: raw.ipfsCid,
@@ -207,20 +231,27 @@ export function rawToEnriched(raw: any): EnrichedReport {
     status: Number(raw.status),
     createdAt: Number(raw.createdAt),
     updatedAt: Number(raw.updatedAt),
-    phaseDeadline: Number(raw.phaseDeadline),
-    assignedAuthority: raw.assignedAuthority,
-    votes: {
+    phaseDeadline: raw.phaseDeadline ? Number(raw.phaseDeadline) : 0,
+    assignedAuthority: raw.assignedAuthority || "0x0000000000000000000000000000000000000000",
+    votes: raw.votes ? {
       validationUpvotes: Number(raw.votes.validationUpvotes),
       validationDownvotes: Number(raw.votes.validationDownvotes),
       verificationAcceptVotes: Number(raw.votes.verificationAcceptVotes),
       verificationRejectVotes: Number(raw.votes.verificationRejectVotes),
       rejectionUpholdVotes: Number(raw.votes.rejectionUpholdVotes),
       rejectionAppealVotes: Number(raw.votes.rejectionAppealVotes),
+    } : {
+      validationUpvotes: 0,
+      validationDownvotes: 0,
+      verificationAcceptVotes: 0,
+      verificationRejectVotes: 0,
+      rejectionUpholdVotes: 0,
+      rejectionAppealVotes: 0,
     },
     authorityComment: raw.authorityComment,
     authorityImageCid: raw.authorityImageCid,
     ipfsLoaded: false,
-    isEmergency: Boolean(raw.isEmergency),
+    isEmergency: forceEmergency || Boolean(raw.isEmergency),
   };
 }
 
