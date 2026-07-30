@@ -2,13 +2,15 @@
 
 import { useEffect, useState, use } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import { ethers } from "ethers";
 import {
   ArrowLeft,
   MapPin,
   Clock,
   ThumbsUp,
+  ThumbsDown,
   RotateCw,
   AlertCircle,
   ImageIcon,
@@ -21,7 +23,10 @@ import {
 import { useCitizen } from "@/context/CitizenContext";
 import { castVoteOnRelayer } from "@/lib/relayerAPI";
 import { buildSignedVotePayload, type VotePhase } from "@/lib/vote";
+import { getVotePhaseFromStatus, getStatusMeta } from "@/lib/reportHelpers";
 import { VoteControls } from "@/components/VoteControls";
+import { ReportingABI, AuthorityMultiSigABI } from "@/lib/contracts/abis";
+import CountdownTimer from "@/components/ui/CountdownTimer";
 
 // Dynamic import to avoid SSR window issues
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
@@ -29,19 +34,45 @@ const MapPreview = dynamic(() => import("@/components/MapPreview"), {
 });
 
 // ── ABI ──────────────────────────────────────────────────────────
-const REPORTING_ABI = [
-  "function getReport(uint256 reportId) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes))",
-];
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
+const MULTISIG_ADDRESS = process.env.NEXT_PUBLIC_MULTISIG_ADDRESS || "";
 
 // ── Types ─────────────────────────────────────────────────────────
+interface VoteCounters {
+  validationUpvotes: number;
+  validationDownvotes: number;
+  verificationAcceptVotes: number;
+  verificationRejectVotes: number;
+  rejectionUpholdVotes: number;
+  rejectionAppealVotes: number;
+}
+
+interface AuthorityProfile {
+  name: string;
+  position: string;
+  department: string;
+}
+
+interface ActionLogEntry {
+  authority: string;
+  stage: number;
+  commentCid: string;
+  imageCid: string;
+  timestamp: number;
+  commentText: string;
+  profile: AuthorityProfile | null;
+}
+
 interface ReportDetail {
   id: string;
   ipfsCid: string;
   status: number;
   createdAt: number;
-  upvotes: number;
-  downvotes: number;
+  phaseDeadline: number;
+  votes: VoteCounters;
   assignedAuthority: string;
+  assignedAuthorityProfile?: AuthorityProfile | null;
 
   // IPFS
   description?: string;
@@ -175,10 +206,68 @@ function extractCoordinates(
 
 function consensusPct(up: number, down: number) {
   const total = up + down;
-
   if (total === 0) return 0;
-
   return Math.round((up / total) * 100);
+}
+
+/** Returns the agree/disagree vote pair relevant to the report's current phase. */
+function getPhaseVotes(
+  votes: VoteCounters,
+  status: number
+): { agree: number; disagree: number; agreeLabel: string; disagreeLabel: string; phaseLabel: string } {
+  switch (status) {
+    case 0: // PendingValidation
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+    case 5: // PendingVerification
+      return {
+        agree: votes.verificationAcceptVotes,
+        disagree: votes.verificationRejectVotes,
+        agreeLabel: "Accepted",
+        disagreeLabel: "Rejected",
+        phaseLabel: "Verification",
+      };
+    case 4: // PendingRejectionReview
+      return {
+        agree: votes.rejectionUpholdVotes,
+        disagree: votes.rejectionAppealVotes,
+        agreeLabel: "Upheld",
+        disagreeLabel: "Appealed",
+        phaseLabel: "Rejection Review",
+      };
+    default:
+      // No active voting window — show whichever phase had the most activity
+      if (votes.verificationAcceptVotes + votes.verificationRejectVotes > 0) {
+        return {
+          agree: votes.verificationAcceptVotes,
+          disagree: votes.verificationRejectVotes,
+          agreeLabel: "Accepted",
+          disagreeLabel: "Rejected",
+          phaseLabel: "Verification",
+        };
+      }
+      if (votes.rejectionUpholdVotes + votes.rejectionAppealVotes > 0) {
+        return {
+          agree: votes.rejectionUpholdVotes,
+          disagree: votes.rejectionAppealVotes,
+          agreeLabel: "Upheld",
+          disagreeLabel: "Appealed",
+          phaseLabel: "Rejection Review",
+        };
+      }
+      return {
+        agree: votes.validationUpvotes,
+        disagree: votes.validationDownvotes,
+        agreeLabel: "Upvotes",
+        disagreeLabel: "Downvotes",
+        phaseLabel: "Validation",
+      };
+  }
 }
 
 
@@ -189,6 +278,8 @@ export default function IssueDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isEmbed = searchParams?.get("embed") === "true";
 
   const { id } = use(params);
   const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
@@ -197,28 +288,39 @@ export default function IssueDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<boolean | null>(null);
-  const [votePhase, setVotePhase] = useState<VotePhase>("validation");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
+  const [actionsHistory, setActionsHistory] = useState<ActionLogEntry[]>([]);
+
+  // Derive the correct vote phase from the report's on-chain status
+  const votePhase: VotePhase | null = report ? getVotePhaseFromStatus(report.status) : null;
 
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : "Unknown error";
   
   const handleCastVote = async (decision: boolean) => {
-    setVoteMessage(null);
-
     if (!wallet) {
-      setVoteMessage("Please connect your wallet first.");
+      toast.error("Please connect your Citizen wallet first.");
       return;
     }
 
     if (!report) {
-      setVoteMessage("Report data is not ready yet.");
+      toast.error("Report data is not ready yet.");
+      return;
+    }
+
+    if (!votePhase) {
+      toast.error("This report has no active voting window.");
+      return;
+    }
+
+    if (availableTicketsCount === 0) {
+      toast.error("You have run out of ZKP action tickets! Please request more.");
       return;
     }
 
     setIsSubmitting(true);
-    try {
+    const votePromise = async () => {
       const currentTicket = consumeTicket();
 
       if (!currentTicket) {
@@ -238,15 +340,18 @@ export default function IssueDetailPage({
       if (!data?.success) {
         throw new Error(data?.message || "Failed to cast vote.");
       }
+      return data;
+    };
 
+    toast.promise(votePromise(), {
+      loading: 'Submitting your vote securely...',
+      success: 'Vote cast successfully!',
+      error: (err: any) => getErrorMessage(err) || "Failed to cast vote."
+    }).then(() => {
       setSelectedDecision(decision);
-      setVoteMessage("Vote cast successfully.");
-    } catch (error: unknown) {
-      console.error("Voting error:", error);
-      setVoteMessage(getErrorMessage(error) || "Failed to cast vote.");
-    } finally {
+    }).finally(() => {
       setIsSubmitting(false);
-    }
+    });
   };
 
   useEffect(() => {
@@ -259,38 +364,126 @@ export default function IssueDetailPage({
       setError(null);
 
       try {
-        const RPC_URL =
-          process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
-
-        const CONTRACT_ADDRESS =
-          process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
-
-        if (!CONTRACT_ADDRESS) {
-          throw new Error("Contract address not configured.");
-        }
-
         const provider = new ethers.JsonRpcProvider(RPC_URL);
 
         const contract = new ethers.Contract(
           CONTRACT_ADDRESS,
-          REPORTING_ABI,
+          ReportingABI,
           provider
         );
 
         const r = await contract.getReport(Number(id));
+
+        let assignedProfile = null;
+        if (
+          MULTISIG_ADDRESS &&
+          r.assignedAuthority !== "0x0000000000000000000000000000000000000000"
+        ) {
+          try {
+            const multiSigContract = new ethers.Contract(
+              MULTISIG_ADDRESS,
+              AuthorityMultiSigABI,
+              provider
+            );
+            const prof = await multiSigContract.getProfile(r.assignedAuthority);
+            if (prof.isSet) {
+              assignedProfile = {
+                name: prof.name,
+                position: prof.position,
+                department: prof.department,
+              };
+            }
+          } catch (e) {
+            console.error("Error fetching assigned authority profile:", e);
+          }
+        }
 
         const base: ReportDetail = {
           id: r.id.toString(),
           ipfsCid: r.ipfsCid,
           status: Number(r.status),
           createdAt: Number(r.createdAt) * 1000,
-          upvotes: Number(r.votes.validationUpvotes),
-          downvotes: Number(r.votes.validationDownvotes),
+          phaseDeadline: Number(r.phaseDeadline) * 1000,
+          votes: {
+            validationUpvotes: Number(r.votes.validationUpvotes),
+            validationDownvotes: Number(r.votes.validationDownvotes),
+            verificationAcceptVotes: Number(r.votes.verificationAcceptVotes),
+            verificationRejectVotes: Number(r.votes.verificationRejectVotes),
+            rejectionUpholdVotes: Number(r.votes.rejectionUpholdVotes),
+            rejectionAppealVotes: Number(r.votes.rejectionAppealVotes),
+          },
           assignedAuthority: r.assignedAuthority,
+          assignedAuthorityProfile: assignedProfile,
           ipfsLoaded: false,
         };
 
-        if (!cancelled) setReport(base);
+        // Fetch authority actions history
+        let enrichedActions: ActionLogEntry[] = [];
+        try {
+          const rawActions = await contract.getReportActions(Number(id));
+          const multiSigContract = new ethers.Contract(
+            MULTISIG_ADDRESS,
+            AuthorityMultiSigABI,
+            provider
+          );
+          enrichedActions = await Promise.all(
+            rawActions.map(async (act: any) => {
+              const authority = act.authority;
+              const stage = Number(act.stage);
+              const commentCid = act.comment;
+              const imageCid = act.imageCid;
+              const timestamp = Number(act.timestamp);
+
+              let commentText = "";
+              if (commentCid && commentCid.trim().length > 5) {
+                try {
+                  const textRes = await fetch(`/api/ipfs/text/${commentCid}`);
+                  if (textRes.ok) {
+                    const textData = await textRes.json();
+                    if (textData.success && textData.content) {
+                      commentText = textData.content;
+                    }
+                  }
+                } catch (e) {
+                  console.error("Error resolving action comment:", e);
+                }
+              }
+
+              let profile = null;
+              if (MULTISIG_ADDRESS) {
+                try {
+                  const prof = await multiSigContract.getProfile(authority);
+                  if (prof.isSet) {
+                    profile = {
+                      name: prof.name,
+                      position: prof.position,
+                      department: prof.department,
+                    };
+                  }
+                } catch (e) {
+                  console.error("Error fetching authority profile:", e);
+                }
+              }
+
+              return {
+                authority,
+                stage,
+                commentCid,
+                imageCid,
+                timestamp,
+                commentText,
+                profile,
+              };
+            })
+          );
+        } catch (err) {
+          console.error("Failed to load actions history:", err);
+        }
+
+        if (!cancelled) {
+          setReport(base);
+          setActionsHistory(enrichedActions.reverse());
+        }
 
         const cid = extractCid(r.ipfsCid);
 
@@ -375,7 +568,8 @@ export default function IssueDetailPage({
 
   const status = getStatus(report.status);
 
-  const pct = consensusPct(report.upvotes, report.downvotes);
+  const phaseVotes = getPhaseVotes(report.votes, report.status);
+  const pct = consensusPct(phaseVotes.agree, phaseVotes.disagree);
 
   const reportedAt = new Date(report.createdAt).toLocaleString(
     "en-US",
@@ -396,15 +590,21 @@ export default function IssueDetailPage({
         }`
       : null;
 
-  const voteControls = (
+  // Only render vote controls when there is an active voting window
+  const voteControls = votePhase ? (
     <VoteControls
       phase={votePhase}
       selectedDecision={selectedDecision}
-      onPhaseChange={setVotePhase}
       onVote={handleCastVote}
       isSubmitting={isSubmitting}
       availableTicketsCount={availableTicketsCount}
     />
+  ) : (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <p className="text-sm font-semibold text-slate-500 text-center">
+        No active voting window for this report.
+      </p>
+    </div>
   );
 
   return (
@@ -432,12 +632,14 @@ export default function IssueDetailPage({
             </div>
           )}
 
-          <button
-            onClick={() => router.back()}
-            className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
-          >
-            <ArrowLeft className="h-4 w-4 text-slate-700" />
-          </button>
+          {!isEmbed && (
+            <button
+              onClick={() => router.back()}
+              className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
+            >
+              <ArrowLeft className="h-4 w-4 text-slate-700" />
+            </button>
+          )}
 
           <span
             className={`absolute bottom-4 left-4 px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
@@ -447,6 +649,30 @@ export default function IssueDetailPage({
         </div>
 
         <div className="p-4 space-y-5">
+          {/* Active Voting Phase Countdown */}
+          {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+                <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                <span>Voting Ends In:</span>
+              </div>
+              <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+            </div>
+          )}
+
+          {/* Pending Validation Phase Explanation */}
+          {report.status === 0 && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+              <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                <span>About Pending Validation Phase</span>
+              </div>
+              <p className="leading-relaxed">
+                When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+              </p>
+            </div>
+          )}
 
           {/* Description */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -475,12 +701,104 @@ export default function IssueDetailPage({
               <span>Reported {reportedAt}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-slate-400 shrink-0" />
-              <span className="font-mono text-xs break-all">
-                {report.ipfsCid}
-              </span>
+
+          </div>
+
+          {/* Assigned Authority Mobile (No wallet addresses, CIDs, or hashes) */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+              <Landmark className="h-5 w-5 text-slate-500" />
             </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                Assigned Authority
+              </p>
+              {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+              ) : (
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-slate-900">
+                    {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                  </p>
+                  {report.assignedAuthorityProfile && (
+                    <p className="text-xs text-slate-500 font-medium">
+                      {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Authority Action Log Mobile (No wallet addresses, CIDs, or hashes) */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h3 className="text-base font-bold text-slate-900 mb-4">
+              Authority Action Log
+            </h3>
+            {actionsHistory.length === 0 ? (
+              <p className="text-slate-400 italic text-sm text-center py-2">
+                No authority actions recorded on-chain yet.
+              </p>
+            ) : (
+              <div className="relative border-l border-slate-200 ml-3 pl-5 space-y-6">
+                {actionsHistory.map((act, index) => {
+                  const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  });
+
+                  const statusMeta = getStatusMeta(act.stage);
+
+                  return (
+                    <div key={index} className="relative">
+                      {/* Timeline dot */}
+                      <span className={`absolute -left-[27px] top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                            {statusMeta.label}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {actionDate}
+                          </span>
+                        </div>
+
+                        {/* Authority Name / Role (No wallet address) */}
+                        <div className="text-xs font-semibold text-slate-700">
+                          <span className="text-slate-800">
+                            {act.profile ? act.profile.name : "Official Representative"}
+                          </span>
+                          {act.profile && (
+                            <span className="text-slate-400 font-medium">
+                              {" "}({act.profile.position} &bull; {act.profile.department})
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Comment Content */}
+                        {act.commentText && (
+                          <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-2.5 leading-relaxed whitespace-pre-wrap">
+                            {act.commentText}
+                          </p>
+                        )}
+
+                        {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
+                        {act.imageCid && act.imageCid.length > 5 && (
+                          <div className="mt-1.5 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-xs aspect-video bg-slate-50">
+                            <img
+                              src={`/api/ipfs/image/${act.imageCid}`}
+                              alt="Action Attachment"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {voteControls}
@@ -498,25 +816,27 @@ export default function IssueDetailPage({
       <div className="hidden md:flex flex-col w-full">
 
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-8 py-4">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Report Detail
-          </button>
-
-          <div className="flex items-center gap-4 text-slate-500">
-            <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-              <Bell className="h-5 w-5" />
+        {!isEmbed && (
+          <div className="flex items-center justify-between px-8 py-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Report Detail
             </button>
 
-            <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-              <Settings className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-4 text-slate-500">
+              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <Bell className="h-5 w-5" />
+              </button>
+
+              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Grid */}
         <div className="grid grid-cols-[1fr_320px] gap-8 px-8 pb-8">
@@ -547,22 +867,32 @@ export default function IssueDetailPage({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
-              >
-                {status.label}
-              </span>
-
-              {report.category && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                  {report.category}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
+                >
+                  {status.label}
                 </span>
-              )}
 
-              <span className="text-slate-400 text-sm font-mono">
-                ID: #{report.id}
-              </span>
+                {report.category && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
+                    {report.category}
+                  </span>
+                )}
+
+                <span className="text-slate-400 text-sm font-mono">
+                  ID: #{report.id}
+                </span>
+              </div>
+
+              {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full text-blue-700 text-xs font-bold shadow-sm">
+                  <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
+                  <span>VOTING ENDS IN:</span>
+                  <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+                </div>
+              )}
             </div>
 
             {/* Title */}
@@ -587,6 +917,20 @@ export default function IssueDetailPage({
                 </span>
               )}
             </div>
+
+            {/* Pending Validation Phase Explanation */}
+            {report.status === 0 && (
+              <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-5 text-sm text-amber-800 space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold">
+                  <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                  <span>About Pending Validation Phase</span>
+                </div>
+                <p className="leading-relaxed">
+                  When a citizen submits a report, other members of the community can vote to validate whether it is true or false.
+                  Once the voting phase ends, the votes are tallied by the smart contract: if the community validates it as a true report, it moves to the <strong>Open</strong> status and becomes visible to local authorities for action. Otherwise, it is marked as <strong>Community Rejected</strong>.
+                </p>
+              </div>
+            )}
 
             {/* Description */}
             <div>
@@ -638,6 +982,77 @@ export default function IssueDetailPage({
                 {report.ipfsCid}
               </p>
             </div> */}
+
+            {/* Authority Action Log Desktop (No wallet addresses, CIDs, or hashes) */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-2">
+              <h2 className="text-lg font-bold text-slate-900 mb-5">
+                Authority Action Log
+              </h2>
+              {actionsHistory.length === 0 ? (
+                <p className="text-slate-400 italic text-sm text-center py-4">
+                  No authority actions recorded on-chain yet.
+                </p>
+              ) : (
+                <div className="relative border-l border-slate-200 ml-4 pl-6 space-y-8">
+                  {actionsHistory.map((act, index) => {
+                    const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    });
+
+                    const statusMeta = getStatusMeta(act.stage);
+
+                    return (
+                      <div key={index} className="relative">
+                        {/* Timeline dot */}
+                        <span className={`absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                              {statusMeta.label}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">
+                              {actionDate}
+                            </span>
+                          </div>
+
+                          {/* Authority Name / Role (No wallet address) */}
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                            <span className="text-slate-800">
+                              {act.profile ? act.profile.name : "Official Representative"}
+                            </span>
+                            {act.profile && (
+                              <span className="text-slate-400 font-medium">
+                                ({act.profile.position} &bull; {act.profile.department})
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Comment Content */}
+                          {act.commentText && (
+                            <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                              {act.commentText}
+                            </p>
+                          )}
+
+                          {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
+                          {act.imageCid && act.imageCid.length > 5 && (
+                            <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-slate-50">
+                              <img
+                                src={`/api/ipfs/image/${act.imageCid}`}
+                                alt="Action Attachment"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* RIGHT */}
@@ -654,15 +1069,20 @@ export default function IssueDetailPage({
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
 
-              <h3 className="text-lg font-bold text-slate-900 mb-5">
-                Community Consensus
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">
+                  Community Consensus
+                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
+                  {phaseVotes.phaseLabel}
+                </span>
+              </div>
 
               <div className="mb-4">
 
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-slate-500 font-medium">
-                    Current support
+                    {phaseVotes.agreeLabel} rate
                   </span>
 
                   <span className="text-2xl font-extrabold text-blue-600">
@@ -677,10 +1097,16 @@ export default function IssueDetailPage({
                   />
                 </div>
 
-                <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
-                  <ThumbsUp className="h-3 w-3" />
-                  {report.upvotes} upvotes · {report.downvotes} downvotes
-                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <ThumbsUp className="h-3 w-3" />
+                    {phaseVotes.agree} {phaseVotes.agreeLabel}
+                  </p>
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                    <ThumbsDown className="h-3 w-3" />
+                    {phaseVotes.disagree} {phaseVotes.disagreeLabel}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -696,15 +1122,20 @@ export default function IssueDetailPage({
                   Assigned Authority
                 </p>
 
-                <p className="text-sm font-bold text-slate-900 mb-1 font-mono truncate">
-                  {report.assignedAuthority ===
-                  "0x0000000000000000000000000000000000000000"
-                    ? "Not yet assigned"
-                    : `${report.assignedAuthority.slice(
-                        0,
-                        6
-                      )}…${report.assignedAuthority.slice(-4)}`}
-                </p>
+                {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                  <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-slate-900">
+                      {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                    </p>
+                    {report.assignedAuthorityProfile && (
+                      <p className="text-xs text-slate-500 font-medium">
+                        {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

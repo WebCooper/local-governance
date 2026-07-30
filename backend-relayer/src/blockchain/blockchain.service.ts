@@ -15,7 +15,7 @@ export class BlockchainService implements OnModuleInit {
   private pollingContract!: ethers.Contract;
   private blockchainEnabled = false;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) { }
 
   onModuleInit() {
     this.initializeWeb3();
@@ -36,9 +36,9 @@ export class BlockchainService implements OnModuleInit {
     this.blockchainEnabled = true;
 
     // These values are pulled from your .env file
-    const rpcUrl = this.configService.get<string>('RPC_URL'); 
+    const rpcUrl = this.configService.get<string>('RPC_URL');
     const privateKey = this.configService.get<string>('RELAYER_PRIVATE_KEY');
-    const contractAddress = this.configService.get<string>('CONTRACT_ADDRESS');
+    const contractAddress = this.configService.get<string>('REPORTING_CONTRACT_ADDRESS');
     const pollingAddress = this.configService.get<string>('POLLING_CONTRACT_ADDRESS');
 
     if (!rpcUrl || !privateKey || !contractAddress || !pollingAddress) {
@@ -74,12 +74,17 @@ export class BlockchainService implements OnModuleInit {
     }
   }
 
+  getReportingContract(): ethers.Contract | null {
+    return this.reportingContract || null;
+  }
+
+
   /**
    * Submits a validated report to the private blockchain.
    * This is called AFTER the Express ZKP server issues the nullifier 
    * and the AI Oracle approves the IPFS content.
    */
-  async submitReportToChain(ipfsCID: string, reportHash: string, submissionNullifier: string, citizenPseudonym: string) {
+  async submitReportToChain(ipfsCID: string, reportHash: string, submissionNullifier: string, citizenPseudonym: string, isEmergency: boolean) {
     if (!this.blockchainEnabled) {
       this.logger.warn('submitReportToChain called while blockchain submission is disabled.');
       return {
@@ -93,30 +98,31 @@ export class BlockchainService implements OnModuleInit {
 
     try {
 
-          // Convert hex strings to bytes32
-    const reportHashBytes   = ethers.hexlify(ethers.getBytes(reportHash)) as `0x${string}`;
-    const nullifierBytes = ethers.hexlify(ethers.getBytes(submissionNullifier)) as `0x${string}`;
+      // Convert hex strings to bytes32
+      const reportHashBytes = ethers.hexlify(ethers.getBytes(reportHash)) as `0x${string}`;
+      const nullifierBytes = ethers.hexlify(ethers.getBytes(submissionNullifier)) as `0x${string}`;
 
       this.logger.log(`Initiating blockchain transaction for nullifier: ${submissionNullifier}`);
-      
-    const tx = await this.reportingContract.submitReport(   // ← was createReport
-      ipfsCID,
-      reportHashBytes,      // bytes32 reportHash
-      nullifierBytes,       // bytes32 submissionNullifier
-      citizenPseudonym      // bytes32 citizenPseudonym
-    );
-      
+
+      const tx = await this.reportingContract.submitReport(   // ← was createReport
+        ipfsCID,
+        reportHashBytes,      // bytes32 reportHash
+        nullifierBytes,       // bytes32 submissionNullifier
+        citizenPseudonym,     // bytes32 citizenPseudonym
+        isEmergency           // bool isEmergency
+      );
+
       this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
-      
+
       // Wait for the block to be sealed by the authority nodes
       const receipt = await tx.wait();
-      
+
       this.logger.log(`Success! Report mined in block: ${receipt.blockNumber}`);
-      
-      return { 
-        success: true, 
-        transactionHash: tx.hash, 
-        blockNumber: receipt.blockNumber 
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -125,22 +131,53 @@ export class BlockchainService implements OnModuleInit {
     }
   }
 
+  async downgradeEmergencyOnChain(reportId: number) {
+    if (!this.blockchainEnabled) {
+      this.logger.warn('downgradeEmergencyOnChain called while blockchain submission is disabled.');
+      return { success: true };
+    }
+
+    try {
+      this.logger.log(`Initiating blockchain transaction to downgrade emergency for report: ${reportId}`);
+      const tx = await this.reportingContract.reclassifyEmergency(reportId);
+      this.logger.log(`Tx broadcasted: ${tx.hash}. Waiting for Geth network to mine...`);
+      const receipt = await tx.wait();
+      this.logger.log(`Success! Emergency downgraded in block: ${receipt.blockNumber}`);
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Blockchain submission failed: ${message}`);
+      throw new InternalServerErrorException('Failed to downgrade emergency on-chain.');
+    }
+  }
+
   // Add this inside BlockchainService class in src/blockchain/blockchain.service.ts
 
-  async castVoteOnChain(reportId: number, phase: 'validation' | 'verification' | 'rejectionReview', nullifier: string, decision: boolean) {
+  async castVoteOnChain(
+    reportId: number,
+    phase: 'validation' | 'verification' | 'rejectionReview',
+    nullifier: string,
+    decision: boolean,
+    citizenPseudonym: string,
+  ) {
     if (!this.blockchainEnabled) throw new InternalServerErrorException('Blockchain disabled');
 
     try {
       const nullifierBytes = ethers.hexlify(ethers.getBytes(nullifier)) as `0x${string}`;
-      this.logger.log(`Casting ${phase} vote for report ${reportId}`);
-      
+      const pseudonymBytes = ethers.hexlify(ethers.getBytes(citizenPseudonym)) as `0x${string}`;
+      this.logger.log(`Casting ${phase} vote for report ${reportId} with pseudonym ${citizenPseudonym}`);
+
       let tx;
       if (phase === 'validation') {
-        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castValidationVote(reportId, nullifierBytes, decision, pseudonymBytes);
       } else if (phase === 'verification') {
-        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castVerificationVote(reportId, nullifierBytes, decision, pseudonymBytes);
       } else if (phase === 'rejectionReview') {
-        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision);
+        tx = await this.reportingContract.castRejectionReviewVote(reportId, nullifierBytes, decision, pseudonymBytes);
       }
 
       const receipt = await tx.wait();
@@ -167,7 +204,7 @@ export class BlockchainService implements OnModuleInit {
   async getLatestReportsForCron(limit: number = 50): Promise<any[]> {
     if (!this.blockchainEnabled) return [];
     // Assuming you have reportCount public variable or getAllReports implemented
-    const [reports] = await this.reportingContract.getAllReports(0, limit); 
+    const [reports] = await this.reportingContract.getAllReports(0, limit);
     return reports;
   }
 
@@ -216,10 +253,10 @@ export class BlockchainService implements OnModuleInit {
       return { success: true, transactionHash: tx.hash };
     } catch (error: any) {
       this.logger.error(`On-chain vote broadcast failure: ${error.message}`);
-      
+
       const errStr = error.message || '';
       const errData = error.data || '';
-      
+
       if (errStr.includes('AlreadyVotedWithNullifier') || errData.includes('0xc73a9589')) {
         throw new BadRequestException('You have already cast your ballot for this poll.');
       }
@@ -229,7 +266,7 @@ export class BlockchainService implements OnModuleInit {
       if (errStr.includes('PollDoesNotExist') || errData.includes('0x8acdc765')) {
         throw new BadRequestException('The specified poll does not exist.');
       }
-      
+
       throw new InternalServerErrorException('Contract rejected voting payload.');
     }
   }
@@ -243,4 +280,28 @@ export class BlockchainService implements OnModuleInit {
       return false;
     }
   }
-}
+
+  async startWorkOnChain(reportId: number, comment = 'Started work via Planka', imageCid = '') {
+    if (!this.blockchainEnabled) return;
+    try {
+      this.logger.log(`Broadcasting startWork on-chain transaction for report #${reportId}...`);
+      const tx = await this.reportingContract.startWork(reportId, comment, imageCid);
+      await tx.wait();
+      this.logger.log(`✅ Report #${reportId} status successfully transitioned to InProgress on-chain.`);
+    } catch (e: any) {
+      this.logger.error(`Failed to execute startWork on-chain for report #${reportId}: ${e.message}`);
+    }
+  }
+
+  async markAsSolvedOnChain(reportId: number, comment = 'Marked solved via Planka', imageCid = '') {
+    if (!this.blockchainEnabled) return;
+    try {
+      this.logger.log(`Broadcasting markAsSolved on-chain transaction for report #${reportId}...`);
+      const tx = await this.reportingContract.markAsSolved(reportId, comment, imageCid);
+      await tx.wait();
+      this.logger.log(`✅ Report #${reportId} status successfully transitioned to PendingVerification on-chain.`);
+    } catch (e: any) {
+      this.logger.error(`Failed to execute markAsSolved on-chain for report #${reportId}: ${e.message}`);
+    }
+  }
+}

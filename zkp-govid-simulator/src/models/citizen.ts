@@ -37,15 +37,35 @@ export interface NewCitizenInput {
 }
 
 /**
+ * Validate govId format: supports 12-digit NIC or EG/20__/____ format Student ID
+ */
+const validateGovIdFormat = (govId: string): boolean => {
+  if (!govId || typeof govId !== 'string') return false;
+  const trimmed = govId.trim();
+  const nicRegex = /^\d{12}$/;
+  const studentIdRegex = /^EG\/\d{2,4}\/\d{1,6}$/i;
+  return nicRegex.test(trimmed) || studentIdRegex.test(trimmed);
+};
+
+/**
+ * Normalize govId (trim whitespace, uppercase student ID prefix)
+ */
+const normalizeGovId = (govId: string): string => {
+  if (!govId) return '';
+  return govId.trim().toUpperCase();
+};
+
+/**
  * Get citizen by govId
- * @param govId - 12-digit government ID
+ * @param govId - 12-digit government ID or Student ID
  * @returns Citizen record or undefined if not found
  */
 const getCitizenByGovId = (govId: string): Citizen | undefined => {
   try {
+    const normalized = normalizeGovId(govId);
     const citizen = db
-      .prepare('SELECT * FROM citizens WHERE govId = ?')
-      .get(govId) as Citizen | undefined;
+      .prepare('SELECT * FROM citizens WHERE UPPER(govId) = ?')
+      .get(normalized) as Citizen | undefined;
     return citizen;
   } catch (error) {
     console.error(`Error fetching citizen with govId ${govId}:`, error);
@@ -55,8 +75,8 @@ const getCitizenByGovId = (govId: string): Citizen | undefined => {
 
 /**
  * Verify citizen credentials against database
- * @param govId - 12-digit government ID
- * @param password - Citizen password (typically mobile number)
+ * @param govId - 12-digit government ID or Student ID
+ * @param password - Citizen password
  * @returns true if credentials match, false otherwise
  */
 const verifyCitizen = (govId: string, password: string): boolean => {
@@ -132,6 +152,7 @@ const isUniqueConstraintError = (error: unknown): boolean => {
 const createCitizen = (newCitizen: NewCitizenInput): Omit<Citizen, 'password'> => {
   const status = newCitizen.status || 'Active';
   const citizenSeed = crypto.randomBytes(32).toString('hex');
+  const normalizedGovId = normalizeGovId(newCitizen.govId);
 
   db.prepare(
     `
@@ -139,7 +160,7 @@ const createCitizen = (newCitizen: NewCitizenInput): Omit<Citizen, 'password'> =
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).run(
-    newCitizen.govId,
+    normalizedGovId,
     newCitizen.password,
     citizenSeed,
     newCitizen.name,
@@ -150,8 +171,8 @@ const createCitizen = (newCitizen: NewCitizenInput): Omit<Citizen, 'password'> =
   );
 
   const insertedCitizen = db
-    .prepare('SELECT id, govId, citizenSeed, name, email, phone, address, status, createdAt, updatedAt FROM citizens WHERE govId = ?')
-    .get(newCitizen.govId) as Omit<Citizen, 'password'> | undefined;
+    .prepare('SELECT id, govId, citizenSeed, name, email, phone, address, status, createdAt, updatedAt FROM citizens WHERE UPPER(govId) = ?')
+    .get(normalizedGovId) as Omit<Citizen, 'password'> | undefined;
 
   if (!insertedCitizen) {
     throw new Error('Citizen insert completed but could not be fetched');
@@ -168,5 +189,8 @@ export {
   getIssuedTicketById,
   isUniqueConstraintError,
   markIssuedTicketAsUsed,
+  normalizeGovId,
+  validateGovIdFormat,
   verifyCitizen
 };
+
