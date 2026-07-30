@@ -218,19 +218,14 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-16 pt-8 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
-          <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
             <span className="font-extrabold text-blue-600 text-base tracking-tight">AuraChain</span>
             <span>© 2026 AuraChain. Decentralized Governance for Local Communities.</span>
           </div>
-          <div className="flex items-center gap-6 flex-wrap">
-            <Link href="/privacy-policy" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
-            <Link href="/terms-of-service" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
-            <Link href="/whitepaper" className="hover:text-slate-900 transition-colors">Whitepaper</Link>
-            <Link href="/contact" className="hover:text-blue-600 font-bold transition-colors">Contact Us</Link>
-            <div className="flex items-center gap-3 ml-4 text-slate-400">
-              <Share2 className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-              <Globe className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-            </div>
+          <div className="flex items-center gap-4 text-slate-400">
+            <span>EVM Smart Contracts</span>
+            <span>&bull;</span>
+            <span>IPFS Storage</span>
           </div>
         </footer>
       </div>
