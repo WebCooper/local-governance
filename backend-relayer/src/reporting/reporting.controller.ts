@@ -60,8 +60,17 @@ export class ReportingController {
   }
 
   @Post('vote')
+  @HttpCode(HttpStatus.ACCEPTED) // 202 — accepted for background processing
   async castVote(@Body() payload: CastVoteDto) {
     this.logger.log(`Received vote for report ${payload.reportId} in phase ${payload.votePhase}`);
-    return await this.reportingService.castVote(payload);
+    
+    const { jobId } = await this.reportingService.validateAndEnqueueVote(payload);
+
+    return {
+      success: true,
+      message: 'Vote accepted for processing.',
+      jobId,
+      status: 'pending',
+    };
   }
 }

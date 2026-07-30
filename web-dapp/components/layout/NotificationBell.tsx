@@ -70,6 +70,15 @@ function NotificationCard({
   const current = stepIndex(n.status);
   const isFailed = n.status.includes("failed");
   const isDone = n.status === "completed";
+  const isVote = n.category === "Vote";
+  
+  const displaySteps = isVote ? ["Chain", "Done"] : ["AI", "IPFS", "Chain", "Done"];
+  let displayCurrent = current;
+  if (isVote) {
+    if (current === 2) displayCurrent = 0;
+    else if (current === 3) displayCurrent = 1;
+    else displayCurrent = -1;
+  }
 
   return (
     <div
@@ -107,30 +116,30 @@ function NotificationCard({
       {/* Step indicators */}
       {!isFailed && (
         <div className="flex items-center gap-1 mb-1.5">
-          {["AI", "IPFS", "Chain", "Done"].map((label, i) => (
+          {displaySteps.map((label, i) => (
             <div key={label} className="flex items-center gap-1">
               <div
                 className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors ${
-                  i < current
+                  i < displayCurrent
                     ? "bg-green-500 text-white"
-                    : i === current
+                    : i === displayCurrent
                     ? "bg-blue-600 text-white"
                     : "bg-slate-200 text-slate-400"
                 }`}
               >
-                {i < current ? "✓" : i + 1}
+                {i < displayCurrent ? "✓" : i + 1}
               </div>
-              {i < 3 && (
+              {i < displaySteps.length - 1 && (
                 <div
                   className={`h-px w-4 transition-colors ${
-                    i < current ? "bg-green-400" : "bg-slate-200"
+                    i < displayCurrent ? "bg-green-400" : "bg-slate-200"
                   }`}
                 />
               )}
             </div>
           ))}
           <span className="ml-1 text-[10px] text-slate-400 font-medium">
-            {["AI", "IPFS", "Chain", "Done"][Math.max(0, current)]}
+            {displaySteps[Math.max(0, displayCurrent)]}
           </span>
         </div>
       )}
