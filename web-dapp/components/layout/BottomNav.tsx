@@ -16,7 +16,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
     { label: "Polls", href: "/polls", icon: Vote },
     { label: isSidebar ? "Reports" : "Report", href: "/report", icon: isSidebar ? BarChart2 : PlusCircle },
     { label: "Profile", href: "/profile", icon: User },
-    { label: "Notifications", href: "#", icon: Bell },
+    { label: "Notifications", href: "/notifications", icon: Bell },
   ];
 
   const authorityItems = [

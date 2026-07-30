@@ -42,21 +42,21 @@ function toastForStatus(n: ReportNotification) {
   const label = n.category || "Report";
   switch (n.status) {
     case "completed":
-      toast.success(`✅ ${label} was successfully recorded on-chain!`, { duration: 6000 });
+      toast.success(`${label} was successfully recorded on-chain!`, { duration: 6000 });
       break;
     case "ai_moderation_failed":
-      toast.error(`🚫 ${label} was rejected by AI moderation.\n${n.data?.reason ?? ""}`, {
+      toast.error(`${label} was rejected by AI moderation.\n${n.data?.reason ?? ""}`, {
         duration: 8000,
       });
       break;
     case "ipfs_failed":
-      toast.error(`📦 ${label}: IPFS upload failed after 3 retries.`, { duration: 6000 });
+      toast.error(`${label}: IPFS upload failed after 3 retries.`, { duration: 6000 });
       break;
     case "blockchain_failed":
-      toast.error(`⛓️ ${label}: Blockchain submission failed after 3 retries.`, { duration: 6000 });
+      toast.error(`${label}: Blockchain submission failed after 3 retries.`, { duration: 6000 });
       break;
     case "failed":
-      toast.error(`❌ ${label} processing failed unexpectedly.`, { duration: 6000 });
+      toast.error(`${label} processing failed unexpectedly.`, { duration: 6000 });
       break;
   }
 }
