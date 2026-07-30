@@ -22,21 +22,27 @@ export function ClientToaster() {
   return (
     <Toaster 
       position={position} 
+      containerStyle={{
+        top: 16,
+        bottom: 80,
+        left: 16,
+        right: 16,
+      }}
       toastOptions={{
         style: {
-          background: 'rgba(255, 255, 255, 0.45)',
+          background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(24px) saturate(150%)',
           WebkitBackdropFilter: 'blur(24px) saturate(150%)',
-          border: '1px solid rgba(255, 255, 255, 0.9)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.4)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.4)',
+          border: '1px solid rgba(226, 232, 240, 0.9)',
           color: '#0f172a',
-          boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1)',
-          borderRadius: '100px',
-          padding: '16px 28px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          borderRadius: '20px',
+          padding: '12px 20px',
           fontWeight: '600',
-          fontSize: '15px',
+          fontSize: '14px',
           letterSpacing: '-0.01em',
+          maxWidth: 'calc(100vw - 32px)',
+          wordBreak: 'break-word',
         },
         success: {
           iconTheme: {
