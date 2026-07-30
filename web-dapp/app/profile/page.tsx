@@ -82,12 +82,37 @@ function timeAgo(ts: number) {
   return `${days} days ago`;
 }
 
+const AVATAR_STYLES = [
+  { id: "bottts", label: "Bots" },
+  { id: "avataaars", label: "Avataaars" },
+  { id: "identicon", label: "Identicon" },
+  { id: "micah", label: "Micah" },
+  { id: "lorelei", label: "Lorelei" },
+];
+
 export default function ProfilePage() {
   const { wallet, availableTicketsCount, logout } = useCitizen();
   const [pseudonym, setPseudonym] = useState<string | null>(null);
   const [reports, setReports] = useState<FetchedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [avatarStyle, setAvatarStyle] = useState<string>("bottts");
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ac_avatar_style");
+      if (saved) setAvatarStyle(saved);
+    }
+  }, []);
+
+  const handleSelectAvatarStyle = (styleId: string) => {
+    setAvatarStyle(styleId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ac_avatar_style", styleId);
+      window.dispatchEvent(new Event("avatar_updated"));
+    }
+  };
 
   useEffect(() => {
     if (!wallet) { setLoading(false); return; }
@@ -176,16 +201,29 @@ export default function ProfilePage() {
 
         {/* Avatar + Identity */}
         <div className="flex flex-col items-center px-4 py-6">
-          <div className="relative mb-4">
-            <img src="/avatar_1.png" alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" />
+          <div className="relative mb-4 cursor-pointer group" onClick={() => setShowAvatarModal(true)}>
+            <img 
+              src={`https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(wallet?.publicKey || pseudonym || "citizen")}`} 
+              alt="Dicebear Avatar" 
+              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md bg-blue-50" 
+            />
             <div className="absolute bottom-1 right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
               <CheckCircle2 className="h-4 w-4 text-white" />
+            </div>
+            <div className="absolute inset-0 bg-slate-900/30 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+              Change
             </div>
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-1">Anonymous Citizen</h2>
           <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wide mb-2">
             {citizenInfo.label}
           </span>
+          <button
+            onClick={() => setShowAvatarModal(true)}
+            className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full mb-2 hover:bg-blue-100 transition-colors"
+          >
+            Avatar Style: {AVATAR_STYLES.find(s => s.id === avatarStyle)?.label} ✏️
+          </button>
           <p className="text-slate-500 text-sm">Digital Identity ID: {shortAddr}</p>
         </div>
 
@@ -305,10 +343,17 @@ export default function ProfilePage() {
 
             {/* ── Profile Header Card ── */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-center gap-6">
-              <div className="relative shrink-0">
-                <img src="/avatar_1.png" alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow" />
+              <div className="relative shrink-0 cursor-pointer group" onClick={() => setShowAvatarModal(true)}>
+                <img 
+                  src={`https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(wallet?.publicKey || pseudonym || "citizen")}`} 
+                  alt="Dicebear Avatar" 
+                  className="w-24 h-24 rounded-full object-cover border-4 border-white shadow bg-blue-50" 
+                />
                 <div className="absolute bottom-1 right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
                   <CheckCircle2 className="h-4 w-4 text-white" />
+                </div>
+                <div className="absolute inset-0 bg-slate-900/30 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                  Change
                 </div>
               </div>
               <div className="flex-1 min-w-0">
@@ -333,8 +378,11 @@ export default function ProfilePage() {
                   </span>
                 </div>
               </div>
-              <button className="px-5 py-2.5 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm shrink-0">
-                Edit Public Profile
+              <button 
+                onClick={() => setShowAvatarModal(true)}
+                className="px-5 py-2.5 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm shrink-0 flex items-center gap-2"
+              >
+                <span>Dicebear Avatar Style</span>
               </button>
             </div>
 
@@ -512,6 +560,57 @@ export default function ProfilePage() {
           </div>
         </footer>
       </div>
+
+      {/* Avatar Style Picker Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl flex flex-col gap-5 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Choose Dicebear Avatar</h3>
+              <button 
+                onClick={() => setShowAvatarModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Select your preferred cryptographic Dicebear avatar theme. Generated dynamically based on your zero-knowledge pseudonym.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {AVATAR_STYLES.map(style => {
+                const imgUrl = `https://api.dicebear.com/7.x/${style.id}/svg?seed=${encodeURIComponent(wallet?.publicKey || pseudonym || "citizen")}`;
+                const isSelected = avatarStyle === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    onClick={() => {
+                      handleSelectAvatarStyle(style.id);
+                      setShowAvatarModal(false);
+                    }}
+                    className={`flex flex-col items-center p-3 rounded-2xl border transition-all ${
+                      isSelected
+                        ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500/20"
+                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <img src={imgUrl} alt={style.label} className="w-14 h-14 rounded-full bg-white mb-2 shadow-sm" />
+                    <span className={`text-xs font-semibold ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
+                      {style.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowAvatarModal(false)}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

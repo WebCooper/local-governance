@@ -117,12 +117,12 @@ export function VoteControls({
         </div>
       </div>
 
-      <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-600 space-y-1">
+      <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-600 space-y-1.5">
         <p>
-          <span className="font-semibold text-slate-700">Yes:</span> {copy.positiveHint}
+          <span className="font-semibold text-blue-700">✓ {copy.positiveLabel}:</span> {copy.positiveHint}
         </p>
         <p>
-          <span className="font-semibold text-slate-700">No:</span> {copy.negativeHint}
+          <span className="font-semibold text-slate-700">✗ {copy.negativeLabel}:</span> {copy.negativeHint}
         </p>
       </div>
     </div>
