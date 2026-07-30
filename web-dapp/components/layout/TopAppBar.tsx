@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Shield, User, LogOut, Settings } from "lucide-react";
+import { Shield, User, LogOut } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
@@ -70,9 +70,6 @@ export function TopAppBar({ className = "" }: { className?: string }) {
           <>
             {/* Live Notification Bell */}
             <NotificationBell />
-            <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              <Settings className="h-5 w-5" />
-            </button>
             
             <div className="relative" ref={dropdownRef}>
               <button 
