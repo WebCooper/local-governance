@@ -91,10 +91,10 @@ export function VoteControls({
             type="button"
             onClick={() => onVote(true)}
             disabled={isSubmitting}
-            className={`group relative w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 transition-all duration-200 shadow-md disabled:opacity-60 disabled:cursor-not-allowed ${
+            className={`group relative w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 border transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
               selectedDecision === true
-                ? "bg-blue-600 text-white ring-4 ring-blue-500/20 scale-[1.02]"
-                : "bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white shadow-blue-600/20"
+                ? "bg-blue-600 border-blue-600 text-white ring-4 ring-blue-500/20 scale-[1.02] shadow-md shadow-blue-600/20"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 active:bg-blue-600 active:text-white active:scale-[0.98]"
             }`}
           >
             <ThumbsUp className={`h-5 w-5 transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-12 shrink-0 ${
@@ -109,8 +109,8 @@ export function VoteControls({
             disabled={isSubmitting}
             className={`group relative w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 border transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
               selectedDecision === false
-                ? "border-slate-300 bg-slate-100 text-slate-900 ring-4 ring-slate-400/20 scale-[1.02]"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 active:scale-[0.98]"
+                ? "bg-red-600 border-red-600 text-white ring-4 ring-red-500/20 scale-[1.02] shadow-md shadow-red-600/20"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600 active:bg-red-600 active:text-white active:scale-[0.98]"
             }`}
           >
             <ThumbsDown className={`h-5 w-5 transition-transform duration-200 ease-out group-hover:scale-125 group-hover:rotate-12 shrink-0 ${

@@ -132,6 +132,7 @@ export default function ReportPage() {
       toast.error("Failed to process images. Please try different files.");
     } finally {
       setIsProcessingImages(false);
+      setShowUploadOptions(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
