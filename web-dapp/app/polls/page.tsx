@@ -105,7 +105,7 @@ export default function PollsFeedPage() {
                 isActive: chainPoll.isActive,
                 results,
                 images: metaImages,
-              };
+              } as PollStructure;
             } catch (e) {
               console.error(`Failed to fetch poll #${i}`, e);
               return null;
