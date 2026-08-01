@@ -6,6 +6,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import VotingMethodProposalForm from "@/components/admin/VotingMethodProposalForm";
 import VotingConfigPanel from "@/components/admin/VotingConfigPanel";
+import { AuthorityRosterTable } from "@/components/admin/AuthorityRosterTable";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export default function SuperAdminPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [proposalFilter, setProposalFilter] = useState<"ALL" | "Active" | "Executed" | "Expired">("ALL");
   const [activeTab, setActiveTab] = useState<"proposals" | "members" | "voting">(
     "proposals"
   );
@@ -107,6 +109,30 @@ export default function SuperAdminPage() {
   // Profile data states for existing members
   const [superAdminProfiles, setSuperAdminProfiles] = useState<MemberProfile[]>([]);
   const [authorityProfiles, setAuthorityProfiles] = useState<MemberProfile[]>([]);
+
+  const filteredProposals = proposals.filter((p) => {
+    if (proposalFilter === "ALL") return true;
+    const isExpired = Date.now() > p.deadline * 1000;
+    if (proposalFilter === "Executed") return p.executed;
+    if (proposalFilter === "Active") return !p.executed && !isExpired;
+    if (proposalFilter === "Expired") return !p.executed && isExpired;
+    return true;
+  });
+
+  const handleSelectAuthorityForProposal = (
+    address: string,
+    name: string,
+    position: string,
+    department: string
+  ) => {
+    setTargetAddress(address);
+    setTargetName(name);
+    setTargetPosition(position);
+    setTargetDepartment(department);
+    setActionType("3"); // Remove Authority proposal by default
+    setActiveTab("proposals");
+    toast.success(`Selected ${name || address} for proposal!`);
+  };
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -611,10 +637,26 @@ export default function SuperAdminPage() {
             {/* ── Tab: Proposals ──────────────────────────────────────────── */}
             {activeTab === "proposals" && (
               <>
-                <div className="p-4 border-b border-slate-100 flex justify-end bg-white">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white">
+                  {/* Proposal Status Filters */}
+                  <div className="flex items-center gap-2">
+                    {(["ALL", "Active", "Executed", "Expired"] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setProposalFilter(filter)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                          proposalFilter === filter
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {filter}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={fetchProposals}
-                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                    className="text-sm text-blue-600 hover:underline flex items-center gap-1 font-semibold"
                   >
                     <svg
                       className="w-4 h-4"
@@ -632,13 +674,13 @@ export default function SuperAdminPage() {
                     Refresh
                   </button>
                 </div>
-                {proposals.length === 0 ? (
+                {filteredProposals.length === 0 ? (
                   <div className="p-12 text-center text-slate-500">
-                    No proposals found.
+                    No proposals matching &quot;{proposalFilter}&quot;.
                   </div>
                 ) : (
                   <ul className="divide-y divide-slate-200">
-                    {proposals.map((prop) => {
+                    {filteredProposals.map((prop) => {
                       const isExpired = Date.now() > prop.deadline * 1000;
                       const timeRemaining = Math.max(
                         0,
@@ -822,23 +864,28 @@ export default function SuperAdminPage() {
 
             {/* ── Tab: Members ─────────────────────────────────────────────── */}
             {activeTab === "members" && (
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="p-6 flex flex-col gap-8">
                 {/* Super Admins List */}
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    Super Admins
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                      <span>Super Admin Multisig Council</span>
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
+                      {superAdminProfiles.length} Member(s)
+                    </span>
+                  </div>
                   {superAdminProfiles.length === 0 ? (
                     <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100">
                       No super admins found.
                     </p>
                   ) : (
-                    <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       {superAdminProfiles.map((member, idx) => (
                         <div
                           key={`sa-${idx}`}
-                          className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm"
+                          className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:border-blue-300 transition-all"
                         >
                           <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm shrink-0 border border-blue-100 mt-0.5">
                             {idx + 1}
@@ -862,7 +909,7 @@ export default function SuperAdminPage() {
                             ) : (
                               <>
                                 <p
-                                  className="font-mono text-sm text-slate-700 truncate"
+                                  className="font-mono text-xs text-slate-700 truncate"
                                   title={member.address}
                                 >
                                   {member.address}
@@ -879,60 +926,12 @@ export default function SuperAdminPage() {
                   )}
                 </div>
 
-                {/* Authorities List */}
+                {/* Municipal Authorities Roster */}
                 <div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    Authorities
-                  </h3>
-                  {authorityProfiles.length === 0 ? (
-                    <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      No authorities configured.
-                    </p>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {authorityProfiles.map((member, idx) => (
-                        <div
-                          key={`auth-${idx}`}
-                          className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 font-bold text-sm shrink-0 border border-green-100 mt-0.5">
-                            A
-                          </div>
-                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                            {member.isSet ? (
-                              <>
-                                <p className="font-bold text-slate-800 text-sm leading-snug">
-                                  {member.name}
-                                </p>
-                                <p className="text-xs text-slate-500 font-medium">
-                                  {member.position} &bull; {member.department}
-                                </p>
-                                <p
-                                  className="font-mono text-[10px] text-slate-400 mt-0.5 break-all"
-                                  title={member.address}
-                                >
-                                  {member.address}
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p
-                                  className="font-mono text-sm text-slate-700 truncate"
-                                  title={member.address}
-                                >
-                                  {member.address}
-                                </p>
-                                <p className="text-[10px] text-slate-400 italic">
-                                  No profile details set
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <AuthorityRosterTable
+                    members={authorityProfiles}
+                    onSelectForProposal={handleSelectAuthorityForProposal}
+                  />
                 </div>
               </div>
             )}

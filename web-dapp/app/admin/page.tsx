@@ -7,13 +7,16 @@ import axios from "axios";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
-import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle, Search, Filter, LayoutGrid, Table, ArrowUpDown, Tag } from "lucide-react";
 import { ReportCard } from "@/components/admin/ReportCard";
 import { EmergencyReportCard } from "@/components/admin/EmergencyReportCard";
+import { AdminAnalyticsHeader } from "@/components/admin/AdminAnalyticsHeader";
+import { ReportTableView } from "@/components/admin/ReportTableView";
 import {
   rawToEnriched,
   enrichReportWithIPFS,
   ADMIN_STATUS_FILTERS,
+  STATUS_MAP,
   type EnrichedReport,
   type StatusFilter,
 } from "@/lib/reportHelpers";
@@ -110,6 +113,10 @@ export default function AuthorityAdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     ADMIN_STATUS_FILTERS[0] // default: Actionable
   );
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "upvotes" | "duplicates">("newest");
 
   // ── Polls State ───────────────────────────────────────────────────────────
   const [polls, setPolls] = useState<PollStructure[]>([]);
@@ -357,11 +364,95 @@ export default function AuthorityAdminPage() {
     }
   };
 
-  // ─── Filter reports ────────────────────────────────────────────────────────
-  const filteredReports =
-    statusFilter.statuses.length === 0
-      ? allReports
-      : allReports.filter((r) => statusFilter.statuses.includes(r.status));
+  // ─── Filter & Sort reports ──────────────────────────────────────────────────
+  const filteredReports = allReports
+    .filter((r) => {
+      // 1. Status Filter
+      if (
+        statusFilter.statuses.length > 0 &&
+        !statusFilter.statuses.includes(r.status)
+      ) {
+        return false;
+      }
+      // 2. Category Filter
+      if (
+        categoryFilter !== "ALL" &&
+        r.category?.toLowerCase() !== categoryFilter.toLowerCase()
+      ) {
+        return false;
+      }
+      // 3. Search Query Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = r.title?.toLowerCase().includes(q);
+        const matchesDesc = r.description?.toLowerCase().includes(q);
+        const matchesLoc = r.location?.toLowerCase().includes(q);
+        const matchesCat = r.category?.toLowerCase().includes(q);
+        const matchesCid = r.ipfsCid?.toLowerCase().includes(q);
+        const matchesId = r.id.toString() === q;
+        if (
+          !matchesTitle &&
+          !matchesDesc &&
+          !matchesLoc &&
+          !matchesCat &&
+          !matchesCid &&
+          !matchesId
+        ) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "oldest") return a.createdAt - b.createdAt;
+      if (sortBy === "upvotes")
+        return (b.votes?.validationUpvotes || 0) - (a.votes?.validationUpvotes || 0);
+      if (sortBy === "duplicates")
+        return (
+          (b.potentialDuplicates?.length || 0) -
+          (a.potentialDuplicates?.length || 0)
+        );
+      return b.createdAt - a.createdAt; // "newest" default
+    });
+
+  const handleTableStartWork = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Starting work on report...");
+    try {
+      const tx = await reportingContract.startWork(id, "", "");
+      await tx.wait();
+      toast.success("Work started successfully!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to start work", { id: loadToast });
+    }
+  };
+
+  const handleTableResolve = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Marking report as solved...");
+    try {
+      const tx = await reportingContract.markAsSolved(id, "", "");
+      await tx.wait();
+      toast.success("Report marked as solved!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to mark as solved", { id: loadToast });
+    }
+  };
+
+  const handleTableReject = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Rejecting report...");
+    try {
+      const tx = await reportingContract.rejectIssue(id, "", "");
+      await tx.wait();
+      toast.success("Report rejected!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reject report", { id: loadToast });
+    }
+  };
 
   const totalPages = Math.ceil(totalReports / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
@@ -548,24 +639,131 @@ export default function AuthorityAdminPage() {
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
           <>
+            {/* 1. Executive KPI Analytics Header */}
+            <AdminAnalyticsHeader
+              totalReports={allReports.length}
+              solvedCount={
+                allReports.filter((r) => r.status === 6).length
+              }
+              openCount={
+                allReports.filter((r) => r.status === 2 || r.status === 7)
+                  .length
+              }
+              inProgressCount={
+                allReports.filter((r) => r.status === 3).length
+              }
+              emergencyCount={totalEmergencyReports}
+              onSelectEmergencyTab={() => setActiveTab("emergency")}
+            />
+
             {/* Reports Header */}
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Civic Reports</h2>
                 <p className="text-slate-500 mt-1 text-sm">
-                  Review and manage issues reported by citizens.
+                  Review, triage, and manage municipal issues reported by citizens.
                 </p>
               </div>
               <button
-                onClick={() => { setOffset(0); fetchReports(0); }}
-                className="flex items-center gap-1.5 text-green-600 hover:text-green-700 font-semibold text-sm"
+                onClick={() => {
+                  setOffset(0);
+                  fetchReports(0);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-green-600 hover:text-green-700 font-semibold text-sm shadow-sm hover:border-slate-300 transition-all"
               >
                 <RefreshCw className="w-4 h-4" />
-                Refresh
+                <span>Refresh Data</span>
               </button>
             </div>
 
-            {/* Status Filter Pills */}
+            {/* 2. Advanced Multi-Dimension Filtering & Search Bar */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+              {/* Search input */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search report title, description, location, ID, or IPFS CID..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Category Dropdown */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                  >
+                    <option value="ALL">All Categories</option>
+                    <option value="Roads">Roads</option>
+                    <option value="Streetlights">Streetlights</option>
+                    <option value="Sanitation">Sanitation</option>
+                    <option value="Water">Water</option>
+                    <option value="Electricity">Electricity</option>
+                    <option value="Corruption">Corruption</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1.5">
+                  <ArrowUpDown className="w-4 h-4 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e: any) => setSortBy(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                  >
+                    <option value="newest">Sort: Newest First</option>
+                    <option value="oldest">Sort: Oldest First</option>
+                    <option value="upvotes">Sort: Highest Upvotes</option>
+                    <option value="duplicates">Sort: Most Duplicates</option>
+                  </select>
+                </div>
+
+                {/* View Mode Switcher (Card vs Table) */}
+                <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200">
+                  <button
+                    onClick={() => setViewMode("card")}
+                    title="Card Grid View"
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "card"
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("table")}
+                    title="Dense Triage Table View"
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "table"
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Table className="w-3.5 h-3.5" />
+                    <span>Table</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Status Filter Pills */}
             <div className="flex items-center flex-wrap gap-2 mb-6">
               {ADMIN_STATUS_FILTERS.map((filter) => {
                 const isActive = statusFilter.key === filter.key;
@@ -581,9 +779,9 @@ export default function AuthorityAdminPage() {
                   <button
                     key={filter.key}
                     onClick={() => setStatusFilter(filter)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
                       isActive
-                        ? `${colors.active} border-current bg-white shadow-sm`
+                        ? `${colors.active} border-current bg-white shadow-sm scale-[1.02]`
                         : "text-slate-500 border-slate-200 bg-white hover:border-slate-300 hover:text-slate-700"
                     }`}
                   >
@@ -596,29 +794,49 @@ export default function AuthorityAdminPage() {
               })}
             </div>
 
-            {/* Reports Grid */}
+            {/* 4. Reports View (Card Grid or Triage Table) */}
             {reportsLoading ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
                 <p className="text-slate-500 font-medium">Loading reports…</p>
               </div>
             ) : filteredReports.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400">
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400 bg-white rounded-2xl border border-slate-200/80 p-8">
                 <FileText className="w-16 h-16 text-slate-300" />
-                <p className="font-semibold text-slate-500">
+                <p className="font-semibold text-slate-600 text-sm">
                   {allReports.length === 0
-                    ? "No reports found."
-                    : `No reports matching "${statusFilter.label}".`}
+                    ? "No reports found on-chain."
+                    : `No reports match your active filters (${statusFilter.label}${
+                        categoryFilter !== "ALL" ? ` / ${categoryFilter}` : ""
+                      }${searchQuery ? ` / "${searchQuery}"` : ""}).`}
                 </p>
-                {allReports.length > 0 && statusFilter.key !== "all" && (
+                {(statusFilter.key !== "all" ||
+                  categoryFilter !== "ALL" ||
+                  searchQuery) && (
                   <button
-                    onClick={() => setStatusFilter(ADMIN_STATUS_FILTERS[ADMIN_STATUS_FILTERS.length - 1])}
-                    className="text-xs text-green-600 font-semibold hover:underline"
+                    onClick={() => {
+                      setStatusFilter(
+                        ADMIN_STATUS_FILTERS[ADMIN_STATUS_FILTERS.length - 1]
+                      );
+                      setCategoryFilter("ALL");
+                      setSearchQuery("");
+                    }}
+                    className="text-xs text-blue-600 font-bold hover:underline"
                   >
-                    Show all reports
+                    Reset all filters & search
                   </button>
                 )}
               </div>
+            ) : viewMode === "table" ? (
+              <ReportTableView
+                reports={filteredReports}
+                onStartWork={handleTableStartWork}
+                onResolve={handleTableResolve}
+                onReject={handleTableReject}
+                onViewDetails={(report) => {
+                  window.location.href = `/admin/reports/${report.id}`;
+                }}
+              />
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {filteredReports.map((report) => (
