@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { AiOracleService } from '../ai-oracle/ai-oracle.service';
-import { BlockchainService } from 'src/blockchain/blockchain.service';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import { IpfsService } from '../ipfs/ipfs.service';
 import { CastVoteDto } from './dto/cast-vote.dto';
 import { ReportQueueProducer } from '../queue/report-queue.producer';
