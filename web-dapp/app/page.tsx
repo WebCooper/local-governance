@@ -7,7 +7,7 @@ export default function Home() {
       {/* Mobile View (Existing) */}
       <div className="flex md:hidden flex-col items-center justify-center min-h-[calc(100vh-140px)] px-4">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -z-10" />
-        
+
         <div className="mb-12 relative flex items-center justify-center">
           <div className="absolute w-32 h-32 bg-blue-100 rounded-full animate-pulse" />
           <div className="absolute w-24 h-24 bg-blue-200 rounded-full" />
@@ -31,7 +31,7 @@ export default function Home() {
               Get Started
             </button>
           </Link>
-          
+
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 rounded-full text-xs font-medium">
             <Shield className="h-3 w-3" />
             <span>Privacy-first with Zero-Knowledge Proofs</span>
@@ -46,7 +46,7 @@ export default function Home() {
           {/* Left Hero */}
           <div className="flex flex-col items-start relative z-10">
             <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -z-10" />
-            
+
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-100/50 text-blue-700 rounded-full text-sm font-medium mb-6">
               <Shield className="h-4 w-4" />
               <span>SECURED BY ZK-PROOFS</span>
@@ -87,13 +87,13 @@ export default function Home() {
           {/* Right Hero (Card) */}
           <div className="relative z-10 flex justify-end">
             <div className="absolute right-10 top-1/2 -translate-y-1/2 w-80 h-80 bg-blue-100/50 rounded-full blur-3xl -z-10" />
-            
+
             <div className="bg-white rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 w-full max-w-md">
               <div className="flex justify-between items-start mb-6">
                 <div className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-full">Active Vote</div>
                 <Shield className="h-8 w-8 text-blue-600" />
               </div>
-              
+
               <h3 className="text-xl font-bold text-slate-900 mb-4">New Greenway Initiative</h3>
               <p className="text-slate-500 text-sm mb-8 leading-relaxed">
                 This proposal aims to create 15km of new pedestrian paths through the city center using sustainable materials.
@@ -138,25 +138,26 @@ export default function Home() {
                 <Lock className="h-6 w-6 text-blue-600" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-4">Zero-Knowledge Privacy</h3>
-              
+
               <div className="flex items-center justify-between gap-8">
                 <p className="text-slate-500 text-sm leading-relaxed max-w-sm">
-                  Vote and participate in city governance without ever compromising your personal data. Our ZK-Proof infrastructure ensures that while your voice is counted, your identity remains your own.
+                  Vote and participate in city governance without ever compromising your personal data. Our ZK-Proof infrastructure ensures that while your voice is counted, your identity remains completely anonymous.
                 </p>
-                <div className="w-32 h-16 rounded-xl overflow-hidden bg-slate-900 shadow-inner">
-                  <img src="/zk_privacy.png" alt="ZK Crypto" className="w-full h-full object-cover opacity-80" />
+                <div className="w-28 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center text-white p-3 shadow-md shrink-0">
+                  <Shield className="h-6 w-6 text-white mb-1" />
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-blue-100">Zero Knowledge</span>
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-3 mt-8">
               <div className="flex items-center gap-2 text-sm text-slate-900 font-medium">
                 <Shield className="h-4 w-4 text-blue-600" />
-                Anonymous Verification
+                Anonymous Verification &amp; Cryptographic Identity
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-900 font-medium">
                 <Shield className="h-4 w-4 text-blue-600" />
-                Verifiable Tallying
+                Verifiable Multi-Party On-Chain Tallying
               </div>
             </div>
           </div>
@@ -169,12 +170,12 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-4">Absolute Transparency</h3>
               <p className="text-slate-500 text-sm leading-relaxed mb-8">
-                Every treasury movement and governance decision is recorded on-chain, creating an immutable audit trail for all citizens.
+                Every report resolution and governance decision is recorded on-chain, creating an immutable audit trail for all citizens.
               </p>
             </div>
-            
-            <Link href="#" className="text-blue-600 font-semibold text-sm flex items-center gap-2 hover:gap-3 transition-all">
-              Explore Ledger <span className="text-lg">→</span>
+
+            <Link href="/all-reports" className="text-blue-600 font-semibold text-sm flex items-center gap-2 hover:gap-3 transition-all">
+              Explore Reports Ledger <span className="text-lg">→</span>
             </Link>
           </div>
         </div>
@@ -182,48 +183,49 @@ export default function Home() {
         {/* Bottom Row Grid */}
         <div className="grid grid-cols-2 gap-6">
           {/* Global Scale */}
-          <div className="bg-blue-700 rounded-3xl p-8 text-white flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
-            <Globe className="h-10 w-10 text-blue-300 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Global Scale</h3>
-            <p className="text-blue-100 text-sm max-w-xs">
-              Deploying AuraChain protocols in 12+ cities worldwide.
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-8 text-white flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+            <Globe className="h-10 w-10 text-blue-200 mb-4" />
+            <h3 className="text-lg font-bold mb-2">Decentralized Triage</h3>
+            <p className="text-blue-100 text-sm max-w-xs leading-relaxed">
+              Empowering civic reporting across local municipal councils with AI Content Moderation.
             </p>
           </div>
 
           {/* Secure Transparency (Avatars) */}
           <div className="bg-white rounded-3xl p-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="text-slate-900 font-medium mb-2">Secure Transparency</h3>
+              <h3 className="text-slate-900 font-bold mb-2">Secure Community Validation</h3>
               <p className="text-slate-500 text-sm max-w-[250px] leading-relaxed">
-                We bridge the gap between traditional government reliability and the innovation of decentralized protocols.
+                Bridging institutional reliability with decentralized zero-knowledge privacy protocols.
               </p>
             </div>
-            <div className="flex -space-x-4">
-              <img src="/avatar_1.png" alt="Avatar" className="w-12 h-12 rounded-full border-2 border-white object-cover" />
-              <img src="/avatar_2.png" alt="Avatar" className="w-12 h-12 rounded-full border-2 border-white object-cover" />
-              <img src="/avatar_3.png" alt="Avatar" className="w-12 h-12 rounded-full border-2 border-white object-cover" />
-              <div className="w-12 h-12 rounded-full border-2 border-white bg-blue-600 flex items-center justify-center text-white text-xs font-bold z-10">
-                +24
+            <div className="flex -space-x-3">
+              <div className="w-10 h-10 rounded-full border-2 border-white bg-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                C1
+              </div>
+              <div className="w-10 h-10 rounded-full border-2 border-white bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                C2
+              </div>
+              <div className="w-10 h-10 rounded-full border-2 border-white bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                C3
+              </div>
+              <div className="w-10 h-10 rounded-full border-2 border-white bg-slate-900 flex items-center justify-center text-white text-xs font-bold z-10 shadow-sm">
+                +48
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 pt-8 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div className="flex flex-col gap-1">
-            <span className="font-bold text-blue-600 text-base">AuraChain</span>
-            <span>© 2024 AuraChain. Decentralized Governance for the People.</span>
+        <footer className="mt-16 pt-8 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
+          <div className="flex items-center gap-3">
+            <span className="font-extrabold text-blue-600 text-base tracking-tight">AuraChain</span>
+            <span>© 2026 AuraChain. Decentralized Governance for Local Communities.</span>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="#" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Whitepaper</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Support</Link>
-            <div className="flex items-center gap-3 ml-4">
-              <Share2 className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-              <Globe className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-            </div>
+          <div className="flex items-center gap-4 text-slate-400">
+            <span>EVM Smart Contracts</span>
+            <span>&bull;</span>
+            <span>IPFS Storage</span>
           </div>
         </footer>
       </div>

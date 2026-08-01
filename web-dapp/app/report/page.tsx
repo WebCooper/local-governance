@@ -132,6 +132,7 @@ export default function ReportPage() {
       toast.error("Failed to process images. Please try different files.");
     } finally {
       setIsProcessingImages(false);
+      setShowUploadOptions(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
@@ -514,172 +515,180 @@ export default function ReportPage() {
             </div>
           )}
 
-          {/* Main Grid: 2 columns */}
-          <div className="grid grid-cols-2 gap-6 px-8 pb-4 flex-1">
+          {/* Main Form Content Container */}
+          <div className="px-8 pb-8 flex-1 flex flex-col gap-6">
 
-            {/* ── Left Column ── */}
-            <div className="flex flex-col gap-6">
+            {/* Main Grid: 2 columns */}
+            <div className="grid grid-cols-2 gap-6 flex-1">
 
-              {/* Step 1 – Describe */}
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                    1
+              {/* ── Left Column ── */}
+              <div className="flex flex-col gap-6">
+
+                {/* Step 1 – Describe */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                      1
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-900">Describe the Issue</h2>
                   </div>
-                  <h2 className="text-lg font-bold text-slate-900">Describe the Issue</h2>
-                </div>
 
-                {/* Category */}
-                <div className="mb-4">
-                  <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
-                    Report Category
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer pr-10"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Detailed Description
+                  {/* Category */}
+                  <div className="mb-4">
+                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
+                      Report Category
                     </label>
-                    <span className={`text-xs ${description.length >= MAX_DESC_LENGTH ? "text-red-500 font-bold" : "text-slate-400"}`}>
-                      {description.length} / {MAX_DESC_LENGTH}
-                    </span>
+                    <div className="relative">
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer pr-10"
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    </div>
                   </div>
-                  <textarea
-                    rows={5}
-                    maxLength={MAX_DESC_LENGTH}
-                    placeholder="Provide as much detail as possible for the governance council..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm resize-none"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
 
-              {/* Step 2 – Add Proof */}
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                    2
+                  {/* Description */}
+                  <div>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Detailed Description
+                      </label>
+                      <span className={`text-xs ${description.length >= MAX_DESC_LENGTH ? "text-red-500 font-bold" : "text-slate-400"}`}>
+                        {description.length} / {MAX_DESC_LENGTH}
+                      </span>
+                    </div>
+                    <textarea
+                      rows={5}
+                      maxLength={MAX_DESC_LENGTH}
+                      placeholder="Provide specific details about the issue (what happened, exact landmark, urgency level)..."
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm resize-none"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      disabled={isSubmitting}
+                    />
                   </div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-900">Add Proof</h2>
-                    <span className="text-xs text-slate-400">{images.length} / {MAX_IMAGES} uploaded</span>
-                  </div>
-                </div>
-
-                <div
-                  className={`border-2 border-dashed border-slate-200 rounded-xl p-8 flex flex-col items-center justify-center transition-colors mb-4 ${
-                    images.length >= MAX_IMAGES || isSubmitting || isProcessingImages
-                      ? "bg-slate-100 cursor-not-allowed opacity-60"
-                      : "bg-slate-50 hover:bg-slate-100 cursor-pointer"
-                  }`}
-                  onClick={() => {
-                    if (images.length < MAX_IMAGES && !isSubmitting && !isProcessingImages) {
-                      setShowUploadOptions(true);
-                    }
-                  }}
-                >
-                  <UploadCloud className="h-10 w-10 text-slate-400 mb-3" />
-                  <p className="text-base font-semibold text-slate-700 mb-1">
-                    {isProcessingImages ? "Processing & Compressing..." : "Upload Files"}
-                  </p>
-                  <p className="text-xs text-slate-400 text-center leading-relaxed">
-                    Drag and drop images,<br />videos or PDF documents.<br />(Max 50MB per file)
-                  </p>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/png, image/jpeg, image/webp"
-                    multiple
-                    onChange={handleImageChange}
-                    disabled={isSubmitting || images.length >= MAX_IMAGES || isProcessingImages}
-                  />
                 </div>
 
-                {/* Thumbnail previews */}
-                {images.length > 0 && (
-                  <div className="flex flex-wrap gap-3">
-                    {images.map((file, idx) => (
-                      <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group">
-                        <img
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(idx)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                {/* Step 2 – Photos */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                          2
+                        </div>
+                        <h2 className="text-lg font-bold text-slate-900">Upload Evidence Photo</h2>
                       </div>
-                    ))}
+                      <span className="text-xs text-slate-400 font-medium">
+                        {images.length} / {MAX_IMAGES} uploaded
+                      </span>
+                    </div>
+
+                    {/* Photo Previews */}
+                    {images.length > 0 && (
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        {images.map((file, index) => (
+                          <div key={index} className="relative group rounded-xl overflow-hidden aspect-square border border-slate-200 bg-slate-50">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={`Evidence ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity shadow-sm"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Dropzone Button */}
+                    {images.length < MAX_IMAGES && (
+                      <button
+                        type="button"
+                        onClick={() => setShowUploadOptions(true)}
+                        disabled={isProcessingImages}
+                        className="w-full border-2 border-dashed border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <UploadCloud className="h-6 w-6" />
+                        </div>
+                        <span className="text-sm font-bold text-slate-800">
+                          {isProcessingImages ? "Processing Image..." : "Add Media"}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          Click to select photo or capture image (JPG, PNG, WebP)
+                        </span>
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* ── Right Column – Step 3: Location ── */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 pb-4 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                  3
+                  <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
+                    <Shield className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span>Faces and PII are automatically blurred by AI Oracle before IPFS storage.</span>
+                  </div>
                 </div>
-                <h2 className="text-lg font-bold text-slate-900">Location</h2>
-                {location && (
-                  <span className="ml-auto text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">● Pinned</span>
-                )}
               </div>
-              <div className="px-6 pb-6">
-                <LocationPicker value={location} onChange={setLocation} />
-              </div>
-            </div>
-          </div>
 
-          {/* ── Emergency Toggle ── */}
-          <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 mt-6">
-            <div className="flex-1">
-              <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" /> Urgent / Emergency Report
-              </h3>
-              <p className="text-red-600 text-sm">
-                Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
-              </p>
+              {/* ── Right Column ── */}
+              <div className="flex flex-col gap-6">
+
+                {/* Step 3 – Location */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex-1 flex flex-col">
+                  <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                        3
+                      </div>
+                      <h2 className="text-lg font-bold text-slate-900">Pin Location</h2>
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium">GPS Auto-Triage</span>
+                  </div>
+
+                  <div className="p-6 flex-1 min-h-[360px]">
+                    <LocationPicker value={location} onChange={setLocation} />
+                  </div>
+                </div>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsEmergency(!isEmergency)}
-              className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner ${
-                isEmergency ? 'bg-red-600' : 'bg-slate-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
-                  isEmergency ? 'translate-x-7' : 'translate-x-1'
+
+            {/* ── Emergency Toggle ── */}
+            <div className="bg-red-50/80 border border-red-100/90 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+              <div className="flex-1">
+                <h3 className="text-red-800 font-bold text-base mb-1 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" /> Urgent / Emergency Report
+                </h3>
+                <p className="text-red-600 text-xs sm:text-sm leading-relaxed">
+                  Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEmergency(!isEmergency)}
+                className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner cursor-pointer ${
+                  isEmergency ? 'bg-red-600' : 'bg-slate-300'
                 }`}
-              />
-            </button>
+              >
+                <span
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                    isEmergency ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           {/* ── Sticky Bottom Action Bar ── */}
-          <div className="sticky bottom-0 bg-white border-t border-slate-100 px-8 py-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgb(0,0,0,0.04)]">
+          <div className="sticky bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-8 py-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgb(0,0,0,0.06)]">
             <div className="flex items-start gap-3 text-slate-500 text-xs leading-relaxed max-w-md">
               <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
               <span>
@@ -690,14 +699,15 @@ export default function ReportPage() {
             <div className="flex items-center gap-3 shrink-0">
               <button
                 type="button"
-                className="py-3 px-6 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm"
+                onClick={() => toast.success("Draft saved locally.")}
+                className="py-3 px-6 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm cursor-pointer"
               >
                 Save Draft
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || isProcessingImages || !wallet}
-                className="py-3 px-8 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-sm transition-colors flex items-center gap-2 text-sm"
+                className="py-3 px-8 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 text-sm cursor-pointer"
               >
                 {isSubmitting ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -712,20 +722,15 @@ export default function ReportPage() {
           </div>
 
           {/* Footer */}
-          <footer className="px-8 py-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
-            <div className="flex items-center gap-4">
-              <span className="font-bold text-blue-600 text-base">AuraChain</span>
-              <span>© 2024 AuraChain. Decentralized Governance for the People.</span>
+          <footer className="px-8 py-6 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="font-extrabold text-blue-600 text-base tracking-tight">AuraChain</span>
+              <span>© 2026 AuraChain. Decentralized Governance for Local Communities.</span>
             </div>
-            <div className="flex items-center gap-6">
-              <Link href="#" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
-              <Link href="#" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
-              <Link href="#" className="hover:text-slate-900 transition-colors">Whitepaper</Link>
-              <Link href="#" className="hover:text-slate-900 transition-colors">Support</Link>
-              <div className="flex items-center gap-3 ml-2">
-                <Share2 className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-                <Globe className="h-4 w-4 hover:text-slate-900 cursor-pointer transition-colors" />
-              </div>
+            <div className="flex items-center gap-4 text-slate-400">
+              <span>EVM Smart Contracts</span>
+              <span>&bull;</span>
+              <span>IPFS Storage</span>
             </div>
           </footer>
         </form>
