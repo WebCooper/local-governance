@@ -57,52 +57,64 @@ CIVIC_REFERENCE_TEXTS = {
     "Road Damage": [
         "A civic report about potholes, damaged roads, broken streets, or unsafe road surfaces.",
         "A public complaint about a road hole, cracked road, damaged bridge, or pedestrian sidewalk problem.",
-        "A local government issue involving road repair or damaged transport infrastructure.",
+        "A local government issue involving road repair, sinkholes, damaged pavement, or transport infrastructure.",
+        "A complaint regarding destroyed asphalt, unpaved road hazards, or curb damage.",
     ],
     "Waste Management": [
         "A civic report about uncollected garbage, waste dumping, overflowing bins, or rubbish on public streets.",
         "A public sanitation complaint related to trash accumulation, waste disposal, or garbage collection failure.",
-        "A local government issue involving garbage removal or illegal waste dumping.",
+        "A local government issue involving garbage removal, illegal dumping, or dumpster maintenance.",
+        "A complaint about rotting waste, littered public spaces, or delayed municipal sanitation pickup.",
     ],
     "Streetlight Issue": [
         "A civic report about broken streetlights, dark public roads, damaged lamp posts, or lighting failures.",
         "A public infrastructure complaint involving non-functioning road lights or unsafe darkness at night.",
-        "A local government issue related to public street lighting.",
+        "A local government issue related to public street lighting, burnt-out bulbs, or flickering lampposts.",
+        "A safety report regarding dark pedestrian walkways and inactive street illumination.",
     ],
     "Drainage / Sewage": [
         "A civic report about blocked drains, overflowing drainage, sewage leaks, or wastewater problems.",
         "A public health complaint involving drainage failure, dirty wastewater, or blocked canals.",
-        "A local government issue related to sewage or stormwater drainage.",
+        "A local government issue related to sewage, stormwater drainage, clogged culverts, or manhole backups.",
+        "A complaint about foul sewer smells, overflowing gutters, or stagnant drain water.",
     ],
     "Water Supply": [
         "A civic report about leaking water pipes, broken public taps, water supply interruption, or water distribution problems.",
         "A complaint about a public water leak, pipe burst, or unavailable water service.",
-        "A local governance issue related to water infrastructure.",
+        "A local governance issue related to water infrastructure, watermain breaks, or low water pressure.",
+        "A report regarding contaminated municipal water or damaged public hydrants.",
     ],
     "Flooding": [
         "A civic report about flooded roads, waterlogged streets, rainwater accumulation, or urban flooding.",
         "A public complaint involving floodwater blocking transportation or damaging the area.",
-        "A local government issue caused by heavy rain and standing water in public places.",
+        "A local government issue caused by heavy rain, standing water, or stormwater inundation in public places.",
+        "A report about submerged roads, storm flooding, or deep standing rainwater.",
     ],
     "Public Property Damage": [
         "A civic report about damaged public benches, broken signboards, vandalized parks, or damaged public buildings.",
         "A complaint about destruction or poor maintenance of community-owned property.",
-        "A local government issue involving damaged public facilities.",
+        "A local government issue involving damaged public facilities, vandalized bus shelters, or broken playground equipment.",
+        "A report regarding destroyed municipal monuments, damaged public fences, or park bench maintenance.",
     ],
     "Traffic / Road Safety": [
         "A civic report about dangerous traffic conditions, broken signals, unsafe crossings, or accident-prone public roads.",
         "A public safety complaint involving road signs, pedestrian crossings, signals, or traffic risk.",
-        "A local government issue related to traffic control and road safety.",
+        "A local government issue related to traffic control, malfunctioning traffic lights, damaged speed bumps, or road safety.",
+        "A complaint regarding missing street signs, dangerous intersections, or pedestrian safety risks.",
     ],
     "Environmental Issue": [
         "A civic report about pollution, smoke, chemical discharge, noise pollution, dirty rivers, or environmental harm.",
-        "A complaint about public environmental damage affecting the community.",
-        "A local governance issue related to pollution or environmental protection.",
+        "A complaint about public environmental damage, air quality degradation, or toxic emissions affecting the community.",
+        "A local governance issue related to pollution, illegal tree cutting, or environmental protection.",
+        "A report regarding contaminated water bodies, excessive industrial noise, or hazardous smoke emissions.",
     ],
     "General Civic Issue": [
         "A report about a public issue that should be addressed by local authorities.",
         "A civic complaint involving community infrastructure, public safety, sanitation, or public services.",
         "A local governance report submitted by a citizen for government attention.",
+        "An official civic poll, community voting inquiry, town hall proposal, or citizen survey on local policy.",
+        "A public transit complaint regarding municipal bus services, train stations, or public transportation facilities.",
+        "A public health complaint regarding pest infestations, stray animals, or unsanitary municipal facilities.",
     ],
 }
 
@@ -119,6 +131,13 @@ CIVIC_KEYWORDS = {
         "crack",
         "hole",
         "damaged road",
+        "asphalt",
+        "pavement",
+        "sinkhole",
+        "curb",
+        "kerb",
+        "tar",
+        "surface",
     ],
     "Waste Management": [
         "garbage",
@@ -128,6 +147,12 @@ CIVIC_KEYWORDS = {
         "bin",
         "rubbish",
         "litter",
+        "sanitation",
+        "dumping",
+        "dumpster",
+        "littering",
+        "refuse",
+        "debris",
     ],
     "Streetlight Issue": [
         "streetlight",
@@ -136,6 +161,10 @@ CIVIC_KEYWORDS = {
         "dark",
         "pole",
         "street light",
+        "lighting",
+        "bulb",
+        "illumination",
+        "lamppost",
     ],
     "Drainage / Sewage": [
         "drain",
@@ -145,6 +174,11 @@ CIVIC_KEYWORDS = {
         "blocked",
         "overflow",
         "wastewater",
+        "manhole",
+        "sewer",
+        "culvert",
+        "gutter",
+        "clogged",
     ],
     "Water Supply": [
         "water",
@@ -153,6 +187,11 @@ CIVIC_KEYWORDS = {
         "supply",
         "tap",
         "burst pipe",
+        "waterworks",
+        "hydrant",
+        "pipeline",
+        "watermain",
+        "leakage",
     ],
     "Flooding": [
         "flood",
@@ -160,6 +199,10 @@ CIVIC_KEYWORDS = {
         "rain",
         "overflow",
         "standing water",
+        "inundation",
+        "submerged",
+        "stormwater",
+        "deluge",
     ],
     "Public Property Damage": [
         "broken",
@@ -169,6 +212,12 @@ CIVIC_KEYWORDS = {
         "sign",
         "public",
         "vandalized",
+        "vandalism",
+        "facility",
+        "shelter",
+        "playground",
+        "monument",
+        "structure",
     ],
     "Traffic / Road Safety": [
         "traffic",
@@ -177,6 +226,12 @@ CIVIC_KEYWORDS = {
         "signal",
         "vehicle",
         "unsafe road",
+        "speed bump",
+        "pedestrian",
+        "intersection",
+        "crosswalk",
+        "speeding",
+        "signage",
     ],
     "Environmental Issue": [
         "pollution",
@@ -185,6 +240,12 @@ CIVIC_KEYWORDS = {
         "river",
         "chemical",
         "noise",
+        "emissions",
+        "air quality",
+        "contamination",
+        "exhaust",
+        "toxic",
+        "deforestation",
     ],
     "General Civic Issue": [
         "public",
@@ -194,8 +255,49 @@ CIVIC_KEYWORDS = {
         "issue",
         "problem",
         "authority",
+        "infrastructure",
+        "city",
+        "citizen",
+        "poll",
+        "vote",
+        "survey",
+        "governance",
+        "council",
+        "town hall",
+        "bylaw",
+        "proposal",
+        "transit",
+        "bus",
+        "health",
+        "safety",
     ],
 }
+
+NON_CIVIC_PHRASES = [
+    "personal blog entry",
+    "favorite movie",
+    "sports on tv",
+    "weather is nice today",
+    "crypto",
+    "bitcoin",
+    "ethereum",
+    "dogecoin",
+    "financial speculation",
+    "stock market",
+    "investment right now",
+    "movie is great",
+    "personal blog",
+    "tv series",
+    "video game",
+    "recipe",
+    "vacation review",
+    "fashion trend",
+    "celebrity gossip",
+    "music album",
+    "trading strategy",
+    "buy product",
+    "best price",
+]
 
 
 # ---------------------------------------------------------------------
@@ -371,11 +473,27 @@ def analyze_keyword_fallback(
     text: str,
     selected_category: str,
 ) -> Dict[str, Any]:
-    matches = find_civic_keyword_matches(text)
+    lower = text.lower()
+    non_civic_matches = [phrase for phrase in NON_CIVIC_PHRASES if phrase in lower]
 
+    matches = find_civic_keyword_matches(text)
     category_matches = matches["category_matches"]
     all_matches = matches["all_matches"]
     selected_category_matches = category_matches.get(selected_category, [])
+
+    if non_civic_matches and not selected_category_matches:
+        return {
+            "civic_relevant": False,
+            "confidence": 0.92,
+            "explanation_code": "NON_CIVIC_CONTENT",
+            "details": {
+                "mode": "keyword_fallback",
+                "selected_category": selected_category,
+                "non_civic_matches": non_civic_matches,
+                "category_matches": category_matches,
+                "all_matches": all_matches,
+            },
+        }
 
     if not all_matches:
         return {
