@@ -69,8 +69,11 @@ export class BlockchainService implements OnModuleInit {
         this.relayerWallet
       );
 
-      // INITIALIZE EMERGENCY REPORTING CONTRACT
-      const emergencyAddress = this.configService.get<string>('EMERGENCY_REPORTING_CONTRACT_ADDRESS') || '0x43be8a06956637b5dFaeDddb5f92ffA95EecfCcc';
+      const emergencyAddress =
+        this.configService.get<string>('EMERGENCY_REPORTING_CONTRACT_ADDRESS') ||
+        this.configService.get<string>('EMERGANCY_REPORT_CONTRACT_ADDRESS') ||
+        this.configService.get<string>('EMERGENCY_REPORT_CONTRACT_ADDRESS') ||
+        '0x43491d6850cef4B2E2D0d5CaCdF59B014B4A49ba';
       this.emergencyReportingContract = new ethers.Contract(
         emergencyAddress,
         EmergencyReportingArtifact.abi,

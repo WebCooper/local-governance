@@ -211,6 +211,8 @@ export default function ReportPage() {
       return;
     }
 
+    setShowEmergencyModal(false);
+    setShowDuplicateModal(false);
     setIsSubmitting(true);
     
     try {
@@ -260,6 +262,8 @@ export default function ReportPage() {
       setDescription("");
       setImages([]);
       setIsEmergency(false);
+      setShowEmergencyModal(false);
+      setShowDuplicateModal(false);
 
       toast.success(
         `Report submitted! Track progress in the notification bell. You have ${availableTicketsCount - 1} tickets remaining.`,

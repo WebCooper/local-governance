@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useCitizen();
+  const { login, wallet } = useCitizen();
   const { connectWallet, isConnecting, account, isSuperAdmin, isAuthority } = useAdmin();
   const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
@@ -87,6 +87,12 @@ export default function LoginPage() {
       }
     }
   }, [account, isAuthority, isSuperAdmin, router]);
+
+  useEffect(() => {
+    if (wallet) {
+      router.push("/feed");
+    }
+  }, [wallet, router]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-140px)] px-4 py-8">
