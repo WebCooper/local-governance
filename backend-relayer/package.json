@@ -85,6 +85,19 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
+    "setupFiles": [
+      "dotenv/config"
+    ],
+    "moduleDirectories": [
+      "node_modules",
+      "<rootDir>/../node_modules"
+    ],
+    "modulePaths": [
+      "<rootDir>/../node_modules"
+    ],
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    },
     "testEnvironment": "node"
   }
 }
