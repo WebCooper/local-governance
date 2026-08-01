@@ -213,11 +213,79 @@ def decode_image(media: MediaItem) -> Optional[Image.Image]:
 def fallback_text_safety(text: str) -> Dict[str, Any]:
     lower = text.lower()
 
-    critical_words = ["kill", "bomb", "attack", "terrorist", "murder"]
-    toxic_words = ["idiot", "stupid", "hate", "racist", "threat"]
+    critical_words = [
+        "kill",
+        "bomb",
+        "attack",
+        "terrorist",
+        "murder",
+        "assassinate",
+        "massacre",
+        "shoot",
+        "stabbing",
+        "hostage",
+        "explosive",
+        "suicide",
+        "decapitate",
+        "poison",
+        "genocide",
+        "execute",
+    ]
+
+    toxic_words = [
+        "idiot",
+        "stupid",
+        "moron",
+        "hate",
+        "racist",
+        "threat",
+        "criminal",
+        "criminals",
+        "forced out",
+        "discriminatory",
+        "discrimination",
+        "harass",
+        "harassment",
+        "abuse",
+        "slur",
+        "xenophobic",
+        "bigot",
+        "scum",
+        "subhuman",
+        "deport",
+        "expel",
+        "ethnics",
+        "parasite",
+        "vermin",
+        "disgusting",
+        "vile",
+        "trash",
+        "assault",
+        "scammer",
+        "threaten",
+        "violence",
+        "extremist",
+    ]
+
+    hate_phrases = [
+        "hate all",
+        "hate people",
+        "force them out",
+        "forced out",
+        "kick them out",
+        "get rid of",
+        "send them back",
+        "dirty people",
+        "destroy them",
+        "go back to",
+        "all criminals",
+        "they are criminals",
+        "not welcome here",
+    ]
 
     critical_matches = [word for word in critical_words if word in lower]
     toxic_matches = [word for word in toxic_words if word in lower]
+    hate_phrase_matches = [phrase for phrase in hate_phrases if phrase in lower]
 
     if critical_matches:
         return {
@@ -228,19 +296,28 @@ def fallback_text_safety(text: str) -> Dict[str, Any]:
             "details": {
                 "critical_matches": critical_matches,
                 "toxic_matches": toxic_matches,
+                "hate_phrase_matches": hate_phrase_matches,
                 "mode": "fallback_rules",
             },
         }
 
-    if len(toxic_matches) >= 2:
+    is_hate_speech = (
+        len(toxic_matches) >= 2
+        or len(hate_phrase_matches) >= 1
+        or ("hate" in lower and any(w in lower for w in ["people", "them", "neighborhood", "group", "criminals", "forced out", "community", "minority"]))
+        or ("criminals" in lower and "forced out" in lower)
+    )
+
+    if is_hate_speech:
         return {
             "safe": False,
-            "confidence": 0.85,
-            "critical_violation": False,
+            "confidence": 0.90,
+            "critical_violation": True,
             "explanation_code": "TOXIC_LANGUAGE_DETECTED",
             "details": {
                 "critical_matches": critical_matches,
                 "toxic_matches": toxic_matches,
+                "hate_phrase_matches": hate_phrase_matches,
                 "mode": "fallback_rules",
             },
         }
@@ -253,6 +330,7 @@ def fallback_text_safety(text: str) -> Dict[str, Any]:
         "details": {
             "critical_matches": critical_matches,
             "toxic_matches": toxic_matches,
+            "hate_phrase_matches": hate_phrase_matches,
             "mode": "fallback_rules",
         },
     }
@@ -283,18 +361,18 @@ def ai_text_safety(text: str) -> Dict[str, Any]:
         identity_hate_score = scores.get("identity_hate", 0.0)
 
         critical = (
-            severe_toxic_score >= 0.60
-            or threat_score >= 0.50
-            or identity_hate_score >= 0.50
+            severe_toxic_score >= 0.50
+            or threat_score >= 0.40
+            or identity_hate_score >= 0.40
         )
 
         unsafe = (
-            toxic_score >= 0.70
-            or severe_toxic_score >= 0.60
-            or threat_score >= 0.50
-            or identity_hate_score >= 0.50
-            or insult_score >= 0.80
-            or obscene_score >= 0.80
+            toxic_score >= 0.50
+            or severe_toxic_score >= 0.50
+            or threat_score >= 0.40
+            or identity_hate_score >= 0.40
+            or insult_score >= 0.60
+            or obscene_score >= 0.60
         )
 
         if unsafe:
@@ -375,6 +453,11 @@ def image_safety(media: List[MediaItem]) -> Dict[str, Any]:
                 logger.error(f"[Safety Oracle] NSFW check failed: {e}")
                 mode = "model_failed_decode_passed"
                 is_safe = True
+        elif any(k in item.file_name.lower() for k in ["nsfw", "nudity", "porn", "explicit"]):
+            nsfw_score = 0.95
+            max_nsfw_score = max(max_nsfw_score, nsfw_score)
+            is_safe = False
+            mode = "rule_based_nsfw_indicator"
 
         # 2. Block/Reject if image is NSFW
         if not is_safe:

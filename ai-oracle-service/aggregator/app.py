@@ -366,25 +366,40 @@ def aggregate_votes(oracle_votes: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     critical_violation = any(vote.get("critical_violation") is True for vote in oracle_votes)
 
-    civic_rejection = any(
-        vote.get("oracle_id") == "ORACLE_3_CIVIC_RELEVANCE"
+    safety_rejection = any(
+        vote.get("oracle_id") == "ORACLE_1_SAFETY"
         and vote.get("vote") == "REJECT"
-        and vote.get("explanation_code")
-        in ["LOW_CIVIC_RELEVANCE", "NON_CIVIC_CONTENT"]
         for vote in oracle_votes
     )
 
-    if critical_violation:
+    civic_rejection = any(
+        vote.get("oracle_id") == "ORACLE_3_CIVIC_RELEVANCE"
+        and vote.get("vote") == "REJECT"
+        for vote in oracle_votes
+    )
+
+    spam_rejection = any(
+        vote.get("oracle_id") == "ORACLE_2_SPAM_ABUSE"
+        and vote.get("vote") == "REJECT"
+        for vote in oracle_votes
+    )
+
+    if critical_violation or safety_rejection:
         final_decision = "REJECT"
         risk_level = "HIGH"
-        summary = "Report rejected due to a critical safety or system violation."
+        summary = "Report rejected due to a safety violation or unsafe content."
 
     elif civic_rejection:
         final_decision = "REJECT"
         risk_level = "MEDIUM"
         summary = "Report rejected because it does not appear to describe a valid civic issue."
 
-    elif accept_count >= 2:
+    elif spam_rejection:
+        final_decision = "REJECT"
+        risk_level = "MEDIUM"
+        summary = "Report rejected because it was flagged as spam or commercial promotion."
+
+    elif accept_count >= 2 and reject_count == 0:
         final_decision = "ACCEPT"
         risk_level = "LOW"
         summary = "Report accepted. Text and media passed moderation checks."
