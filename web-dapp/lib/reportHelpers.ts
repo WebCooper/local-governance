@@ -214,10 +214,12 @@ export interface EnrichedReport {
   authorityComment?: string;
   authorityImageCid?: string;
   authorityCommentResolved?: string;
+  title?: string;
   description?: string;
   category?: string;
   location?: string;
   images?: { data: string; mimeType: string; originalName: string }[];
+  potentialDuplicates?: number[];
   ipfsLoaded: boolean;
   isEmergency: boolean;
 }
@@ -251,7 +253,7 @@ export function rawToEnriched(raw: any, forceEmergency = false): EnrichedReport 
     authorityComment: raw.authorityComment,
     authorityImageCid: raw.authorityImageCid,
     ipfsLoaded: false,
-    isEmergency: forceEmergency || Boolean(raw.isEmergency),
+    isEmergency: forceEmergency || (raw.isEmergency !== undefined ? Boolean(raw.isEmergency) : false),
   };
 }
 
@@ -274,6 +276,7 @@ export async function enrichReportWithIPFS(
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
+          enriched.title = data.title;
           enriched.description = data.description;
           enriched.category = data.category;
           enriched.location = data.location;
