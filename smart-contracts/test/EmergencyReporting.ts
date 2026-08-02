@@ -202,5 +202,25 @@ describe("EmergencyReporting", function () {
         emergencyReporting.connect(authority).startWork(reportId, "", "")
       ).to.be.revertedWithCustomError(emergencyReporting, "InvalidState");
     });
+
+    it("T1.2.14 — Super Admin (via AuthorityMultiSig ownership) can claim and resolve emergency", async function () {
+      const signers = await ethers.getSigners();
+      const superAdmin = signers[5];
+      const initialSuperAdmins = [superAdmin.address, signers[6].address, signers[7].address, signers[8].address];
+      const AuthorityMultiSigFactory = await ethers.getContractFactory("AuthorityMultiSig");
+      const multiSig = await AuthorityMultiSigFactory.deploy(
+        initialSuperAdmins,
+        ["A", "B", "C", "D"],
+        ["P1", "P2", "P3", "P4"],
+        ["D1", "D2", "D3", "D4"],
+        ethers.ZeroAddress,
+        await emergencyReporting.getAddress()
+      );
+      await emergencyReporting.transferOwnership(await multiSig.getAddress());
+      const { reportId } = await submitEmergency("superadmin-claim");
+      await emergencyReporting.connect(superAdmin).startWork(reportId, "Super Admin claimed", "");
+      const report = await emergencyReporting.getReport(reportId);
+      expect(Number(report.status)).to.equal(1); // InProgress
+    });
   });
 });
