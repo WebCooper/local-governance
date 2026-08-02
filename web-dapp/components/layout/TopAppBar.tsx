@@ -93,28 +93,40 @@ export function TopAppBar({ className = "" }: { className?: string }) {
                       {wallet ? "GovID Session" : (account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "")}
                     </p>
                   </div>
-                  <Link href={wallet ? "/profile" : (isSuperAdmin ? "/super-admin" : (account ? "/admin" : "/"))}>
-                    <button 
-                      onClick={() => setDropdownOpen(false)}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                    >
-                      {wallet ? (
-                        <>
-                          <User className="h-4 w-4" />
-                          Profile
-                        </>
-                      ) : (
-                        <>
-                          {isSuperAdmin ? (
+                  {wallet ? (
+                    <Link href="/profile">
+                      <button 
+                        onClick={() => setDropdownOpen(false)}
+                        className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                      >
+                        <User className="h-4 w-4" />
+                        Profile
+                      </button>
+                    </Link>
+                  ) : account ? (
+                    <>
+                      <Link href="/admin">
+                        <button 
+                          onClick={() => setDropdownOpen(false)}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                        >
+                          <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                          Dashboard
+                        </button>
+                      </Link>
+                      {isSuperAdmin && (
+                        <Link href="/super-admin">
+                          <button 
+                            onClick={() => setDropdownOpen(false)}
+                            className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                          >
                             <ShieldCheck className="h-4 w-4 text-blue-600" />
-                          ) : (
-                            <LayoutDashboard className="h-4 w-4 text-blue-600" />
-                          )}
-                          {isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
-                        </>
+                            Super Admin
+                          </button>
+                        </Link>
                       )}
-                    </button>
-                  </Link>
+                    </>
+                  ) : null}
                   <button 
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"

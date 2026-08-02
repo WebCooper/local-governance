@@ -20,8 +20,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
   ];
 
   const authorityItems = [
-    { label: "Admin Dashboard", href: "/admin", icon: ShieldCheck },
-    { label: "Demo Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   ];
 
   if (isSidebar) {
@@ -55,7 +54,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
           <div>
             <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Authority Portal</p>
             <div className="flex flex-col gap-1">
-              {isAuthority && !isSuperAdmin && authorityItems.map((item) => {
+              {authorityItems.map((item) => {
                 const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
                 const Icon = item.icon;
                 return (
@@ -81,7 +80,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
                   }`}
                 >
                   <ShieldCheck className="h-5 w-5" />
-                  <span className="text-sm">Super Admin Dashboard</span>
+                  <span className="text-sm">Super Admin</span>
                 </Link>
               )}
             </div>
