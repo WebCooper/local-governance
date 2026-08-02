@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Shield, User, LogOut } from "lucide-react";
+import { Shield, User, LogOut, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export function TopAppBar({ className = "" }: { className?: string }) {
   const { wallet, logout: citizenLogout } = useCitizen();
-  const { account, disconnectWallet } = useAdmin();
+  const { account, disconnectWallet, isSuperAdmin, isAuthority } = useAdmin();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarStyle, setAvatarStyle] = useState<string>("bottts");
@@ -57,7 +57,7 @@ export function TopAppBar({ className = "" }: { className?: string }) {
   return (
     <header className={`flex items-center justify-between px-4 md:px-8 py-3 bg-white shadow-sm border-b border-slate-100 z-50 ${className}`}>
       {/* Brand */}
-      <Link href={isLoggedIn ? "/feed" : "/"} className="flex items-center gap-2">
+      <Link href={wallet ? "/feed" : (isSuperAdmin ? "/super-admin" : (account ? "/admin" : "/"))} className="flex items-center gap-2">
         <Shield className="h-6 w-6 text-blue-600" />
         <span className="font-bold text-xl text-blue-600 tracking-tight hidden md:inline-block">AURACHAIN</span>
       </Link>
@@ -93,13 +93,26 @@ export function TopAppBar({ className = "" }: { className?: string }) {
                       {wallet ? "GovID Session" : (account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "")}
                     </p>
                   </div>
-                  <Link href={wallet ? "/profile" : (account ? "/admin" : "/")}>
+                  <Link href={wallet ? "/profile" : (isSuperAdmin ? "/super-admin" : (account ? "/admin" : "/"))}>
                     <button 
                       onClick={() => setDropdownOpen(false)}
                       className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
                     >
-                      <User className="h-4 w-4" />
-                      Profile
+                      {wallet ? (
+                        <>
+                          <User className="h-4 w-4" />
+                          Profile
+                        </>
+                      ) : (
+                        <>
+                          {isSuperAdmin ? (
+                            <ShieldCheck className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <LayoutDashboard className="h-4 w-4 text-blue-600" />
+                          )}
+                          {isSuperAdmin ? "Super Admin Dashboard" : "Admin Dashboard"}
+                        </>
+                      )}
                     </button>
                   </Link>
                   <button 

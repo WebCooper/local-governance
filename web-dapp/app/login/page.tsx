@@ -75,18 +75,18 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (account) {
-      if (isAuthority) {
-        toast.success("Admin access granted!");
-        router.push("/admin");
-      } else if (isSuperAdmin) {
+    if (account && !isConnecting) {
+      if (isSuperAdmin) {
         toast.success("Super Admin access granted!");
         router.push("/super-admin");
+      } else if (isAuthority) {
+        toast.success("Admin access granted!");
+        router.push("/admin");
       } else {
         toast.error("Connected wallet is not registered as an Authority or Super Admin.");
       }
     }
-  }, [account, isAuthority, isSuperAdmin, router]);
+  }, [account, isAuthority, isSuperAdmin, isConnecting, router]);
 
   useEffect(() => {
     if (wallet) {

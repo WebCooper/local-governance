@@ -15,12 +15,12 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
     { label: "Feed", href: "/feed", icon: Layers },
     { label: "Polls", href: "/polls", icon: Vote },
     { label: isSidebar ? "Reports" : "Report", href: "/report", icon: isSidebar ? BarChart2 : PlusCircle },
-    { label: "Profile", href: "/profile", icon: User },
+    ...(wallet ? [{ label: "Profile", href: "/profile", icon: User }] : []),
     { label: "Notifications", href: "/notifications", icon: Bell },
   ];
 
   const authorityItems = [
-    { label: "On-Chain Admin", href: "/admin", icon: ShieldCheck },
+    { label: "Admin Dashboard", href: "/admin", icon: ShieldCheck },
     { label: "Demo Dashboard", href: "/dashboard", icon: LayoutDashboard },
   ];
 
@@ -81,7 +81,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
                   }`}
                 >
                   <ShieldCheck className="h-5 w-5" />
-                  <span className="text-sm">Super Admin</span>
+                  <span className="text-sm">Super Admin Dashboard</span>
                 </Link>
               )}
             </div>
