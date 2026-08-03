@@ -2,17 +2,33 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import './index.css';
 
-const ZKP_BACKEND_URL = import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5001/api';
-const ENV_PRIVATE_KEY = import.meta.env.VITE_FRONTEND_PRIVATE_KEY || '';
-const ENV_REGISTRATION_SECRET = import.meta.env.VITE_REGISTRATION_SECRET || 'default_admin_secret';
+const getBackendUrl = () => {
+  let url = (import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5001/api').trim();
+  url = url.replace(/\/+$/, '');
+  if (!url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
+const ZKP_BACKEND_URL = getBackendUrl();
+const ENV_PRIVATE_KEY =
+  import.meta.env.VITE_FRONTEND_PRIVATE_KEY &&
+  import.meta.env.VITE_FRONTEND_PRIVATE_KEY !== 'your_private_key_here'
+    ? import.meta.env.VITE_FRONTEND_PRIVATE_KEY
+    : '';
+const ENV_REGISTRATION_SECRET =
+  import.meta.env.VITE_REGISTRATION_SECRET &&
+  import.meta.env.VITE_REGISTRATION_SECRET !== 'your_admin_secret_here' &&
+  import.meta.env.VITE_REGISTRATION_SECRET !== 'default_admin_secret'
+    ? import.meta.env.VITE_REGISTRATION_SECRET
+    : 'GQZa8aPRmwxNn1uNMufqIJzCDJJZJwsDShxVb4/YGx0';
 const DAPP_LOGIN_URL = 'https://dapp.internalbuildtools.online/';
 
 export function App() {
   // Registration Wizard State
-  // 0 = Hero Welcome Landing Page
   // 1 = Registration Form Page (Student Register ID / GovID *, Account Password *, Confirm Password *)
   // 2 = Success Completion & DApp Login Link
-  const [regStep, setRegStep] = useState<0 | 1 | 2>(0);
+  const [regStep, setRegStep] = useState<1 | 2>(1);
 
   // Registration Form State (Only requested fields: GovID, Password, Confirm Password)
   const [govId, setGovId] = useState('EG/2021/1001');
@@ -211,56 +227,9 @@ export function App() {
       <main className="main-workspace">
         <div>
           {/* ========================================================
-             HERO WELCOME LANDING PAGE (regStep === 0)
-             ======================================================== */}
-          {regStep === 0 && (
-            <div className="hero-landing">
-              <div className="hero-badge-pill">
-                <span>🛡️</span>
-                <span>SECURED BY ZERO-KNOWLEDGE PROOFS &amp; ECDSA SIGNATURES</span>
-              </div>
-              <h1 className="hero-title">
-                National Digital Identity &amp;<br />
-                <span>Student Credential Portal</span>
-              </h1>
-              <p className="hero-description">
-                Enroll your Student Register ID or Government ID to receive cryptographic Zero-Knowledge Credentials. Participate in secure, anonymous governance without exposing your private data.
-              </p>
-
-              <div className="hero-features-grid">
-                <div className="feature-box">
-                  <div className="feature-icon">🛡️</div>
-                  <h3>Zero-Knowledge Privacy</h3>
-                  <p>Prove voting and civic eligibility on-chain without revealing your Student Register ID or private data.</p>
-                </div>
-                <div className="feature-box">
-                  <div className="feature-icon">🔐</div>
-                  <h3>ECDSA Key Signatures</h3>
-                  <p>Every enrollment is authenticated using deterministic ECDSA cryptographic client keypairs.</p>
-                </div>
-                <div className="feature-box">
-                  <div className="feature-icon">🏛️</div>
-                  <h3>Verifiable Credentials</h3>
-                  <p>Your signed ZKP governance credentials work seamlessly with the decentralized civic DApp.</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn-hero-start"
-                onClick={() => setRegStep(1)}
-              >
-                <span>🚀</span>
-                <span>Start Identity Registration</span>
-              </button>
-            </div>
-          )}
-
-          {/* ========================================================
              WIZARD CARD WRAPPER FOR STEPS 1 AND 2
              ======================================================== */}
-          {regStep > 0 && (
-            <div className="wizard-card" style={{ maxWidth: '640px', margin: '0 auto' }}>
+          <div className="wizard-card" style={{ maxWidth: '640px', margin: '0 auto' }}>
               {/* Global Error Banner if any */}
               {registerStatus && registerStatus.type === 'error' && (
                 <div className="status-banner status-error" style={{ margin: '20px 32px 0' }}>
@@ -372,14 +341,7 @@ export function App() {
                     </div>
                   </div>
 
-                  <div className="wizard-footer">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setRegStep(0)}
-                    >
-                      ⬅ Return to Home
-                    </button>
+                  <div className="wizard-footer" style={{ justifyContent: 'flex-end' }}>
                     <button type="submit" className="btn-civic" disabled={loading}>
                       {loading ? 'Enrolling Identity...' : '⚡ Complete Digital Registration'}
                     </button>
@@ -445,7 +407,6 @@ export function App() {
                 </div>
               )}
             </div>
-          )}
         </div>
       </main>
     </div>
