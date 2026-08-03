@@ -1,0 +1,33 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/nostoc/dev/local-governance/ai-oracle-service/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/nostoc/dev/local-governance/ai-oracle-service
+configfile: pytest.ini
+plugins: anyio-4.14.1, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 22 items
+
+tests/test_api_security.py::TestValidRequest::test_T3_1_1_valid_signed_request_returns_200 PASSED [  4%]
+tests/test_api_security.py::TestApiKeyEnforcement::test_T3_1_2_missing_api_key_returns_403 PASSED [  9%]
+tests/test_api_security.py::TestApiKeyEnforcement::test_T3_1_3_wrong_api_key_returns_403 PASSED [ 13%]
+tests/test_api_security.py::TestRelayerSignatureEnforcement::test_T3_1_4_invalid_relayer_signature_returns_401 PASSED [ 18%]
+tests/test_api_security.py::TestNonceReplayProtection::test_T3_1_5_replayed_nonce_returns_403 PASSED [ 22%]
+tests/test_api_security.py::TestFileSizeLimit::test_T3_1_7_file_exceeding_5mb_is_rejected PASSED [ 27%]
+tests/test_api_security.py::TestMimeTypeEnforcement::test_T3_1_8_disallowed_mime_type_pdf_is_rejected PASSED [ 31%]
+tests/test_api_security.py::TestMaxFilesLimit::test_T3_1_9_too_many_files_rejected PASSED [ 36%]
+tests/test_classification.py::TestClassificationAccuracy::test_T3_2_1_safe_civic_report_is_accepted PASSED [ 40%]
+tests/test_classification.py::TestClassificationAccuracy::test_T3_2_2_hate_speech_is_rejected PASSED [ 45%]
+tests/test_classification.py::TestClassificationAccuracy::test_T3_2_3_spam_commercial_is_rejected PASSED [ 50%]
+tests/test_classification.py::TestClassificationAccuracy::test_T3_2_4_non_civic_content_is_rejected PASSED [ 54%]
+tests/test_classification.py::TestClassificationAccuracy::test_T3_2_5_emergency_civic_is_accepted PASSED [ 59%]
+tests/test_classification.py::TestResponseAuditability::test_T3_4_1_response_includes_summary_explanation PASSED [ 63%]
+tests/test_classification.py::TestResponseAuditability::test_T3_4_2_response_includes_final_decision PASSED [ 68%]
+tests/test_classification.py::TestResponseAuditability::test_T3_4_3_response_structure_is_consistent PASSED [ 72%]
+tests/test_classification.py::TestOracleVotingAggregation::test_T3_3_1_valid_civic_poll_is_accepted PASSED [ 77%]
+tests/test_classification.py::TestOracleVotingAggregation::test_T3_3_2_inappropriate_poll_is_rejected PASSED [ 81%]
+tests/test_classification.py::TestMediaModeration::test_T3_2_6_safe_civic_report_with_image_is_accepted PASSED [ 86%]
+tests/test_classification.py::TestMediaModeration::test_T3_2_7_corrupted_image_is_rejected PASSED [ 90%]
+tests/test_classification.py::TestMediaModeration::test_T3_2_8_nsfw_image_is_rejected PASSED [ 95%]
+tests/test_classification.py::TestMediaModeration::test_T3_2_9_face_blurring_image_is_accepted PASSED [100%]
+
+============================= 22 passed in 21.33s ==============================
