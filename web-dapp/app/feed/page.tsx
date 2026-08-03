@@ -7,6 +7,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 import MapPreview from "@/components/MapPreview";
+import { CitizenEmergencyFeed } from "@/components/CitizenEmergencyFeed";
 import { useAdmin } from "@/context/AdminContext";
 import { useCitizen } from "@/context/CitizenContext";
 import { getPollingContract } from "@/lib/contracts/polling";
@@ -383,7 +384,13 @@ export default function FeedPage() {
   const { wallet, consumeTicket, availableTicketsCount } = useCitizen();
 
   // General tab switcher
-  const [activeFeedTab, setActiveFeedTab] = useState<"reports" | "polls">("reports");
+  const [activeFeedTab, setActiveFeedTab] = useState<"reports" | "polls" | "emergency">("reports");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("tab=emergency")) {
+      setActiveFeedTab("emergency");
+    }
+  }, []);
 
   // Civic Reports States
   const [filter, setFilter] = useState("All Issues");
@@ -692,24 +699,35 @@ export default function FeedPage() {
         )}
 
         {/* FEED PORTAL TABS */}
-        <div className="flex border-b border-slate-200 mb-8 gap-6">
+        <div className="flex border-b border-slate-200 mb-8 gap-6 overflow-x-auto">
           <button
             onClick={() => setActiveFeedTab("reports")}
-            className={`pb-4 text-lg font-bold transition-all relative ${activeFeedTab === "reports" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
-              }`}
+            className={`pb-4 text-lg font-bold transition-all relative whitespace-nowrap ${
+              activeFeedTab === "reports" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
+            }`}
           >
             Civic Reports
           </button>
           <button
+            onClick={() => setActiveFeedTab("emergency")}
+            className={`pb-4 text-lg font-bold transition-all relative flex items-center gap-1.5 whitespace-nowrap ${
+              activeFeedTab === "emergency" ? "text-red-600 border-b-2 border-red-600" : "text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span>Emergency Alerts</span>
+          </button>
+          <button
             onClick={() => setActiveFeedTab("polls")}
-            className={`pb-4 text-lg font-bold transition-all relative ${activeFeedTab === "polls" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
-              }`}
+            className={`pb-4 text-lg font-bold transition-all relative whitespace-nowrap ${
+              activeFeedTab === "polls" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
+            }`}
           >
             Opinion Polls
           </button>
         </div>
 
-        {activeFeedTab === "reports" ? (
+        {activeFeedTab === "reports" && (
           <>
             {/* FILTERS */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
@@ -864,7 +882,13 @@ export default function FeedPage() {
               </div>
             )}
           </>
-        ) : (
+        )}
+
+        {activeFeedTab === "emergency" && (
+          <CitizenEmergencyFeed />
+        )}
+
+        {activeFeedTab === "polls" && (
           <>
             {/* POLLS FILTERS */}
             <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start mb-6 w-fit shadow-inner">

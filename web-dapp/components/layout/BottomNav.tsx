@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
-import { Layers, PlusCircle, User, Bell, BarChart2, Vote, ShieldCheck, LayoutDashboard } from "lucide-react";
+import { Layers, PlusCircle, User, Bell, BarChart2, Vote, ShieldCheck, LayoutDashboard, ShieldAlert } from "lucide-react";
 
 export function BottomNav({ className = "", isSidebar = false }: { className?: string; isSidebar?: boolean }) {
   const pathname = usePathname();
@@ -13,6 +13,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
 
   const citizenItems = [
     { label: "Feed", href: "/feed", icon: Layers },
+    { label: "Emergency", href: "/emergency", icon: ShieldAlert },
     { label: "Polls", href: "/polls", icon: Vote },
     { label: isSidebar ? "Reports" : "Report", href: "/report", icon: isSidebar ? BarChart2 : PlusCircle },
     ...(wallet ? [{ label: "Profile", href: "/profile", icon: User }] : []),
@@ -93,7 +94,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
   return (
     <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 pb-safe z-[9999] ${className}`}>
       <div className="flex items-center justify-around p-3">
-        {citizenItems.slice(0, 5).map((item) => {
+        {citizenItems.slice(0, 6).map((item) => {
           const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
           const Icon = item.icon;
           return (
