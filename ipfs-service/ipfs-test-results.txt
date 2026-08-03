@@ -1,0 +1,20 @@
+
+═══════════════════════════════════════════════════
+  T4 — IPFS Storage Tests
+  Target: http://51.210.111.188:4000
+═══════════════════════════════════════════════════
+
+PASS T4.1 — Text-only complaint upload (~1KB) [518ms] CID: bafkreibzjukn5bkr5vp...
+PASS T4.2 — Upload complaint with ~100KB image [1034ms] CID: bafkreidyizvyzwt6lfu...
+PASS T4.3 — Upload complaint with ~1MB image (latency < 15s: 1331ms) [1331ms] CID: bafybeib33ukr7yy2gif...
+PASS T4.4 — Upload complaint with ~5MB image [4308ms] [4308ms] CID: bafybeigno7fyqgnsydd...
+PASS T4.5 — CID returned is valid IPFS format CID: bafkreifoe6uffrq3ntn...
+PASS T4.6 — Poll metadata upload to IPFS [272ms] CID: bafkreiadckjljfsn6eu...
+PASS T4.7 — Unreachable IPFS service correctly throws error
+PASS T4.8 — 5 concurrent uploads — 5/5 succeeded, no CID collisions: true [3048ms]
+
+═══════════════════════════════════════════════════
+  Results: 8/8 passed
+  All IPFS tests passed!
+═══════════════════════════════════════════════════
+
