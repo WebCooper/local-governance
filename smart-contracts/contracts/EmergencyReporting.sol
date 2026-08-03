@@ -4,6 +4,10 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface IAuthorityMultiSig {
+    function isSuperAdmin(address account) external view returns (bool);
+}
+
 /**
  * @title EmergencyReporting
  * @notice Dedicated smart contract for Civic Emergency Reports in AuraChain.
@@ -131,18 +135,29 @@ contract EmergencyReporting is Ownable, ReentrancyGuard {
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
+    function _isAuthorizedAuthority(address caller) internal view returns (bool) {
+        if (caller == owner()) return true;
+        if (authorizedAuthorities[caller]) return true;
+        if (owner() != address(0) && owner().code.length > 0) {
+            try IAuthorityMultiSig(owner()).isSuperAdmin(caller) returns (bool isAdmin) {
+                if (isAdmin) return true;
+            } catch {}
+        }
+        return false;
+    }
+
     modifier onlyRelayer() {
         if (!authorizedRelayers[msg.sender]) revert Unauthorized();
         _;
     }
 
     modifier onlyAuthority() {
-        if (!authorizedAuthorities[msg.sender]) revert Unauthorized();
+        if (!_isAuthorizedAuthority(msg.sender)) revert Unauthorized();
         _;
     }
 
     modifier onlyAuthorityOrRelayer() {
-        if (!authorizedAuthorities[msg.sender] && !authorizedRelayers[msg.sender])
+        if (!_isAuthorizedAuthority(msg.sender) && !authorizedRelayers[msg.sender])
             revert Unauthorized();
         _;
     }
@@ -155,6 +170,18 @@ contract EmergencyReporting is Ownable, ReentrancyGuard {
         address initialAuthority = 0xEE8670A4d50cdcf0afE7C99bF9a45976BaF576c2;
         authorizedAuthorities[initialAuthority] = true;
         authoritiesList.push(initialAuthority);
+
+        // Initial Super Admins automatically authorized as authorities
+        address[4] memory initialSuperAdmins = [
+            0x416109618A1f1A89C7Fd156be62b5fc734745340,
+            0x22c3488E96fccE1077365309A92e6BD895a00AAf,
+            0xA7Fe174054755c27c870772f47E52081c4b250b5,
+            0xda90b18Df16955Da5352C21D00d3ac4CDb52125b
+        ];
+        for (uint256 i = 0; i < initialSuperAdmins.length; i++) {
+            authorizedAuthorities[initialSuperAdmins[i]] = true;
+            authoritiesList.push(initialSuperAdmins[i]);
+        }
     }
 
     // ─── Admin Functions ──────────────────────────────────────────────────────

@@ -71,5 +71,39 @@ export default defineConfig([
     },
   },
 ])
-
 ```
+
+---
+
+## 🚀 Deploying in Dokploy (Self-Hosted PaaS)
+
+This frontend is pre-configured with a production-ready multi-stage **Dockerfile** and custom **Nginx** configuration (`nginx.conf`) that supports Single-Page Application (SPA) routing and immutable asset caching.
+
+### Step-by-Step Dokploy Setup:
+
+1. **Create Application in Dokploy**:
+   - Go to your Dokploy dashboard → **Projects** → Select/Create Project → **Add Application**.
+   - Select your Git Provider (GitHub / GitLab / Gitea) and pick the `local-governance` repository.
+   - Set **Branch** to your working branch (e.g., `main` or `master`).
+
+2. **Configure Build Settings**:
+   - **Build Type**: Select **Dockerfile**.
+   - **Build Path / Context**: Set to `drp-gov-sim-ui` (since this is a subdirectory in a monorepo).
+   - **Dockerfile Path**: `drp-gov-sim-ui/Dockerfile` (or `Dockerfile` if your Build Context is already `drp-gov-sim-ui`).
+
+3. **Set Build & Runtime Environment Variables**:
+   - Under the application's **Environment** tab in Dokploy, add your required Vite environment variables:
+     ```env
+     VITE_ZKP_SERVER_URL=https://your-zkp-server-domain.com/api
+     VITE_FRONTEND_PRIVATE_KEY=your_private_key_here
+     VITE_REGISTRATION_SECRET=your_admin_secret_here
+     ```
+   - *Note*: Because Vite bakes environment variables into the static bundle at build time, Dokploy passes these variables as `--build-arg` to Docker automatically.
+
+4. **Network & Domain Settings**:
+   - **Container Port**: Set to **`80`** (Nginx listens on port 80).
+   - Under **Domains**, add your custom domain or subdomain (e.g., `drp-gov.yourdomain.com`) and enable HTTPS/SSL (Let's Encrypt).
+
+5. **Deploy**:
+   - Click **Deploy**. Dokploy will build the Vite SPA and serve it via Nginx in seconds!
+

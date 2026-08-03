@@ -15,13 +15,12 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
     { label: "Feed", href: "/feed", icon: Layers },
     { label: "Polls", href: "/polls", icon: Vote },
     { label: isSidebar ? "Reports" : "Report", href: "/report", icon: isSidebar ? BarChart2 : PlusCircle },
-    { label: "Profile", href: "/profile", icon: User },
+    ...(wallet ? [{ label: "Profile", href: "/profile", icon: User }] : []),
     { label: "Notifications", href: "/notifications", icon: Bell },
   ];
 
   const authorityItems = [
-    { label: "On-Chain Admin", href: "/admin", icon: ShieldCheck },
-    { label: "Demo Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   ];
 
   if (isSidebar) {
@@ -55,7 +54,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
           <div>
             <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Authority Portal</p>
             <div className="flex flex-col gap-1">
-              {isAuthority && !isSuperAdmin && authorityItems.map((item) => {
+              {authorityItems.map((item) => {
                 const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
                 const Icon = item.icon;
                 return (
