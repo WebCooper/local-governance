@@ -230,10 +230,10 @@ async function main() {
     batchIds.push(i + 1);
   }
 
-  // Wait for windows to expire
-  await new Promise((r) => setTimeout(r, 3000));
+  // Wait for windows to expire (7s to ensure next Clique block is mined on private Geth)
+  await new Promise((r) => setTimeout(r, 7000));
 
-  const batchTx = await reporting2.batchFinalizeVotingWindows(batchIds);
+  const batchTx = await reporting2.batchFinalizeVotingWindows(batchIds, { gasLimit: 1_000_000 });
   const batchReceipt = await batchTx.wait();
   log(`batchFinalizeVotingWindows(${BATCH_SIZE}) gas`, `${batchReceipt.gasUsed.toString()} gas`);
   log(`Batch gas per report`, `${(batchReceipt.gasUsed / BigInt(BATCH_SIZE)).toString()} gas`);
