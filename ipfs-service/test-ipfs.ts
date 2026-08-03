@@ -71,7 +71,7 @@ async function uploadComplaint(
 
 function recordResult(result: TestResult) {
   results.push(result);
-  const status = result.passed ? '✅ PASS' : '❌ FAIL';
+  const status = result.passed ? 'PASS' : ' FAIL';
   const latency = result.latencyMs !== undefined ? ` [${result.latencyMs}ms]` : '';
   const cid = result.cid ? ` CID: ${result.cid.slice(0, 20)}...` : '';
   const err = result.error ? `  ERROR: ${result.error}` : '';
@@ -322,10 +322,10 @@ async function main() {
   if (passed < total) {
     const failed = results.filter((r) => !r.passed);
     console.log('\n  Failed tests:');
-    failed.forEach((r) => console.log(`    ❌ ${r.testId}: ${r.error}`));
+    failed.forEach((r) => console.log(`${r.testId}: ${r.error}`));
     process.exit(1);
   } else {
-    console.log('  All IPFS tests passed! 🎉');
+    console.log('  All IPFS tests passed!');
     console.log('═══════════════════════════════════════════════════\n');
   }
 }
