@@ -411,12 +411,7 @@ export function App() {
                       <span className="summary-label">Enrolled Status</span>
                       <span className="summary-value" style={{ color: '#16a34a', fontWeight: '700' }}>✓ Verified ZKP Citizen</span>
                     </div>
-                    <div className="summary-row">
-                      <span className="summary-label">Signer Address</span>
-                      <span className="summary-value" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: '#2563eb' }}>
-                        {clientWallet?.address}
-                      </span>
-                    </div>
+                    
                   </div>
 
                   {/* Prominent DApp Login Box */}
