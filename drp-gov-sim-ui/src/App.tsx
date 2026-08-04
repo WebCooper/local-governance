@@ -3,7 +3,11 @@ import { ethers } from 'ethers';
 import './index.css';
 
 const getBackendUrl = () => {
-  let url = (import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5000/api').trim();
+  let url = (
+    import.meta.env.VITE_ZKP_SERVER_URL ||
+    import.meta.env.VITE_API_URL ||
+    'https://zkp.internalbuildtools.online/api'
+  ).trim();
   url = url.replace(/\/+$/, '');
   if (!url.endsWith('/api')) {
     url = `${url}/api`;
