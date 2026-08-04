@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import './index.css';
 
 const getBackendUrl = () => {
-  let url = (import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5001/api').trim();
+  let url = (import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5000/api').trim();
   url = url.replace(/\/+$/, '');
   if (!url.endsWith('/api')) {
     url = `${url}/api`;
@@ -16,11 +16,15 @@ const ENV_PRIVATE_KEY =
   import.meta.env.VITE_FRONTEND_PRIVATE_KEY !== 'your_private_key_here'
     ? import.meta.env.VITE_FRONTEND_PRIVATE_KEY
     : '';
+const rawSecret =
+  import.meta.env.VITE_REGISTRATION_SECRET ||
+  import.meta.env.VITE_ADMIN_SECRET ||
+  '';
 const ENV_REGISTRATION_SECRET =
-  import.meta.env.VITE_REGISTRATION_SECRET &&
-  import.meta.env.VITE_REGISTRATION_SECRET !== 'your_admin_secret_here' &&
-  import.meta.env.VITE_REGISTRATION_SECRET !== 'default_admin_secret'
-    ? import.meta.env.VITE_REGISTRATION_SECRET
+  rawSecret &&
+  rawSecret !== 'your_admin_secret_here' &&
+  rawSecret !== 'default_admin_secret'
+    ? rawSecret
     : 'GQZa8aPRmwxNn1uNMufqIJzCDJJZJwsDShxVb4/YGx0';
 const DAPP_LOGIN_URL = 'https://dapp.internalbuildtools.online/';
 
@@ -42,6 +46,7 @@ export function App() {
   const [clientWallet, setClientWallet] = useState<ethers.HDNodeWallet | ethers.Wallet | null>(null);
   const [timestamp, setTimestamp] = useState<number>(Date.now());
   const [signature, setSignature] = useState<string>('');
+  const [authorityAddress, setAuthorityAddress] = useState<string>('');
 
   // Submission Status & Result Details
   const [loading, setLoading] = useState(false);
@@ -51,18 +56,35 @@ export function App() {
     details?: any;
   } | null>(null);
 
-  // Generate or load signing wallet on component mount
+  // Generate or load signing wallet and connect to Authority Node on mount
   useEffect(() => {
     if (ENV_PRIVATE_KEY) {
       try {
         const wallet = new ethers.Wallet(ENV_PRIVATE_KEY);
         setClientWallet(wallet);
-        return;
       } catch (e) {
         console.warn('Invalid VITE_FRONTEND_PRIVATE_KEY in .env, generating random wallet instead.');
+        generateNewWallet();
       }
+    } else {
+      generateNewWallet();
     }
-    generateNewWallet();
+
+    // Connect to ZKP Simulator /api/public-key endpoint to verify server and fetch Authority Address
+    const checkAuthorityNode = async () => {
+      try {
+        const res = await fetch(`${ZKP_BACKEND_URL}/public-key`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authorityAddress) {
+            setAuthorityAddress(data.authorityAddress);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not connect to ZKP Authority Node:', err);
+      }
+    };
+    checkAuthorityNode();
   }, []);
 
   const generateNewWallet = () => {
@@ -72,7 +94,7 @@ export function App() {
 
   // Derive a canonical name from GovID so backend validation succeeds cleanly
   const resolvedName = useMemo(() => {
-    return govId.trim() ? `Student (${govId.trim()})` : 'Student Citizen';
+    return govId.trim() ? `Student (${govId.trim().toUpperCase()})` : 'Student Citizen';
   }, [govId]);
 
   // Canonical message format for registration verification
@@ -148,7 +170,7 @@ export function App() {
       const freshSignature = await clientWallet.signMessage(freshMessage);
 
       const payload = {
-        govId: govId.trim(),
+        govId: govId.trim().toUpperCase(),
         password,
         name: resolvedName,
         timestamp: currentTimestamp,
@@ -168,11 +190,16 @@ export function App() {
       if (response.ok && data.success) {
         setRegisterStatus({
           type: 'success',
-          message: `Identity successfully enrolled! Registered Student ID: ${govId.trim()}`,
+          message: `Identity successfully enrolled! Registered Student ID: ${govId.trim().toUpperCase()}`,
           details: data.citizen
         });
         // Move directly to celebratory completion screen!
         setRegStep(2);
+      } else if (response.status === 409) {
+        setRegisterStatus({
+          type: 'error',
+          message: `GovID / Student ID "${govId.trim().toUpperCase()}" is already enrolled in the ZKP registry! Try entering a new ID or use a preset.`
+        });
       } else {
         setRegisterStatus({
           type: 'error',
@@ -218,7 +245,11 @@ export function App() {
         <div className="topbar-actions">
           <div className="node-status-pill">
             <span className="status-indicator"></span>
-            <span>AuraChain Network • Connected</span>
+            <span>
+              {authorityAddress
+                ? `ZKP Authority • Connected (${authorityAddress.slice(0, 6)}...${authorityAddress.slice(-4)})`
+                : 'AuraChain Network • Connected'}
+            </span>
           </div>
         </div>
       </header>
@@ -273,8 +304,16 @@ export function App() {
                           <button type="button" className="preset-chip" onClick={() => setPresetStudentId('EG/2020/0452')}>
                             + EG/2020/0452
                           </button>
-                          <button type="button" className="preset-chip" onClick={() => setPresetStudentId('199812345678')}>
+                          <button type="button" className="preset-chip" onClick={() => setPresetStudentId('199912345678')}>
                             + 12-Digit NIC
+                          </button>
+                          <button
+                            type="button"
+                            className="preset-chip"
+                            style={{ backgroundColor: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }}
+                            onClick={() => setPresetStudentId(`EG/2026/${Math.floor(1000 + Math.random() * 9000)}`)}
+                          >
+                            ⚡ Random ID
                           </button>
                         </div>
                       </div>
