@@ -258,90 +258,98 @@ export default function PollsFeedPage() {
 
   return (
     <>
-      <main className="min-h-screen bg-[#f8fafc] text-slate-800 p-4 md:p-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-
-          {isAuthority && !wallet && (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-blue-700 shadow-sm animate-in fade-in duration-300">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
-                <span>You are connected as an Authority. Create and finalize polls directly inside your official panel.</span>
-              </div>
-              <Link href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
-                Go to Admin Panel
-              </Link>
+      <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8 text-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col">
+          
+          {/* HERO BANNER */}
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#2563EB] to-[#1E3A8A] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
+              </svg>
             </div>
-          )}
-
-          {!wallet && !isAuthority && (
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-amber-800 shadow-sm animate-in fade-in duration-300">
-              <div>
-                <span className="font-bold">Voting is locked.</span> Authenticate with your GovID to receive anonymous ZK action tickets and participate.
-              </div>
-              <Link href="/auth" className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
-                Get ZK Tickets
-              </Link>
-            </div>
-          )}
-
-          {/* Responsive Header Section */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b border-slate-200 pb-6">
-            <div>
-              <h1 className="text-3xl font-extrabold tracking-tight text-blue-600">Opinion Polling</h1>
-              <p className="text-sm text-slate-500 mt-1">Cast fully anonymous votes secured by zero-knowledge ticket credentials.</p>
-            </div>
-            <div className="flex items-center gap-4 self-start md:self-auto">
-              {isAuthority && !wallet && (
-                <Link href="/polls/create" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-sm">
-                  + Create New Poll
+            
+            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-blue-200">Community Polling</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+              Shape Your Community with ZK Votes
+            </h1>
+            <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+               Cast fully anonymous votes secured by zero-knowledge ticket credentials. Your identity remains private, but your vote counts.
+            </p>
+            
+            <div className="flex gap-4">
+               {isAuthority && !wallet && (
+                <Link href="/polls/create">
+                  <button className="bg-white text-blue-900 font-bold py-3.5 px-6 rounded-full transition-all shadow-sm flex items-center gap-3 text-sm hover:bg-slate-50">
+                    + Create New Poll
+                  </button>
                 </Link>
-              )}
-              {wallet && (
-                <div className="bg-sky-50 border border-sky-100 px-4 py-2 rounded-xl text-right shadow-sm">
-                  <span className="block text-[10px] text-sky-700 font-semibold uppercase tracking-wider">ZK Action Tickets</span>
-                  <span className="text-lg font-mono font-bold text-sky-800">{availableTicketsCount} Available</span>
-                </div>
-              )}
+               )}
             </div>
           </div>
 
+          <div className="w-full space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900">Active Polls</h2>
+              {wallet && (
+                <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-right shadow-sm flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">ZK Tickets</span>
+                  <span className="text-sm font-bold text-slate-800">{availableTicketsCount} Available</span>
+                </div>
+              )}
+            </div>
+
+            {isAuthority && !wallet && (
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-blue-700 shadow-sm animate-in fade-in duration-300">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+                  <span>You are connected as an Authority. Create and finalize polls directly inside your official panel.</span>
+                </div>
+                <Link href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
+                  Go to Admin Panel
+                </Link>
+              </div>
+            )}
+
+            {!wallet && !isAuthority && (
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-amber-800 shadow-sm animate-in fade-in duration-300">
+                <div>
+                  <span className="font-bold">Voting is locked.</span> Authenticate with your GovID to receive anonymous ZK action tickets and participate.
+                </div>
+                <Link href="/auth" className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
+                  Get ZK Tickets
+                </Link>
+              </div>
+            )}
+
           {/* Filters and Controls */}
-          <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start shadow-inner">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
             <button
               onClick={() => { setFilter("all"); setCurrentPage(1); }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${filter === "all"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+              className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${filter === "all"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
             >
-              <span>All Polls</span>
-              <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "all" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                {allCount}
-              </span>
+              All Polls <span className="ml-1 opacity-70">({allCount})</span>
             </button>
             <button
               onClick={() => { setFilter("open"); setCurrentPage(1); }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${filter === "open"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+              className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${filter === "open"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                 }`}
             >
-              <span>Active</span>
-              <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "open" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                {activeCount}
-              </span>
+              Active <span className="ml-1 opacity-70">({activeCount})</span>
             </button>
             <button
               onClick={() => { setFilter("closed"); setCurrentPage(1); }}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${filter === "closed"
-                  ? "bg-white text-blue-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+              className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${filter === "closed"
+                  ? "bg-slate-500 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
             >
-              <span>Completed</span>
-              <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${filter === "closed" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                {completedCount}
-              </span>
+              Completed <span className="ml-1 opacity-70">({completedCount})</span>
             </button>
           </div>
 
@@ -357,7 +365,7 @@ export default function PollsFeedPage() {
                 const isOpen = poll.isActive && !isExpired;
 
                 return (
-                  <div key={poll.id} className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 space-y-5 shadow-sm hover:shadow-md transition-all duration-200">
+                  <div key={poll.id} className="bg-white border border-slate-100/60 rounded-[24px] p-6 space-y-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                       <div className="space-y-1">
                         <h2 className="text-2xl font-bold tracking-tight text-slate-800">{poll.title}</h2>
@@ -446,13 +454,13 @@ export default function PollsFeedPage() {
                         const hasVotedThisOption = userVotes[poll.id] === idx;
 
                         return (
-                          <div key={idx} className={`relative flex flex-col justify-center rounded-xl p-4 overflow-hidden border transition-all ${hasVotedThisOption
-                              ? "bg-blue-50/20 border-blue-300 ring-1 ring-blue-300 shadow-sm"
-                              : "bg-slate-50 border-slate-100"
+                          <div key={idx} className={`relative flex flex-col justify-center rounded-2xl p-4 md:p-5 overflow-hidden transition-all border ${hasVotedThisOption
+                              ? "bg-blue-50 border-blue-400 ring-1 ring-blue-400 shadow-sm"
+                              : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
                             }`}>
                             {/* Animated Progress Bar background tracking metrics — only shown if poll is closed */}
                             {!isOpen && (
-                              <div className={`absolute top-0 left-0 bottom-0 ${barColorClass} transition-all duration-700 ease-out`} style={{ width: `${percentage}%` }} />
+                              <div className={`absolute top-0 left-0 bottom-0 ${barColorClass} transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
                             )}
 
                             <div className="relative z-10 flex justify-between items-center w-full">
@@ -461,21 +469,21 @@ export default function PollsFeedPage() {
                                   // Clickable icon buttons for active citizen voting
                                   poll.pollType === 0 ? (
                                     idx === 0 ? (
-                                      <button
-                                        disabled={votingMap[poll.id]}
-                                        onClick={() => handleCastVote(poll.id, idx)}
-                                        className="p-2 hover:bg-rose-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
-                                        title="Vote No"
-                                      >
+                                        <button
+                                          disabled={votingMap[poll.id]}
+                                          onClick={() => handleCastVote(poll.id, idx)}
+                                          className="p-2 bg-white hover:bg-rose-50 rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 shrink-0"
+                                          title="Vote No"
+                                        >
                                         <ThumbsDown className="w-5 h-5 text-rose-500 hover:-rotate-12 hover:scale-110 transition-transform" />
                                       </button>
                                     ) : (
-                                      <button
-                                        disabled={votingMap[poll.id]}
-                                        onClick={() => handleCastVote(poll.id, idx)}
-                                        className="p-2 hover:bg-emerald-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
-                                        title="Vote Yes"
-                                      >
+                                        <button
+                                          disabled={votingMap[poll.id]}
+                                          onClick={() => handleCastVote(poll.id, idx)}
+                                          className="p-2 bg-white hover:bg-emerald-50 rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50 shrink-0"
+                                          title="Vote Yes"
+                                        >
                                         <ThumbsUp className="w-5 h-5 text-emerald-500 hover:rotate-12 hover:scale-110 transition-transform" />
                                       </button>
                                     )
@@ -558,7 +566,8 @@ export default function PollsFeedPage() {
             </div>
           )}
         </div>
-      </main>
+        </div>
+      </div>
       {activeImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300"

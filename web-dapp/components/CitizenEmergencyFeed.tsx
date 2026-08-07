@@ -220,10 +220,10 @@ export function CitizenEmergencyFeed() {
             return (
               <div
                 key={report.id}
-                className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-200 group"
+                className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-1 transition-all duration-300 group p-2"
               >
                 {/* Top Image / Media Banner */}
-                <div className="relative h-56 bg-slate-100 overflow-hidden">
+                <div className="relative h-[200px] bg-slate-100 overflow-hidden rounded-[16px]">
                   {thumbImage ? (
                     <img
                       src={thumbImage}
@@ -263,7 +263,7 @@ export function CitizenEmergencyFeed() {
                 </div>
 
                 {/* Card Body Padding */}
-                <div className="p-5 flex flex-col flex-1">
+                <div className="p-4 flex flex-col flex-1">
                   <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <ShieldAlert className="h-3 w-3" />
                     {report.category || "EMERGENCY ALERT"}

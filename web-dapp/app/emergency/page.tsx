@@ -6,65 +6,46 @@ import { CitizenEmergencyFeed } from "@/components/CitizenEmergencyFeed";
 
 export default function EmergencyPage() {
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-red-800 text-xs font-extrabold border border-red-200 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-              PRIORITY CIVIC CHANNEL
+    <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-start">
+        
+        {/* LEFT MAIN CONTENT */}
+        <div className="w-full flex flex-col">
+          
+          {/* HERO BANNER */}
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#E11D48] to-[#9F1239] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
+            {/* Aesthetic star/blur behind */}
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
+              </svg>
             </div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-              Emergency Alerts Hub
+            
+            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-rose-200">Priority Civic Channel</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+              Instant Authority Action & Accountability
             </h1>
-            <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-              High-priority citizen emergency reports registered on AuraChain. These urgent incidents bypass community validation for immediate local authority dispatch and rapid resolution.
+            <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+               Emergency reports bypass community validation for immediate local authority dispatch and rapid resolution.
             </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/feed"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-100 transition shadow-sm"
-            >
-              <Layers className="w-4 h-4" />
-              <span>Civic Reports</span>
-            </Link>
-
-            <Link
-              href="/report"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm transition"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Report Emergency</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Banner */}
-        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 rounded-2xl p-6 text-white shadow-md mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-extrabold">Instant Authority Action & Accountability</h3>
-              <p className="text-xs text-white/90 max-w-xl leading-relaxed mt-0.5">
-                Every emergency report is permanently hashed on-chain. Authorities receive instant notifications to start response work and upload verifiable cryptographic evidence upon completion.
-              </p>
+            
+            <div className="flex gap-4">
+              <Link href="/report">
+                <button className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-sm flex items-center gap-3 text-sm">
+                  Report Emergency
+                  <span className="bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">→</span>
+                </button>
+              </Link>
             </div>
           </div>
-          <Link
-            href="/report"
-            className="px-5 py-2.5 bg-white text-red-700 hover:bg-red-50 rounded-xl text-xs font-extrabold shadow-sm transition shrink-0"
-          >
-            Create Alert Now
-          </Link>
-        </div>
 
-        {/* Emergency Reports Feed Component */}
-        <CitizenEmergencyFeed />
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Emergency Alerts Hub</h2>
+          </div>
+
+          {/* Emergency Reports Feed Component */}
+          <CitizenEmergencyFeed />
+        </div>
       </div>
     </div>
   );
