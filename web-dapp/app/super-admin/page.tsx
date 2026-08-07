@@ -416,49 +416,47 @@ export default function SuperAdminPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">
-            Super Admin Dashboard
-          </h1>
-          <p className="text-slate-500 mt-1">
-            Manage system authorities and governance
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleTopUp}
-            disabled={isFunding}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-1.5 shadow-md hover:shadow-lg"
-          >
-            {isFunding ? (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
+    <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-start">
+        <div className="w-full flex flex-col">
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#2563EB] to-[#1E3A8A] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg className="animate-[spin_8s_linear_infinite]" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L107.032 92.9682L200 100L107.032 107.032L100 200L92.9682 107.032L0 100L92.9682 92.9682L100 0Z" fill="currentColor"/>
               </svg>
-            )}
-            {isFunding ? "Scanning..." : "Top-Up Wallets"}
-          </button>
-          <div className="bg-white border border-slate-200 px-4 py-2 rounded-full text-sm font-medium text-slate-600 shadow-sm">
-            🟢 Connected
+            </div>
+            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-blue-200">Governance Portal</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+              Super Admin Dashboard
+            </h1>
+            <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+              Manage system authorities, global voting strategies, and execute proposals directly on-chain.
+            </p>
+            <div className="flex flex-wrap gap-4 items-center">
+                <button 
+                  onClick={handleTopUp}
+                  disabled={isFunding}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-sm flex items-center gap-3 text-sm disabled:opacity-50">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">
+                    {isFunding ? (
+                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    )}
+                  </span>
+                  {isFunding ? "Scanning..." : "Top-Up Gas Wallets"}
+                </button>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-3 rounded-full text-sm font-medium flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  Connected
+                </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ── Left Column ──────────────────────────────────────────────────── */}
         <div className="lg:col-span-1 space-y-6">
           {/* Submit Proposal Form */}
@@ -600,7 +598,7 @@ export default function SuperAdminPage() {
               <button
                 type="submit"
                 disabled={isUpdatingDuration}
-                className="w-full bg-slate-950 hover:bg-slate-800 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-sm transition-all shadow-sm hover:shadow-md disabled:opacity-50 mt-1"
               >
                 {isUpdatingDuration ? "Updating..." : "Update Duration"}
               </button>
@@ -937,6 +935,9 @@ export default function SuperAdminPage() {
             )}
           </div>
         </div>
+      </div>
+        </div>
+      </div>
       </div>
     </div>
   );
