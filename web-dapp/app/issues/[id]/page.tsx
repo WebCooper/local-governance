@@ -610,7 +610,7 @@ export default function IssueDetailPage({
   return (
     <>
       {/* MOBILE */}
-      <div className="md:hidden min-h-screen pb-24">
+      <div className="md:hidden min-h-screen pb-24 bg-[#F9FAFB]">
 
         {/* HERO */}
         <div className="relative h-64 bg-slate-100">
@@ -651,7 +651,7 @@ export default function IssueDetailPage({
         <div className="p-4 space-y-5">
           {/* Active Voting Phase Countdown */}
           {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+            <div className="bg-blue-50 border border-blue-100 rounded-[24px] p-4 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
                 <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
                 <span>Voting Ends In:</span>
@@ -662,7 +662,7 @@ export default function IssueDetailPage({
 
           {/* Voting Phase Explanations */}
           {report.status === 0 && (
-            <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
+            <div className="bg-amber-50/70 border border-amber-100/80 rounded-[24px] p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
                 <span>Community Validation Phase</span>
@@ -674,7 +674,7 @@ export default function IssueDetailPage({
           )}
 
           {report.status === 5 && (
-            <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
+            <div className="bg-purple-50/70 border border-purple-100/80 rounded-[24px] p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
                 <span>Community Verification Phase</span>
@@ -686,7 +686,7 @@ export default function IssueDetailPage({
           )}
 
           {report.status === 4 && (
-            <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
+            <div className="bg-orange-50/70 border border-orange-100/80 rounded-[24px] p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
                 <span>Community Rejection Review Phase</span>
@@ -698,7 +698,7 @@ export default function IssueDetailPage({
           )}
 
           {/* Description */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5">
             <h2 className="text-lg font-bold text-slate-900 mb-3">
               Description
             </h2>
@@ -710,7 +710,7 @@ export default function IssueDetailPage({
           </div>
 
           {/* Meta */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3 text-sm text-slate-600">
+          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 space-y-3 text-sm text-slate-600">
 
             {report.location && (
               <div className="flex items-center gap-2">
@@ -728,7 +728,7 @@ export default function IssueDetailPage({
           </div>
 
           {/* Assigned Authority Mobile (No wallet addresses, CIDs, or hashes) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
+          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 flex gap-4">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
               <Landmark className="h-5 w-5 text-slate-500" />
             </div>
@@ -754,7 +754,7 @@ export default function IssueDetailPage({
           </div>
 
           {/* Authority Action Log Mobile (No wallet addresses, CIDs, or hashes) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5">
             <h3 className="text-base font-bold text-slate-900 mb-4">
               Authority Action Log
             </h3>
@@ -827,7 +827,7 @@ export default function IssueDetailPage({
           {voteControls}
 
           {voteMessage && (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
+            <div className="rounded-[24px] border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
               <Info className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{voteMessage}</span>
             </div>
@@ -836,39 +836,40 @@ export default function IssueDetailPage({
       </div>
 
       {/* DESKTOP */}
-      <div className="hidden md:flex flex-col w-full">
+      <div className="hidden md:flex flex-col w-full min-h-screen bg-[#F9FAFB]">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col">
 
-        {/* Top Bar */}
-        {!isEmbed && (
-          <div className="flex items-center justify-between px-8 py-4">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Report Detail
-            </button>
-
-            <div className="flex items-center gap-4 text-slate-500">
-              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <Bell className="h-5 w-5" />
+          {/* Top Bar */}
+          {!isEmbed && (
+            <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-6">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Report Detail
               </button>
 
-              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <Settings className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-4 text-slate-500">
+                <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                  <Bell className="h-5 w-5" />
+                </button>
+
+                <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Grid */}
-        <div className="grid grid-cols-[1fr_320px] gap-8 px-8 pb-8">
+          {/* Grid */}
+          <div className="grid grid-cols-[1fr_320px] gap-8 px-4 sm:px-6 lg:px-8 pb-8">
 
-          {/* LEFT */}
+            {/* LEFT */}
           <div className="flex flex-col gap-6">
 
             {/* HERO */}
-            <div className="relative w-full h-85 rounded-2xl overflow-hidden bg-slate-100 shadow-sm">
+            <div className="relative w-full h-85 rounded-[24px] overflow-hidden bg-slate-100 shadow-sm">
 
               {hasImages ? (
                 <img
@@ -943,7 +944,7 @@ export default function IssueDetailPage({
 
             {/* Voting Phase Explanations */}
             {report.status === 0 && (
-              <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
+              <div className="bg-amber-50/70 border border-amber-100/80 rounded-[24px] p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
                 <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                   <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
                   <span>Community Validation Phase</span>
@@ -955,7 +956,7 @@ export default function IssueDetailPage({
             )}
 
             {report.status === 5 && (
-              <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
+              <div className="bg-purple-50/70 border border-purple-100/80 rounded-[24px] p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
                 <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
                   <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
                   <span>Community Verification Phase</span>
@@ -967,7 +968,7 @@ export default function IssueDetailPage({
             )}
 
             {report.status === 4 && (
-              <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
+              <div className="bg-orange-50/70 border border-orange-100/80 rounded-[24px] p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
                 <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
                   <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
                   <span>Community Rejection Review Phase</span>
@@ -1003,7 +1004,7 @@ export default function IssueDetailPage({
                   {report.images.map((img, i) => (
                     <div
                       key={i}
-                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100"
+                      className="rounded-[24px] overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100"
                     >
                       <img
                         src={`data:${
@@ -1030,7 +1031,7 @@ export default function IssueDetailPage({
             </div> */}
 
             {/* Authority Action Log Desktop (No wallet addresses, CIDs, or hashes) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-2">
+            <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6 mt-2">
               <h2 className="text-lg font-bold text-slate-900 mb-5">
                 Authority Action Log
               </h2>
@@ -1107,13 +1108,13 @@ export default function IssueDetailPage({
             {voteControls}
 
             {voteMessage && (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
+              <div className="rounded-[24px] border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
                 <Info className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{voteMessage}</span>
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5">
 
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-900">
@@ -1157,7 +1158,7 @@ export default function IssueDetailPage({
             </div>
 
             {/* Authority */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
+            <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-5 flex gap-4">
 
               <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                 <Landmark className="h-5 w-5 text-slate-500" />
@@ -1184,6 +1185,7 @@ export default function IssueDetailPage({
                 )}
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
