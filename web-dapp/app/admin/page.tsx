@@ -884,20 +884,23 @@ export default function AuthorityAdminPage() {
         {/* ── EMERGENCY REPORTS TAB ─────────────────────────────────────────── */}
         {activeTab === "emergency" && (
           <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 mb-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-red-50 text-red-600 border border-red-100 mb-3 shadow-sm">
+                  <span className="relative flex h-2 w-2 mr-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
                   HIGH PRIORITY INCIDENTS
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">Emergency Reports</h2>
-                <p className="text-slate-500 mt-1 text-sm">
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Emergency Reports</h2>
+                <p className="text-slate-500 mt-1.5 text-sm font-medium">
                   Urgent civic incidents requiring immediate authority dispatch and resolution.
                 </p>
               </div>
               <button
                 onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
-                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-semibold text-sm"
+                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-red-50 transition-colors bg-white shadow-sm border border-slate-100 hover:shadow"
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
@@ -970,17 +973,21 @@ export default function AuthorityAdminPage() {
         {/* ── POLLS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === "polls" && (
           <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Decentralized Opinion Polls</h2>
-                <p className="text-slate-500 mt-1 text-sm">Monitor, finalize, and publish public policy votes.</p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-100 mb-3 shadow-sm">
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  COMMUNITY VOTING
+                </div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Decentralized Opinion Polls</h2>
+                <p className="text-slate-500 mt-1.5 text-sm font-medium">Monitor, finalize, and publish public policy votes.</p>
               </div>
               <div className="flex items-center gap-3">
                 <Link
                   href="/polls/create"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-[16px] transition-all text-sm shadow-sm flex items-center gap-2 hover:shadow-md hover:-translate-y-0.5 duration-300"
                 >
-                  + Create Poll
+                  <Plus className="w-4 h-4" /> Create Poll
                 </Link>
                 <button
                   onClick={fetchPolls}
