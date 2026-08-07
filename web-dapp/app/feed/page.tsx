@@ -648,7 +648,7 @@ export default function FeedPage() {
           <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#6B46C1] to-[#4C1D95] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
             {/* Aesthetic star/blur behind */}
             <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
-              <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg className="animate-spin-in" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
               </svg>
             </div>
