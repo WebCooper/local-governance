@@ -39,7 +39,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
                     key={item.label}
                     href={item.href}
                     className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-200 ${
-                      isActive ? "bg-blue-50 text-blue-600 font-semibold shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      isActive ? "bg-slate-900 text-white font-semibold shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
                     <Icon className="h-5 w-5" />
@@ -63,7 +63,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
                     key={item.label}
                     href={item.href}
                     className={`flex items-center gap-4 p-3 rounded-xl transition-all duration-200 ${
-                      isActive ? "bg-blue-50 text-blue-600 font-semibold shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      isActive ? "bg-slate-900 text-white font-semibold shadow-sm" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >
                     <Icon className="h-5 w-5" />

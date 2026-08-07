@@ -637,518 +637,450 @@ export default function FeedPage() {
     (activePollsPage - 1) * pollsPerPage,
     activePollsPage * pollsPerPage
   );
-
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-
-        {/* HEADER */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-              Community Feed
+    <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-start">
+        
+        {/* LEFT MAIN CONTENT */}
+        <div className="w-full flex flex-col">
+          
+          {/* HERO BANNER */}
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#6B46C1] to-[#4C1D95] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
+            {/* Aesthetic star/blur behind */}
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg className="animate-spin-in" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
+              </svg>
+            </div>
+            
+            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-purple-200">Civic Action</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+              See a Problem? Report to the Community
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Participate in anonymous civic reporting and opinion polls on-chain.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {wallet && activeFeedTab === "polls" && (
-              <div className="bg-sky-50 border border-sky-100 px-4 py-2 rounded-xl text-right shadow-sm">
-                <span className="block text-[10px] text-sky-700 font-semibold uppercase tracking-wider">ZK Action Tickets</span>
-                <span className="text-sm font-mono font-bold text-sky-800">{availableTicketsCount} Available</span>
-              </div>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={loadingReports || loadingPolls}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 font-semibold rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all text-sm shadow-sm"
-            >
-              <RotateCw
-                className={`h-4 w-4 ${loadingReports || loadingPolls ? "animate-spin" : ""
-                  }`}
-              />
-              Refresh Feed
-            </button>
-          </div>
-        </div>
-
-        {/* Banners */}
-        {isAuthority && !wallet && (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-blue-700 shadow-sm animate-in fade-in duration-300">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
-              <span>You are connected as an Authority. Create and finalize polls directly inside your official panel.</span>
-            </div>
-            <Link href="/admin" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
-              Go to Admin Panel
-            </Link>
-          </div>
-        )}
-
-        {!wallet && !isAuthority && activeFeedTab === "polls" && (
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm text-amber-800 shadow-sm animate-in fade-in duration-300">
+            
             <div>
-              <span className="font-bold">Voting is locked.</span> Authenticate with your GovID to receive anonymous ZK action tickets and participate.
+              <Link href="/report">
+                <button className="mt-4 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-sm flex items-center gap-3 text-sm">
+                  Report an issue 
+                  <span className="bg-white text-slate-900 rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">→</span>
+                </button>
+              </Link>
             </div>
-            <Link href="/auth" className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition text-xs shadow-sm whitespace-nowrap shrink-0">
-              Get ZK Tickets
-            </Link>
           </div>
-        )}
 
-        {/* FEED PORTAL TABS */}
-        <div className="flex border-b border-slate-200 mb-8 gap-6 overflow-x-auto">
-          <button
-            onClick={() => setActiveFeedTab("reports")}
-            className={`pb-4 text-lg font-bold transition-all relative whitespace-nowrap ${
-              activeFeedTab === "reports" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            Civic Reports
-          </button>
-          <button
-            onClick={() => setActiveFeedTab("emergency")}
-            className={`pb-4 text-lg font-bold transition-all relative flex items-center gap-1.5 whitespace-nowrap ${
-              activeFeedTab === "emergency" ? "text-red-600 border-b-2 border-red-600" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span>Emergency Alerts</span>
-          </button>
-          <button
-            onClick={() => setActiveFeedTab("polls")}
-            className={`pb-4 text-lg font-bold transition-all relative whitespace-nowrap ${
-              activeFeedTab === "polls" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            Opinion Polls
-          </button>
-        </div>
+          {/* FEED PORTAL TABS */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+            <h2 className="text-2xl font-bold text-slate-900">Community Feed</h2>
+            <div className="flex items-center bg-white p-1 rounded-full border border-slate-100 shadow-sm shrink-0">
+              <button
+                onClick={() => setActiveFeedTab("reports")}
+                className={`px-5 py-2 text-sm font-bold rounded-full transition-all ${
+                  activeFeedTab === "reports" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Reports
+              </button>
+              <button
+                onClick={() => setActiveFeedTab("polls")}
+                className={`px-5 py-2 text-sm font-bold rounded-full transition-all ${
+                  activeFeedTab === "polls" ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Polls
+              </button>
+              <button
+                onClick={() => setActiveFeedTab("emergency")}
+                className={`px-5 py-2 text-sm font-bold rounded-full transition-all ${
+                  activeFeedTab === "emergency" ? "bg-red-50 text-red-600" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Emergency
+              </button>
+            </div>
+          </div>
 
-        {activeFeedTab === "reports" && (
-          <>
-            {/* FILTERS */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-              <div className="flex items-center gap-2 flex-wrap">
-                {FILTERS.map((f) => (
+          {/* TAB CONTENTS */}
+          {activeFeedTab === "reports" && (
+            <>
+              {/* REPORTS FILTERS */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+                  {FILTERS.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFilter(f)}
+                      className={`px-5 py-2 rounded-full text-xs font-bold transition-all whitespace-nowrap ${filter === f
+                          ? "bg-purple-50 text-purple-700 border border-purple-100"
+                          : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                        }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={handleRefresh}
+                  disabled={loadingReports}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full hover:bg-slate-50 disabled:opacity-50 transition-all text-xs shadow-sm shrink-0"
+                >
+                  <RotateCw className={`h-3.5 w-3.5 ${loadingReports ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+
+              {/* REPORTS STATES */}
+              {loadingReports && reports.length === 0 ? (
+                <div className="py-20 text-center">
+                  <RotateCw className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium">Syncing public ledger...</p>
+                </div>
+              ) : errorReports ? (
+                <div className="p-6 bg-red-50 text-red-600 rounded-2xl border border-red-100 flex items-start gap-3">
+                  <AlertCircle className="h-6 w-6 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-lg">Error Loading Reports</h4>
+                    <p className="mt-1">{errorReports}</p>
+                  </div>
+                </div>
+              ) : reports.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                  <FileText className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+                  <p className="text-lg font-bold text-slate-900">No reports recorded yet</p>
+                </div>
+              ) : (
+                /* REPORTS GRID */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {reports.map((report) => (
+                    <div
+                      key={report.id}
+                      className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-200 p-4"
+                    >
+                      <div className="relative h-48 bg-slate-100 overflow-hidden rounded-2xl mb-4">
+                        <ReportVisual report={report} />
+                        {!report.ipfsLoaded && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 z-[1200]">
+                            <RotateCw className="h-5 w-5 animate-spin text-slate-400" />
+                          </div>
+                        )}
+                        <span
+                          className={`absolute top-3 left-3 z-[1200] px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusDetails(report.status).bg} ${getStatusDetails(report.status).text}`}
+                        >
+                          {getStatusDetails(report.status).label}
+                        </span>
+                        {report.imageUrl && (
+                          <div className="absolute top-3 right-3 z-[1200] w-8 h-8 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-sm">
+                            <ImageIcon className="h-4 w-4 text-slate-700" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col flex-1 px-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider bg-purple-50 px-2 py-1 rounded-md">
+                            {report.category || "GENERAL"}
+                          </p>
+                          <h3 className="text-sm font-bold text-slate-400">#{report.id}</h3>
+                        </div>
+                        
+                        <p className="text-sm font-bold text-slate-900 leading-relaxed line-clamp-2 mb-3">
+                          {report.description || (!report.ipfsLoaded ? "Loading..." : "No description")}
+                        </p>
+                        
+                        <div className="flex items-center justify-between pt-4 mt-auto border-t border-slate-50">
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                              <ThumbsUp className="h-3.5 w-3.5" /> {report.upvotes}
+                            </span>
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md">
+                              <ThumbsDown className="h-3.5 w-3.5" /> {report.downvotes}
+                            </span>
+                          </div>
+                          <Link href={`/issues/${report.id}`} className="text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors">
+                            Details →
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* REPORTS PAGINATION */}
+              {totalCount > LIMIT && (
+                <div className="flex justify-center items-center gap-4 pt-10">
                   <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${filter === f
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors shadow-sm"
+                    disabled={offset === 0 || loadingReports}
+                    onClick={() => setOffset((prev) => Math.max(0, prev - LIMIT))}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors shadow-sm"
+                    disabled={offset + LIMIT >= totalCount || loadingReports}
+                    onClick={() => setOffset((prev) => prev + LIMIT)}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeFeedTab === "emergency" && (
+            <CitizenEmergencyFeed />
+          )}
+
+          {activeFeedTab === "polls" && (
+            <>
+              {/* POLLS FILTERS */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+                  <button
+                    onClick={() => { setPollsFilter("all"); setPollsPage(1); }}
+                    className={`px-4 py-2 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 ${pollsFilter === "all"
+                        ? "bg-purple-50 text-purple-700 border border-purple-100"
+                        : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
                       }`}
                   >
-                    {f}
+                    <span>All</span>
+                    <span className={`px-1.5 py-0.5 text-[9px] rounded-md ${pollsFilter === "all" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                      {polls.length}
+                    </span>
                   </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-                <span>SORT BY:</span>
-                <div className="relative flex items-center gap-1 text-blue-600 cursor-pointer">
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value)}
-                    className="appearance-none bg-transparent pr-5 font-bold text-blue-600 focus:outline-none cursor-pointer"
+                  <button
+                    onClick={() => { setPollsFilter("open"); setPollsPage(1); }}
+                    className={`px-4 py-2 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 ${pollsFilter === "open"
+                        ? "bg-purple-50 text-purple-700 border border-purple-100"
+                        : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                      }`}
                   >
-                    {SORT_OPTIONS.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="h-4 w-4 pointer-events-none absolute right-0" />
-                </div>
-              </div>
-            </div>
-
-            {/* REPORTS STATES */}
-            {loadingReports && reports.length === 0 ? (
-              <div className="py-32 text-center">
-                <RotateCw className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-slate-500 font-medium">Syncing public ledger...</p>
-              </div>
-            ) : errorReports ? (
-              <div className="p-6 bg-red-50 text-red-600 rounded-2xl border border-red-100 flex items-start gap-3">
-                <AlertCircle className="h-6 w-6 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold text-lg">Error Loading Reports</h4>
-                  <p className="mt-1">{errorReports}</p>
-                </div>
-              </div>
-            ) : reports.length === 0 ? (
-              <div className="text-center py-32 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <FileText className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-                <p className="text-xl font-medium text-slate-900">No reports recorded yet</p>
-              </div>
-            ) : (
-              /* REPORTS GRID */
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {reports.map((report) => (
-                  <div
-                    key={report.id}
-                    className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-200"
+                    <span>Active</span>
+                    <span className={`px-1.5 py-0.5 text-[9px] rounded-md ${pollsFilter === "open" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                      {polls.filter(p => p.isActive && Math.floor(Date.now() / 1000) < p.deadline).length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => { setPollsFilter("closed"); setPollsPage(1); }}
+                    className={`px-4 py-2 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 ${pollsFilter === "closed"
+                        ? "bg-purple-50 text-purple-700 border border-purple-100"
+                        : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+                      }`}
                   >
-                    <div className="relative h-56 bg-slate-100 overflow-hidden">
-                      <ReportVisual report={report} />
-                      {!report.ipfsLoaded && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 z-[1200]">
-                          <RotateCw className="h-5 w-5 animate-spin text-slate-400" />
-                        </div>
-                      )}
-                      <span
-                        className={`absolute top-3 left-3 z-[1200] px-3 py-1 rounded-full text-xs font-bold ${getStatusDetails(report.status).bg
-                          } ${getStatusDetails(report.status).text}`}
-                      >
-                        {getStatusDetails(report.status).label}
-                      </span>
-                      {report.imageUrl && (
-                        <div className="absolute top-3 right-3 z-[1200] w-8 h-8 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center shadow">
-                          <ImageIcon className="h-4 w-4 text-slate-700" />
-                        </div>
-                      )}
-                      {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
-                        <div className="absolute bottom-3 right-3 z-[1200] bg-white/90 backdrop-blur-sm px-2.5 py-1.5 rounded-xl shadow flex items-center gap-1">
-                          <CountdownTimer deadline={report.phaseDeadline} compact />
-                        </div>
-                      )}
-                    </div>
+                    <span>Completed</span>
+                    <span className={`px-1.5 py-0.5 text-[9px] rounded-md ${pollsFilter === "closed" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                      {polls.filter(p => !p.isActive || Math.floor(Date.now() / 1000) >= p.deadline).length}
+                    </span>
+                  </button>
+                </div>
 
-                    <div className="p-5 flex flex-col flex-1">
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Shield className="h-3 w-3" />
-                        {report.category || "GENERAL"}
-                      </p>
-                      <h3 className="text-lg font-bold text-slate-900 mb-2">
-                        Report #{report.id}
-                      </h3>
-                      <p className="text-sm text-slate-500 leading-relaxed line-clamp-3 flex-1 mb-3">
-                        {report.description ||
-                          (!report.ipfsLoaded
-                            ? "Loading metadata from IPFS..."
-                            : "No description available.")}
-                      </p>
-                      {report.location && (
-                        <div className="flex items-start gap-1.5 text-xs text-slate-400 mb-4">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">{report.location}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                        <div className="flex items-center gap-4">
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
-                            <ThumbsUp className="h-4 w-4" />
-                            {report.upvotes}
-                          </span>
-                          <span className="flex items-center gap-1.5 text-sm font-bold text-red-600">
-                            <ThumbsDown className="h-4 w-4" />
-                            {report.downvotes}
-                          </span>
-                        </div>
-                        <Link
-                          href={`/issues/${report.id}`}
-                          className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                          Detail →
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* REPORTS PAGINATION */}
-            {totalCount > LIMIT && (
-              <div className="flex justify-center items-center gap-4 pt-10">
                 <button
-                  className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 transition-colors"
-                  disabled={offset === 0 || loadingReports}
-                  onClick={() => setOffset((prev) => Math.max(0, prev - LIMIT))}
+                  onClick={handleRefresh}
+                  disabled={loadingPolls}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full hover:bg-slate-50 disabled:opacity-50 transition-all text-xs shadow-sm shrink-0"
                 >
-                  ← Previous
-                </button>
-                <span className="text-sm text-slate-500 font-medium">
-                  Showing {offset + 1}–{Math.min(offset + LIMIT, totalCount)} of {totalCount} reports
-                </span>
-                <button
-                  className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-40 transition-colors"
-                  disabled={offset + LIMIT >= totalCount || loadingReports}
-                  onClick={() => setOffset((prev) => prev + LIMIT)}
-                >
-                  Next →
+                  <RotateCw className={`h-3.5 w-3.5 ${loadingPolls ? "animate-spin" : ""}`} />
+                  Refresh
                 </button>
               </div>
-            )}
-          </>
-        )}
 
-        {activeFeedTab === "emergency" && (
-          <CitizenEmergencyFeed />
-        )}
+              {/* POLLS STATES */}
+              {loadingPolls && polls.length === 0 ? (
+                <div className="py-20 text-center">
+                  <RotateCw className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium">Syncing opinion polls ledger...</p>
+                </div>
+              ) : paginatedPolls.length === 0 ? (
+                <div className="text-center bg-white border border-slate-100 rounded-3xl py-20 px-4 shadow-sm">
+                  <p className="text-slate-500 font-bold">No opinion polls found in this category.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {paginatedPolls.map((poll) => {
+                    const totalVotes = poll.results?.reduce((a, b) => a + b, 0) || 0;
+                    const isExpired = Math.floor(Date.now() / 1000) >= poll.deadline;
+                    const isOpen = poll.isActive && !isExpired;
 
-        {activeFeedTab === "polls" && (
-          <>
-            {/* POLLS FILTERS */}
-            <div className="flex space-x-2 bg-slate-100 p-1.5 rounded-xl self-start mb-6 w-fit shadow-inner">
-              <button
-                onClick={() => { setPollsFilter("all"); setPollsPage(1); }}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${pollsFilter === "all"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <span>All Polls</span>
-                <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${pollsFilter === "all" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                  {polls.length}
-                </span>
-              </button>
-              <button
-                onClick={() => { setPollsFilter("open"); setPollsPage(1); }}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${pollsFilter === "open"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <span>Active</span>
-                <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${pollsFilter === "open" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                  {polls.filter(p => p.isActive && Math.floor(Date.now() / 1000) < p.deadline).length}
-                </span>
-              </button>
-              <button
-                onClick={() => { setPollsFilter("closed"); setPollsPage(1); }}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-1.5 ${pollsFilter === "closed"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                  }`}
-              >
-                <span>Completed</span>
-                <span className={`px-1.5 py-0.5 text-[10px] rounded-md ${pollsFilter === "closed" ? "bg-blue-50 text-blue-600" : "bg-slate-200 text-slate-600"}`}>
-                  {polls.filter(p => !p.isActive || Math.floor(Date.now() / 1000) >= p.deadline).length}
-                </span>
-              </button>
-            </div>
-
-            {/* POLLS STATES */}
-            {loadingPolls && polls.length === 0 ? (
-              <div className="py-32 text-center">
-                <RotateCw className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-4" />
-                <p className="text-slate-500 font-medium">Syncing opinion polls ledger...</p>
-              </div>
-            ) : paginatedPolls.length === 0 ? (
-              <div className="text-center bg-white border border-slate-200 rounded-2xl py-16 px-4 shadow-sm">
-                <p className="text-slate-500 font-medium">No opinion polls found in this category.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {paginatedPolls.map((poll) => {
-                  const totalVotes = poll.results?.reduce((a, b) => a + b, 0) || 0;
-                  const isExpired = Math.floor(Date.now() / 1000) >= poll.deadline;
-                  const isOpen = poll.isActive && !isExpired;
-
-                  return (
-                    <div key={poll.id} className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">
-                      <div className="flex justify-between items-start gap-3">
-                        <h2 className="text-xl font-bold tracking-tight text-slate-850">{poll.title}</h2>
-                        <span className={`px-2.5 py-0.5 text-xs font-bold rounded-lg uppercase border shrink-0 ${isOpen
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                            : "bg-slate-100 text-slate-500 border-slate-200"
-                          }`}>
-                          {isOpen ? "Open" : "Closed"}
-                        </span>
-                      </div>
-
-                      <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{poll.description}</p>
-
-                      {poll.images && poll.images.length > 0 && (
-                        <div className="pt-1">
-                          {poll.images.length === 1 ? (
-                            <div className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:opacity-90 transition-opacity">
-                              <img
-                                src={`data:${poll.images[0].mimeType};base64,${poll.images[0].data}`}
-                                alt={poll.images[0].originalName}
-                                onClick={() => setActiveImage(poll.images![0])}
-                                className="w-full max-h-48 object-cover cursor-pointer"
-                              />
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {poll.images.map((img, index) => (
-                                <div key={index} className="overflow-hidden rounded-lg border border-slate-200 shadow-sm hover:opacity-90 transition-opacity aspect-video">
-                                  <img
-                                    src={`data:${img.mimeType};base64,${img.data}`}
-                                    alt={img.originalName}
-                                    onClick={() => setActiveImage(img)}
-                                    className="w-full h-full object-cover cursor-pointer"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                    return (
+                      <div key={poll.id} className="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="flex justify-between items-start gap-3 mb-4">
+                          <h2 className="text-xl font-bold tracking-tight text-slate-900">{poll.title}</h2>
+                          <span className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider shrink-0 ${isOpen
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
+                            }`}>
+                            {isOpen ? "Active" : "Closed"}
+                          </span>
                         </div>
-                      )}
 
-                      {/* Vote Options Block */}
-                      <div className="space-y-2 pt-2">
-                        {poll.options.map((option, idx) => {
-                          const voteCount = poll.results?.[idx] || 0;
-                          const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+                        <p className="text-slate-500 text-sm leading-relaxed mb-6 whitespace-pre-wrap">{poll.description}</p>
 
-                          let barColorClass = "bg-blue-600/10";
-                          let textColorClass = "text-blue-600";
+                        {poll.images && poll.images.length > 0 && (
+                          <div className="mb-6">
+                            {poll.images.length === 1 ? (
+                              <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-100">
+                                <img
+                                  src={`data:${poll.images[0].mimeType};base64,${poll.images[0].data}`}
+                                  alt={poll.images[0].originalName}
+                                  onClick={() => setActiveImage(poll.images![0])}
+                                  className="w-full max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                />
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {poll.images.map((img, index) => (
+                                  <div key={index} className="overflow-hidden rounded-xl border border-slate-100 aspect-video">
+                                    <img
+                                      src={`data:${img.mimeType};base64,${img.data}`}
+                                      alt={img.originalName}
+                                      onClick={() => setActiveImage(img)}
+                                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                          if (poll.pollType === 0) {
-                            if (idx === 0) {
-                              barColorClass = "bg-rose-500/10";
-                              textColorClass = "text-rose-600";
-                            } else {
-                              barColorClass = "bg-emerald-500/10";
-                              textColorClass = "text-emerald-600";
+                        {/* Vote Options Block */}
+                        <div className="space-y-3">
+                          {poll.options.map((option, idx) => {
+                            const voteCount = poll.results?.[idx] || 0;
+                            const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+
+                            let barColorClass = "bg-purple-600/10";
+                            let textColorClass = "text-purple-600";
+
+                            if (poll.pollType === 0) {
+                              if (idx === 0) {
+                                barColorClass = "bg-rose-500/10";
+                                textColorClass = "text-rose-600";
+                              } else {
+                                barColorClass = "bg-emerald-500/10";
+                                textColorClass = "text-emerald-600";
+                              }
                             }
-                          } else {
-                            const colors = [
-                              { bar: "bg-blue-600/10", text: "text-blue-600" },
-                              { bar: "bg-indigo-600/10", text: "text-indigo-600" },
-                              { bar: "bg-sky-600/10", text: "text-sky-600" },
-                              { bar: "bg-violet-600/10", text: "text-violet-600" }
-                            ];
-                            const choiceStyle = colors[idx % colors.length];
-                            barColorClass = choiceStyle.bar;
-                            textColorClass = choiceStyle.text;
-                          }
 
-                          const citizenVotedOnThisPoll = userVotes[poll.id] !== undefined;
-                          const hasVotedThisOption = userVotes[poll.id] === idx;
+                            const citizenVotedOnThisPoll = userVotes[poll.id] !== undefined;
+                            const hasVotedThisOption = userVotes[poll.id] === idx;
 
-                          return (
-                            <div key={idx} className={`relative flex flex-col justify-center rounded-xl p-3.5 overflow-hidden border transition-all ${hasVotedThisOption
-                                ? "bg-blue-50/20 border-blue-300 ring-1 ring-blue-300 shadow-sm"
-                                : "bg-slate-50 border-slate-100"
-                              }`}>
-                              {!isOpen && (
-                                <div className={`absolute top-0 left-0 bottom-0 ${barColorClass} transition-all duration-700 ease-out`} style={{ width: `${percentage}%` }} />
-                              )}
+                            return (
+                              <div key={idx} className={`relative flex flex-col justify-center rounded-2xl p-4 md:p-5 overflow-hidden transition-all border ${hasVotedThisOption
+                                  ? "bg-purple-50 border-purple-400 ring-1 ring-purple-400 shadow-sm"
+                                  : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                                }`}>
+                                {!isOpen && (
+                                  <div className={`absolute top-0 left-0 bottom-0 ${barColorClass} transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
+                                )}
 
-                              <div className="relative z-10 flex justify-between items-center w-full">
-                                <div className="flex items-center gap-3">
-                                  {isOpen && wallet && !citizenVotedOnThisPoll ? (
-                                    poll.pollType === 0 ? (
-                                      idx === 0 ? (
-                                        <button
-                                          disabled={votingMap[poll.id]}
-                                          onClick={() => handleCastVote(poll.id, idx)}
-                                          className="p-1.5 hover:bg-rose-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
-                                          title="Vote No"
-                                        >
-                                          <ThumbsDown className="w-5 h-5 text-rose-500 hover:-rotate-12 hover:scale-110 transition-transform" />
-                                        </button>
+                                <div className="relative z-10 flex justify-between items-center w-full">
+                                  <div className="flex items-center gap-3">
+                                    {isOpen && wallet && !citizenVotedOnThisPoll ? (
+                                      poll.pollType === 0 ? (
+                                        idx === 0 ? (
+                                          <button
+                                            disabled={votingMap[poll.id]}
+                                            onClick={() => handleCastVote(poll.id, idx)}
+                                            className="p-1.5 bg-white hover:bg-rose-50 rounded-xl transition shadow-sm disabled:opacity-50"
+                                          >
+                                            <ThumbsDown className="w-5 h-5 text-rose-500" />
+                                          </button>
+                                        ) : (
+                                          <button
+                                            disabled={votingMap[poll.id]}
+                                            onClick={() => handleCastVote(poll.id, idx)}
+                                            className="p-1.5 bg-white hover:bg-emerald-50 rounded-xl transition shadow-sm disabled:opacity-50"
+                                          >
+                                            <ThumbsUp className="w-5 h-5 text-emerald-500" />
+                                          </button>
+                                        )
                                       ) : (
                                         <button
                                           disabled={votingMap[poll.id]}
                                           onClick={() => handleCastVote(poll.id, idx)}
-                                          className="p-1.5 hover:bg-emerald-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
-                                          title="Vote Yes"
+                                          className="p-1.5 bg-white hover:bg-purple-50 rounded-xl transition shadow-sm disabled:opacity-50"
                                         >
-                                          <ThumbsUp className="w-5 h-5 text-emerald-500 hover:rotate-12 hover:scale-110 transition-transform" />
+                                          <CheckCircle2 className="w-5 h-5 text-purple-600" />
                                         </button>
                                       )
                                     ) : (
-                                      <button
-                                        disabled={votingMap[poll.id]}
-                                        onClick={() => handleCastVote(poll.id, idx)}
-                                        className="p-1.5 hover:bg-blue-50 rounded-xl transition active:scale-95 disabled:opacity-50 shrink-0"
-                                        title="Vote Option"
-                                      >
-                                        <CheckCircle2 className="w-5 h-5 text-blue-600 hover:scale-110 transition-transform" />
-                                      </button>
-                                    )
-                                  ) : (
-                                    (poll.pollType === 0 && (
-                                      idx === 0
-                                        ? <ThumbsDown className="w-4.5 h-4.5 text-rose-400 shrink-0" />
-                                        : <ThumbsUp className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
-                                    ))
-                                  )}
-                                  <span className="font-semibold text-sm text-slate-700">
-                                    {option.trim().toLowerCase() === "false"
-                                      ? "Disagree / No"
-                                      : option.trim().toLowerCase() === "true"
-                                        ? "Agree / Yes"
-                                        : option}
-                                  </span>
-                                  {hasVotedThisOption && (
-                                    <span className="inline-block text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 shadow-sm">
-                                      Your Vote
+                                      (poll.pollType === 0 && (
+                                        idx === 0
+                                          ? <ThumbsDown className="w-4.5 h-4.5 text-rose-400 shrink-0" />
+                                          : <ThumbsUp className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
+                                      ))
+                                    )}
+                                    <span className="font-bold text-sm text-slate-700">
+                                      {option.trim().toLowerCase() === "false"
+                                        ? "Disagree / No"
+                                        : option.trim().toLowerCase() === "true"
+                                          ? "Agree / Yes"
+                                          : option}
                                     </span>
+                                  </div>
+
+                                  {!isOpen ? (
+                                    <div className="text-xs font-mono text-slate-500 space-x-2">
+                                      <span>{voteCount} votes</span>
+                                      <span className={`${textColorClass} font-bold`}>({percentage}%)</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-400 italic">Results hidden</span>
                                   )}
                                 </div>
-
-                                {!isOpen ? (
-                                  <div className="text-xs font-mono text-slate-500 space-x-2">
-                                    <span>{voteCount} votes</span>
-                                    <span className={`${textColorClass} font-bold`}>({percentage}%)</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-[11px] text-slate-400 italic">Results hidden until closed</span>
-                                )}
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                      <div className="text-[11px] text-slate-400 font-medium pt-3 border-t border-slate-100 flex justify-between">
-                        <span>Total Votes: {isOpen ? "Hidden" : totalVotes}</span>
-                        <span>Expires: {new Date(poll.deadline * 1000).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              {/* POLLS PAGINATION */}
+              {totalPollsPages > 1 && (
+                <div className="flex justify-center items-center gap-4 pt-8">
+                  <button
+                    disabled={activePollsPage === 1}
+                    onClick={() => setPollsPage(prev => prev - 1)}
+                    className="px-6 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={activePollsPage === totalPollsPages}
+                    onClick={() => setPollsPage(prev => prev + 1)}
+                    className="px-6 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
-            {/* POLLS PAGINATION */}
-            {totalPollsPages > 1 && (
-              <div className="flex justify-center items-center space-x-4 pt-6">
-                <button
-                  disabled={activePollsPage === 1}
-                  onClick={() => setPollsPage(prev => prev - 1)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
-                >
-                  Previous
-                </button>
-                <span className="text-sm font-medium text-slate-500">
-                  Page {activePollsPage} of {totalPollsPages}
-                </span>
-                <button
-                  disabled={activePollsPage === totalPollsPages}
-                  onClick={() => setPollsPage(prev => prev + 1)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
-        )}
+
       </div>
 
       {/* Image Preview Modal */}
       {activeImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-all duration-300"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-all duration-300"
           onClick={() => setActiveImage(null)}
         >
           <div className="relative max-w-4xl max-h-[85vh] w-full h-full flex items-center justify-center">
             <img
               src={`data:${activeImage.mimeType};base64,${activeImage.data}`}
               alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
             />
             <button
               onClick={() => setActiveImage(null)}
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full px-3 py-1.5 text-xs font-bold backdrop-blur-sm transition"
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full px-4 py-2 text-sm font-bold backdrop-blur-sm transition"
             >
               ✕ Close
             </button>

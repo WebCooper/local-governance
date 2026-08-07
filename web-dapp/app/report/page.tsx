@@ -474,7 +474,7 @@ export default function ReportPage() {
             <button
               type="submit"
               disabled={isSubmitting || isProcessingImages || !wallet}
-              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-medium rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-[16px] shadow-sm shadow-orange-500/20 transition-all flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -499,28 +499,35 @@ export default function ReportPage() {
       {/* ═══════════════════════════════════════════════
           DESKTOP LAYOUT
       ═══════════════════════════════════════════════ */}
-      <div className="hidden md:flex flex-col w-full min-h-screen">
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+      <div className="hidden md:flex flex-col min-h-screen bg-[#F9FAFB] pb-8 pt-4 md:pt-8 text-slate-800">
+        <form onSubmit={handleSubmit} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col w-full h-full">
 
-          {/* Page Header */}
-          <div className="px-8 pt-6 pb-4">
-            <h1 className="text-4xl font-extrabold text-blue-600 tracking-tight mb-1">
-              Create New Report
+          {/* HERO BANNER */}
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-orange-500 to-red-600 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg className="animate-spin-in" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
+              </svg>
+            </div>
+            
+            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-orange-200">Civic Action</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+              Report an Issue
             </h1>
-            <p className="text-slate-500 text-sm">
-              Submit a secure, decentralized civic report. Your identity remains protected by AuraChain protocol.
+            <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-2">
+               Submit a secure, decentralized civic report. Your identity remains protected by AuraChain protocol. Your voice shapes the community.
             </p>
           </div>
 
           {/* Status Banner */}
           {statusMessage && (
-            <div className="mx-8 mb-4">
+            <div className="mb-6 w-full">
               <StatusBanner />
             </div>
           )}
 
           {/* Main Form Content Container */}
-          <div className="px-8 pb-8 flex-1 flex flex-col gap-6">
+          <div className="flex-1 flex flex-col gap-6 w-full mb-8">
 
             {/* Main Grid: 2 columns */}
             <div className="grid grid-cols-2 gap-6 flex-1">
@@ -529,9 +536,9 @@ export default function ReportPage() {
               <div className="flex flex-col gap-6">
 
                 {/* Step 1 – Describe */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+                <div className="bg-white rounded-[24px] border border-slate-100/60 p-6 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
                       1
                     </div>
                     <h2 className="text-lg font-bold text-slate-900">Describe the Issue</h2>
@@ -546,7 +553,7 @@ export default function ReportPage() {
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full appearance-none border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all cursor-pointer pr-10"
+                        className="w-full appearance-none border border-slate-200/80 rounded-[16px] px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer pr-10 hover:border-slate-300"
                       >
                         {CATEGORIES.map((c) => (
                           <option key={c} value={c}>{c}</option>
@@ -570,7 +577,7 @@ export default function ReportPage() {
                       rows={5}
                       maxLength={MAX_DESC_LENGTH}
                       placeholder="Provide specific details about the issue (what happened, exact landmark, urgency level)..."
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm resize-none"
+                      className="w-full rounded-[16px] border border-slate-200/80 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm resize-none hover:border-slate-300"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={isSubmitting}
@@ -579,11 +586,11 @@ export default function ReportPage() {
                 </div>
 
                 {/* Step 2 – Photos */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex-1 flex flex-col justify-between">
+                <div className="bg-white rounded-[24px] border border-slate-100/60 p-6 shadow-sm hover:shadow-md transition-shadow flex-1 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between mb-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
                           2
                         </div>
                         <h2 className="text-lg font-bold text-slate-900">Upload Evidence Photo</h2>
@@ -621,9 +628,9 @@ export default function ReportPage() {
                         type="button"
                         onClick={() => setShowUploadOptions(true)}
                         disabled={isProcessingImages}
-                        className="w-full border-2 border-dashed border-slate-200 hover:border-blue-500 hover:bg-blue-50/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                        className="w-full border-2 border-dashed border-slate-200/80 hover:border-orange-400 hover:bg-orange-50/50 rounded-[16px] p-6 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                       >
-                        <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                           <UploadCloud className="h-6 w-6" />
                         </div>
                         <span className="text-sm font-bold text-slate-800">
@@ -637,7 +644,7 @@ export default function ReportPage() {
                   </div>
 
                   <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-                    <Shield className="h-4 w-4 text-blue-600 shrink-0" />
+                    <Shield className="h-4 w-4 text-orange-500 shrink-0" />
                     <span>Faces and PII are automatically blurred by AI Oracle before IPFS storage.</span>
                   </div>
                 </div>
@@ -647,10 +654,10 @@ export default function ReportPage() {
               <div className="flex flex-col gap-6">
 
                 {/* Step 3 – Location */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex-1 flex flex-col">
-                  <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
+                <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex-1 flex flex-col">
+                  <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100/60">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
                         3
                       </div>
                       <h2 className="text-lg font-bold text-slate-900">Pin Location</h2>
@@ -666,7 +673,7 @@ export default function ReportPage() {
             </div>
 
             {/* ── Emergency Toggle ── */}
-            <div className="bg-red-50/80 border border-red-100/90 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="bg-red-50/80 border border-red-100/90 rounded-[24px] p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex-1">
                 <h3 className="text-red-800 font-bold text-base mb-1 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-red-600 shrink-0" /> Urgent / Emergency Report
@@ -691,10 +698,10 @@ export default function ReportPage() {
             </div>
           </div>
 
-          {/* ── Sticky Bottom Action Bar ── */}
-          <div className="sticky bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-8 py-4 flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgb(0,0,0,0.06)]">
+          {/* ── Sticky Bottom Action Bar (Floating Island) ── */}
+          <div className="sticky bottom-6 z-40 bg-white/95 backdrop-blur-md border border-slate-200/60 rounded-3xl px-8 py-5 flex items-center justify-between gap-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
             <div className="flex items-start gap-3 text-slate-500 text-xs leading-relaxed max-w-md">
-              <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+              <Shield className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
               <span>
                 By submitting, your report will be encrypted using Zero-Knowledge Proofs. Only the
                 final data is public — your wallet and IP are never stored.
@@ -711,7 +718,7 @@ export default function ReportPage() {
               <button
                 type="submit"
                 disabled={isSubmitting || isProcessingImages || !wallet}
-                className="py-3 px-8 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 text-sm cursor-pointer"
+                className="py-3 px-8 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center gap-2 text-sm cursor-pointer"
               >
                 {isSubmitting ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -726,7 +733,7 @@ export default function ReportPage() {
           </div>
 
           {/* Footer */}
-          <footer className="px-8 py-6 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium bg-slate-50/50">
+          <footer className="py-6 mt-4 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
             <div className="flex items-center gap-3">
               <span className="font-extrabold text-blue-600 text-base tracking-tight">AuraChain</span>
               <span>© 2026 AuraChain. Decentralized Governance for Local Communities.</span>
