@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Filter,
+  ChevronDown,
 } from "lucide-react";
 import { EmergencyReportingABI } from "@/lib/contracts/abis";
 import { EMERGENCY_REPORTING_ADDRESS } from "@/context/AdminContext";
@@ -36,6 +37,7 @@ export function CitizenEmergencyFeed() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "open" | "inProgress" | "resolved">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
   const fetchEmergencyReports = async () => {
     setLoading(true);
@@ -101,9 +103,9 @@ export function CitizenEmergencyFeed() {
   return (
     <div className="space-y-6">
       {/* Search and Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm relative z-[2000]">
+        {/* Desktop Filter Pills */}
+        <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
@@ -144,6 +146,45 @@ export function CitizenEmergencyFeed() {
           >
             Resolved
           </button>
+        </div>
+
+        {/* Mobile Filter Dropdown */}
+        <div className="w-full md:hidden relative">
+          <button
+            onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-red-500/20 shadow-sm"
+          >
+            {filter === "all" ? `All Emergencies (${reports.length})` : filter === "open" ? "Open Alerts" : filter === "inProgress" ? "In Progress" : "Resolved"}
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </button>
+          {isFilterDropdownOpen && (
+            <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-lg z-[2000] py-2">
+              <button
+                onClick={() => { setFilter("all"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "all" ? "bg-red-50 text-red-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                All Emergencies ({reports.length})
+              </button>
+              <button
+                onClick={() => { setFilter("open"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "open" ? "bg-red-50 text-red-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                Open Alerts
+              </button>
+              <button
+                onClick={() => { setFilter("inProgress"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "inProgress" ? "bg-indigo-50 text-indigo-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                In Progress
+              </button>
+              <button
+                onClick={() => { setFilter("resolved"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "resolved" ? "bg-green-50 text-green-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                Resolved
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Search Input */}

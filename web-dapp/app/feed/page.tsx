@@ -409,6 +409,8 @@ export default function FeedPage() {
   const [votingMap, setVotingMap] = useState<Record<number, boolean>>({});
   const [userVotes, setUserVotes] = useState<Record<number, number>>({});
   const [activeImage, setActiveImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const [isReportFilterDropdownOpen, setIsReportFilterDropdownOpen] = useState(false);
+  const [isPollFilterDropdownOpen, setIsPollFilterDropdownOpen] = useState(false);
   const pollsPerPage = 5;
 
   // Local storage votes tracking
@@ -703,8 +705,9 @@ export default function FeedPage() {
           {activeFeedTab === "reports" && (
             <>
               {/* REPORTS FILTERS */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 w-full relative z-[2000]">
+                {/* Desktop Pills */}
+                <div className="hidden md:flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
                   {FILTERS.map((f) => (
                     <button
                       key={f}
@@ -717,6 +720,30 @@ export default function FeedPage() {
                       {f}
                     </button>
                   ))}
+                </div>
+
+                {/* Mobile Dropdown */}
+                <div className="w-full md:hidden relative">
+                  <button
+                    onClick={() => setIsReportFilterDropdownOpen(!isReportFilterDropdownOpen)}
+                    className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl pl-4 pr-4 py-3 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm"
+                  >
+                    {filter}
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  </button>
+                  {isReportFilterDropdownOpen && (
+                    <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-lg z-[2000] py-2">
+                      {FILTERS.map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => { setFilter(f); setIsReportFilterDropdownOpen(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === f ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50"}`}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -750,7 +777,7 @@ export default function FeedPage() {
                 </div>
               ) : (
                 /* REPORTS GRID */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {reports.map((report) => (
                     <div
                       key={report.id}
@@ -835,8 +862,9 @@ export default function FeedPage() {
           {activeFeedTab === "polls" && (
             <>
               {/* POLLS FILTERS */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 w-full relative z-[2000]">
+                {/* Desktop Pills */}
+                <div className="hidden md:flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
                   <button
                     onClick={() => { setPollsFilter("all"); setPollsPage(1); }}
                     className={`px-4 py-2 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 ${pollsFilter === "all"
@@ -873,6 +901,39 @@ export default function FeedPage() {
                       {polls.filter(p => !p.isActive || Math.floor(Date.now() / 1000) >= p.deadline).length}
                     </span>
                   </button>
+                </div>
+
+                {/* Mobile Dropdown */}
+                <div className="w-full md:hidden relative">
+                  <button
+                    onClick={() => setIsPollFilterDropdownOpen(!isPollFilterDropdownOpen)}
+                    className="w-full bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl pl-4 pr-4 py-3 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm"
+                  >
+                    {pollsFilter === "all" ? `All (${polls.length})` : pollsFilter === "open" ? `Active (${polls.filter(p => p.isActive && Math.floor(Date.now() / 1000) < p.deadline).length})` : `Completed (${polls.filter(p => !p.isActive || Math.floor(Date.now() / 1000) >= p.deadline).length})`}
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  </button>
+                  {isPollFilterDropdownOpen && (
+                    <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-lg z-[2000] py-2">
+                      <button
+                        onClick={() => { setPollsFilter("all"); setPollsPage(1); setIsPollFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${pollsFilter === "all" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        All ({polls.length})
+                      </button>
+                      <button
+                        onClick={() => { setPollsFilter("open"); setPollsPage(1); setIsPollFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${pollsFilter === "open" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        Active ({polls.filter(p => p.isActive && Math.floor(Date.now() / 1000) < p.deadline).length})
+                      </button>
+                      <button
+                        onClick={() => { setPollsFilter("closed"); setPollsPage(1); setIsPollFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${pollsFilter === "closed" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        Completed ({polls.filter(p => !p.isActive || Math.floor(Date.now() / 1000) >= p.deadline).length})
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button

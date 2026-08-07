@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { User, LogOut, LayoutDashboard, ShieldCheck, Search } from "lucide-react";
+import { User, LogOut, LayoutDashboard, ShieldCheck, Search, Shield } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
 import { useRouter } from "next/navigation";
@@ -57,6 +57,12 @@ export function TopAppBar({ className = "" }: { className?: string }) {
   return (
     <header className={`flex items-center justify-between px-6 py-4 bg-white z-50 ${className}`}>
       
+      {/* Mobile Logo */}
+      <div className="flex items-center gap-2 md:hidden">
+        <Shield className="h-6 w-6 text-blue-600" />
+        <span className="font-bold text-xl text-slate-900 tracking-tight">AURACHAIN</span>
+      </div>
+
       {/* Search Bar */}
       <div className="flex-1 max-w-xl relative hidden md:block">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
