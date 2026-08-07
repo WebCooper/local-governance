@@ -316,205 +316,220 @@ export default function ProfilePage() {
       {/* ══════════════════════════════════════════════
           DESKTOP LAYOUT
       ══════════════════════════════════════════════ */}
-      <div className="hidden md:flex flex-col w-full min-h-screen">
-        <div className="px-8 pt-6 pb-4">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-1">Profile Dashboard</h1>
-          <p className="text-slate-500 text-sm">Your anonymous civic identity and governance activity.</p>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32">
-            <RotateCw className="h-8 w-8 animate-spin text-blue-600 mb-3" />
-            <p className="text-slate-500 text-sm">Verifying cryptographic session…</p>
-          </div>
-        ) : error ? (
-          <div className="mx-8 p-5 bg-red-50 border border-red-100 rounded-2xl flex gap-3 text-sm text-red-600">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" /> {error}
-          </div>
-        ) : (
-          <div className="px-8 pb-8 space-y-5">
-
-            {/* ── Profile Header Card ── */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-center gap-6">
-              <div className="relative shrink-0 cursor-pointer group" onClick={() => setShowAvatarModal(true)}>
-                <img 
-                  src={`https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(wallet?.publicKey || pseudonym || "citizen")}`} 
-                  alt="Dicebear Avatar" 
-                  className="w-24 h-24 rounded-full object-cover border-4 border-white shadow bg-blue-50" 
-                />
-                <div className="absolute bottom-1 right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
-                  <CheckCircle2 className="h-4 w-4 text-white" />
-                </div>
-                <div className="absolute inset-0 bg-slate-900/30 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                  Change
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-2xl font-extrabold text-slate-900">Anonymous Citizen</h2>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified Citizen
-                  </span>
-                </div>
-                <p className="text-slate-500 text-sm mb-3">
-                  Zero-knowledge identity active. Contributing to decentralized governance protocols via AuraChain.
-                </p>
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
-                    <Shield className="h-3.5 w-3.5 text-blue-500" /> AURA-{shortAddr}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
-                    <MapPin className="h-3.5 w-3.5 text-blue-500" /> ZK Protected
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
-                    <Calendar className="h-3.5 w-3.5 text-blue-500" /> Since {joinDate}
-                  </span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowAvatarModal(true)}
-                className="px-5 py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-semibold rounded-xl hover:bg-blue-100 transition-colors text-sm shrink-0 flex items-center gap-2"
-              >
-                <span>Customize Avatar</span> 🎨
-              </button>
+      <div className="hidden md:flex flex-col w-full min-h-screen bg-[#F9FAFB]">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col">
+          
+          {/* HERO BANNER */}
+          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-600 p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
+              <svg className="animate-spin-in" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M100 0L105 85L200 100L105 115L100 200L95 115L0 100L95 85L100 0Z" fill="white" />
+              </svg>
             </div>
-
-            {/* ── Middle Row ── */}
-            <div className="grid grid-cols-2 gap-5">
-
-              {/* Account Summary */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-5">Account Summary</h3>
-                <div className="space-y-4 mb-5">
-                  {[
-                    {
-                      icon: <FileText className="h-5 w-5 text-slate-500" />,
-                      label: "Reports Submitted", value: reports.length,
-                      badge: reports.length > 0 ? `+${Math.min(3, reports.length)} this month` : null,
-                    },
-                    {
-                      icon: <CheckCircle2 className="h-5 w-5 text-slate-500" />,
-                      label: "Resolved", value: resolved,
-                      badge: resolved > 0 ? "Community impact" : null,
-                    },
-                    {
-                      icon: <Lock className="h-5 w-5 text-slate-500" />,
-                      label: "ZK Tickets Left", value: availableTicketsCount,
-                      badge: "Anonymous submissions",
-                    },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
-                        {item.icon}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-slate-400 font-medium">{item.label}</p>
-                        <p className="text-2xl font-extrabold text-slate-900">{item.value}</p>
-                      </div>
-                      {item.badge && (
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{item.badge}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Reports */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-xl font-bold text-slate-900">Recent Reports</h3>
-                  <Link href="/my-reports" className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
-                    View Archive <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </div>
-
-                {recentTwo.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
-                    <FileText className="h-10 w-10 text-slate-300 mb-3" />
-                    <p className="text-slate-500 text-sm">No reports submitted yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 mb-5 flex-1">
-                    {recentTwo.map(r => {
-                      const s = getStatusLabel(r.status);
-                      return (
-                        <div key={r.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${s.bg} ${s.color}`}>{s.label}</span>
-                            <span className="text-[10px] text-slate-400">{timeAgo(r.timestamp)}</span>
-                          </div>
-                          <p className="text-sm font-bold text-slate-900 mb-1 line-clamp-1">{r.category || "Loading..."}</p>
-                          <p className="text-xs text-slate-500 line-clamp-2">{r.description || "Loading..."}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <Link
-                  href="/report"
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
-                >
-                  <Plus className="h-4 w-4" /> Submit New Report
-                </Link>
-              </div>
+            
+            <div className="relative z-10 max-w-3xl">
+              <span className="text-blue-100 font-bold tracking-wider text-xs uppercase mb-3 block">Citizen Identity</span>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">Profile Dashboard</h1>
+              <p className="text-blue-50 text-base md:text-lg max-w-2xl leading-relaxed">
+                Your anonymous civic identity and governance activity.
+              </p>
             </div>
+          </div>
 
-            {/* ── Bottom Row: Security & Session Management ── */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center">
-                    <Lock className="h-5 w-5 text-white" />
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32">
+              <RotateCw className="h-8 w-8 animate-spin text-blue-600 mb-3" />
+              <p className="text-slate-500 text-sm">Verifying cryptographic session…</p>
+            </div>
+          ) : error ? (
+            <div className="p-5 bg-red-50 border border-red-100 rounded-[24px] flex gap-3 text-sm text-red-600">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" /> {error}
+            </div>
+          ) : (
+            <div className="space-y-6">
+
+              {/* ── Profile Header Card ── */}
+              <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow p-6 flex items-center gap-6">
+                <div className="relative shrink-0 cursor-pointer group" onClick={() => setShowAvatarModal(true)}>
+                  <img 
+                    src={`https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(wallet?.publicKey || pseudonym || "citizen")}`} 
+                    alt="Dicebear Avatar" 
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow bg-blue-50" 
+                  />
+                  <div className="absolute bottom-1 right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white">
+                    <CheckCircle2 className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">Security & Session Management</h3>
+                  <div className="absolute inset-0 bg-slate-900/30 rounded-full flex items-center justify-center text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                    Change
+                  </div>
                 </div>
-                <button
-                  onClick={logout}
-                  className="px-4 py-2 border border-red-200 text-red-600 font-semibold rounded-xl hover:bg-red-50 transition-colors text-sm flex items-center gap-2"
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-2xl font-extrabold text-slate-900">Anonymous Citizen</h2>
+                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Verified Citizen
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-sm mb-3">
+                    Zero-knowledge identity active. Contributing to decentralized governance protocols via AuraChain.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
+                      <Shield className="h-3.5 w-3.5 text-blue-500" /> AURA-{shortAddr}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
+                      <MapPin className="h-3.5 w-3.5 text-blue-500" /> ZK Protected
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-semibold text-slate-600">
+                      <Calendar className="h-3.5 w-3.5 text-blue-500" /> Since {joinDate}
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAvatarModal(true)}
+                  className="px-5 py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-semibold rounded-[16px] hover:bg-blue-100 transition-colors text-sm shrink-0 flex items-center gap-2"
                 >
-                  <LogOut className="h-4 w-4" /> Sign Out
+                  <span>Customize Avatar</span> 🎨
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-blue-600 shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">ZKP Verification Status</p>
-                      <p className="text-xs text-slate-400">Zero-Knowledge Proof active for all interactions</p>
-                    </div>
+
+              {/* ── Middle Row ── */}
+              <div className="grid grid-cols-2 gap-5">
+
+                {/* Account Summary */}
+                <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow p-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-5">Account Summary</h3>
+                  <div className="space-y-4 mb-5">
+                    {[
+                      {
+                        icon: <FileText className="h-5 w-5 text-slate-500" />,
+                        label: "Reports Submitted", value: reports.length,
+                        badge: reports.length > 0 ? `+${Math.min(3, reports.length)} this month` : null,
+                      },
+                      {
+                        icon: <CheckCircle2 className="h-5 w-5 text-slate-500" />,
+                        label: "Resolved", value: resolved,
+                        badge: resolved > 0 ? "Community impact" : null,
+                      },
+                      {
+                        icon: <Lock className="h-5 w-5 text-slate-500" />,
+                        label: "ZK Tickets Left", value: availableTicketsCount,
+                        badge: "Anonymous submissions",
+                      },
+                    ].map(item => (
+                      <div key={item.label} className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
+                          {item.icon}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-400 font-medium">{item.label}</p>
+                          <p className="text-2xl font-extrabold text-slate-900">{item.value}</p>
+                        </div>
+                        {item.badge && (
+                          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{item.badge}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Encrypted</span>
                 </div>
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex items-center gap-3">
-                    <RefreshCw className="h-5 w-5 text-blue-600 shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Anonymous Citizen Proxy</p>
-                      <p className="text-xs text-slate-400">{shortPseud}</p>
-                    </div>
+
+                {/* Recent Reports */}
+                <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-xl font-bold text-slate-900">Recent Reports</h3>
+                    <Link href="/my-reports" className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1">
+                      View Archive <ChevronRight className="h-4 w-4" />
+                    </Link>
                   </div>
-                  <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase tracking-wide">ZK Active</span>
+
+                  {recentTwo.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
+                      <FileText className="h-10 w-10 text-slate-300 mb-3" />
+                      <p className="text-slate-500 text-sm">No reports submitted yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 mb-5 flex-1">
+                      {recentTwo.map(r => {
+                        const s = getStatusLabel(r.status);
+                        return (
+                          <div key={r.id} className="bg-slate-50 rounded-[16px] p-4 border border-slate-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${s.bg} ${s.color}`}>{s.label}</span>
+                              <span className="text-[10px] text-slate-400">{timeAgo(r.timestamp)}</span>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 mb-1 line-clamp-1">{r.category || "Loading..."}</p>
+                            <p className="text-xs text-slate-500 line-clamp-2">{r.description || "Loading..."}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <Link
+                    href="/report"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-[16px] flex items-center justify-center gap-2 transition-colors text-sm shadow-sm shadow-blue-600/20"
+                  >
+                    <Plus className="h-4 w-4" /> Submit New Report
+                  </Link>
+                </div>
+              </div>
+
+              {/* ── Bottom Row: Security & Session Management ── */}
+              <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center">
+                      <Lock className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900">Security & Session Management</h3>
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="px-4 py-2 border border-red-200 text-red-600 font-semibold rounded-[16px] hover:bg-red-50 transition-colors text-sm flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" /> Sign Out
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-[16px] border border-slate-100/60">
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-5 w-5 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">ZKP Verification Status</p>
+                        <p className="text-xs text-slate-400">Zero-Knowledge Proof active for all interactions</p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Encrypted</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-[16px] border border-slate-100/60">
+                    <div className="flex items-center gap-3">
+                      <RefreshCw className="h-5 w-5 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Anonymous Citizen Proxy</p>
+                        <p className="text-xs text-slate-400">{shortPseud}</p>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase tracking-wide">ZK Active</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Footer */}
-        <footer className="mt-auto px-8 py-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <div className="flex items-center gap-4">
-            <span className="font-bold text-blue-600 text-base">AuraChain</span>
-            <span>© 2024 AuraChain. Decentralized Governance for the People.</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link href="#" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Whitepaper</Link>
-            <Link href="#" className="hover:text-slate-900 transition-colors">Support</Link>
-          </div>
-        </footer>
+          {/* Footer */}
+          <footer className="mt-auto py-6 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 font-medium">
+            <div className="flex items-center gap-4">
+              <span className="font-bold text-blue-600 text-base">AuraChain</span>
+              <span>© 2024 AuraChain. Decentralized Governance for the People.</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link href="#" className="hover:text-slate-900 transition-colors">Privacy Policy</Link>
+              <Link href="#" className="hover:text-slate-900 transition-colors">Terms of Service</Link>
+              <Link href="#" className="hover:text-slate-900 transition-colors">Whitepaper</Link>
+              <Link href="#" className="hover:text-slate-900 transition-colors">Support</Link>
+            </div>
+          </footer>
+        </div>
       </div>
 
       {/* Avatar Style Picker Modal */}
