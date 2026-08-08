@@ -56,8 +56,10 @@ const FILTER_COLORS: Record<string, { active: string; border: string }> = {
 
 const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
 
+import { Suspense } from "react";
+
 // ─── Page Component ───────────────────────────────────────────────────────────
-export default function AuthorityAdminPage() {
+function AuthorityAdminContent() {
   const {
     account,
     isAuthority,
@@ -1257,3 +1259,10 @@ export default function AuthorityAdminPage() {
   );
 }
 
+export default function AuthorityAdminPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+      <AuthorityAdminContent />
+    </Suspense>
+  );
+}
