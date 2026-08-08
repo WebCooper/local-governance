@@ -176,6 +176,18 @@ export default function SuperAdminPage() {
       const count = await contract.proposalCount();
       const loadedProposals = [];
       for (let i = Number(count); i > 0; i--) {
+        let hasVoted = false;
+        let support = false;
+        if (account) {
+          try {
+            const vInfo = await contract.voteInfo(i, account);
+            hasVoted = vInfo.hasVoted;
+            support = vInfo.support;
+          } catch (e) {
+            console.error("Error fetching vote info", e);
+          }
+        }
+
         const p = await contract.proposals(i);
         loadedProposals.push({
           id: i,
@@ -193,6 +205,8 @@ export default function SuperAdminPage() {
           newMinVotes: Number(p.newMinVotes),
           newHybrid1: Number(p.newHybrid1),
           newHybrid2: Number(p.newHybrid2),
+          hasVoted,
+          support,
         });
       }
       setProposals(loadedProposals);
@@ -797,8 +811,8 @@ export default function SuperAdminPage() {
                             </div>
 
                             {/* Vote counts + buttons */}
-                            <div className="flex flex-col sm:flex-row items-center gap-6 w-full lg:w-auto">
-                              <div className="flex gap-6 w-full justify-between sm:justify-start">
+                            <div className="grid grid-cols-2 sm:flex gap-4 sm:gap-6 w-full lg:w-auto">
+                              <div className="flex flex-col gap-2 w-full sm:w-auto">
                                 <div className="text-center bg-green-50 px-4 py-2 rounded-lg border border-green-100">
                                   <div className="text-xs font-semibold text-green-700 uppercase tracking-wide">
                                     Yes Votes
@@ -807,6 +821,22 @@ export default function SuperAdminPage() {
                                     {prop.yesVotes}
                                   </div>
                                 </div>
+                                {!prop.executed && !isExpired && (
+                                  <button
+                                    onClick={() => handleVote(prop.id, true)}
+                                    disabled={prop.hasVoted && prop.support}
+                                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors ${
+                                      prop.hasVoted && prop.support
+                                        ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                        : "bg-green-600 hover:bg-green-700 text-white"
+                                    }`}
+                                  >
+                                    {prop.hasVoted && prop.support ? "Voted Yes" : "Vote Yes"}
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div className="flex flex-col gap-2 w-full sm:w-auto">
                                 <div className="text-center bg-red-50 px-4 py-2 rounded-lg border border-red-100">
                                   <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">
                                     No Votes
@@ -815,24 +845,20 @@ export default function SuperAdminPage() {
                                     {prop.noVotes}
                                   </div>
                                 </div>
-                              </div>
-
-                              {!prop.executed && !isExpired && (
-                                <div className="flex flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                  <button
-                                    onClick={() => handleVote(prop.id, true)}
-                                    className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
-                                  >
-                                    Vote Yes
-                                  </button>
+                                {!prop.executed && !isExpired && (
                                   <button
                                     onClick={() => handleVote(prop.id, false)}
-                                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+                                    disabled={prop.hasVoted && !prop.support}
+                                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors ${
+                                      prop.hasVoted && !prop.support
+                                        ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                        : "bg-red-600 hover:bg-red-700 text-white"
+                                    }`}
                                   >
-                                    Vote No
+                                    {prop.hasVoted && !prop.support ? "Voted No" : "Vote No"}
                                   </button>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </div>
                         </li>
