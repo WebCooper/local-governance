@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
-import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle, Search, Filter, LayoutGrid, Table, ArrowUpDown, Tag } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle, Search, Filter, LayoutGrid, Table, ArrowUpDown, Tag , Menu, X, Home } from "lucide-react";
 import { ReportCard } from "@/components/admin/ReportCard";
 import { EmergencyReportCard } from "@/components/admin/EmergencyReportCard";
 import { AdminAnalyticsHeader } from "@/components/admin/AdminAnalyticsHeader";
@@ -107,10 +107,10 @@ function AuthorityAdminContent() {
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get("tab");
-  const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce" | "emergency">("reports");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "reports" | "polls" | "workforce" | "emergency">("dashboard");
 
   useEffect(() => {
-    if (tabParam === "reports" || tabParam === "polls" || tabParam === "workforce" || tabParam === "emergency") {
+    if (tabParam === "dashboard" || tabParam === "reports" || tabParam === "polls" || tabParam === "workforce" || tabParam === "emergency") {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -559,24 +559,99 @@ function AuthorityAdminContent() {
 
   // ─── Main Dashboard ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-start">
-        <div className="w-full flex flex-col">
-          <main className="w-full">
+    <div className="min-h-screen bg-[#F9FAFB]">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+          
+        {/* ── DASHBOARD TAB ───────────────────────────────────────────────────── */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-8 md:p-10 text-white relative shadow-lg">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <LayoutGrid className="w-48 h-48" />
+              </div>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-indigo-300">Overview</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Global Command Center
+              </h1>
+              <p className="text-sm text-slate-300 max-w-xl leading-relaxed mb-6">
+                Monitor all municipal activity, triage incoming emergencies, and manage civic reports across the district from a single vantage point.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => {
+                    setOffset(0);
+                    fetchReports(0);
+                    fetchEmergencyReports(0);
+                    fetchPolls();
+                  }}
+                  className="bg-white text-slate-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-slate-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Sync All Data
+                </button>
+                <button
+                  onClick={handleTopUp}
+                  disabled={isFunding}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md disabled:opacity-50"
+                >
+                  {isFunding ? "Scanning..." : "Top-Up Gas"}
+                </button>
+              </div>
+            </div>
+
+            {/* Global Insights */}
+            <AdminAnalyticsHeader
+              totalReports={allReports.length}
+              solvedCount={allReports.filter((r) => r.status === 6).length}
+              openCount={allReports.filter((r) => r.status === 2 || r.status === 7).length}
+              inProgressCount={allReports.filter((r) => r.status === 3).length}
+              emergencyCount={totalEmergencyReports}
+              onSelectEmergencyTab={() => setActiveTab("emergency")}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+               <div className="lg:col-span-2 space-y-6">
+                  {/* We can put some quick shortcuts or recently actionable items here */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                       <AlertTriangle className="w-5 h-5 text-rose-500" /> Actionable Urgent Items
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      You have {totalEmergencyReports} total emergency alerts on record. Navigate to the Emergency Alerts tab to resolve them.
+                    </p>
+                  </div>
+               </div>
+               <div className="lg:col-span-1">
+                  {/* We can move the Map Workforce Member here or just leave a nice summary */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4 bg-gradient-to-br from-indigo-50 to-white">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
+                       <Users className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-slate-900">Workforce Management</h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                       Manage assignments, link Ethereum wallets to Planka accounts, and track resolution teams.
+                    </p>
+                    <button onClick={() => setActiveTab('workforce')} className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm shadow-sm hover:bg-indigo-700 transition-colors">
+                       Manage Crews
+                    </button>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+
 
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
-          <>
+          <div className="space-y-6">
             {/* 0. Gradient Banner for Civic Reports */}
-            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-800 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-800 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
               <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
-                <svg className="w-48 h-48 animate-[pulse_4s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                <FileText className="w-48 h-48" />
               </div>
-              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-emerald-200">Civic Reports Dashboard</p>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-emerald-200">Civic Reports</p>
               <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
-                Manage & Resolve Community Issues
+                Community Issues
               </h1>
               <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
                 Review, triage, and assign municipal issues reported by citizens. Keep the community informed of resolution progress.
@@ -587,31 +662,33 @@ function AuthorityAdminContent() {
                     setOffset(0);
                     fetchReports(0);
                   }}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                  className="bg-white text-emerald-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-emerald-50"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Refresh Data
                 </button>
-                {topUpAndWalletPills}
               </div>
             </div>
 
-            {/* 1. Executive KPI Analytics Header */}
-            <AdminAnalyticsHeader
-              totalReports={allReports.length}
-              solvedCount={
-                allReports.filter((r) => r.status === 6).length
-              }
-              openCount={
-                allReports.filter((r) => r.status === 2 || r.status === 7)
-                  .length
-              }
-              inProgressCount={
-                allReports.filter((r) => r.status === 3).length
-              }
-              emergencyCount={totalEmergencyReports}
-              onSelectEmergencyTab={() => setActiveTab("emergency")}
-            />
+            {/* Civic Reports Specific Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Reports</p>
+                <p className="text-2xl font-black text-slate-800">{allReports.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Solved</p>
+                <p className="text-2xl font-black text-emerald-700">{allReports.filter((r) => r.status === 6).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Open / Actionable</p>
+                <p className="text-2xl font-black text-blue-700">{allReports.filter((r) => r.status === 2 || r.status === 7).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">In Progress</p>
+                <p className="text-2xl font-black text-indigo-700">{allReports.filter((r) => r.status === 3).length}</p>
+              </div>
+            </div>
 
             {/* 2. Advanced Multi-Dimension Filtering & Search Bar */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
@@ -767,7 +844,7 @@ function AuthorityAdminContent() {
             ) : viewMode === "table" ? (
               <ReportTableView
                 reports={filteredReports}
-                onStartWork={handleTableStartWork}
+              onStartWork={handleTableStartWork}
                 onResolve={handleTableResolve}
                 onReject={handleTableReject}
                 onViewDetails={(report) => {
@@ -815,40 +892,50 @@ function AuthorityAdminContent() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── EMERGENCY REPORTS TAB ─────────────────────────────────────────── */}
         {activeTab === "emergency" && (
-          <>
-            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-red-600 to-rose-900 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-rose-600 via-red-700 to-red-900 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
               <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
-                <svg className="w-48 h-48 animate-[pulse_2s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+                <AlertTriangle className="w-48 h-48 animate-[pulse_2s_ease-in-out_infinite]" />
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
-                <span className="relative flex h-2 w-2 mr-1">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                </span>
-                High Priority Incidents
-              </div>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-rose-200">Emergency Response</p>
               <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
-                Emergency Command Center
+                Urgent Alerts
               </h1>
               <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
-                Immediate dispatch and resolution for urgent civic incidents. Monitor critical situations in real-time.
+                Direct channel for high-priority incidents, hazards, and infrastructure failures. Immediate action required.
               </p>
               <div className="flex items-center gap-4 relative z-10 flex-wrap">
                 <button
-                  onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                  onClick={() => {
+                    setEmergencyOffset(0);
+                    fetchEmergencyReports(0);
+                  }}
+                  className="bg-white text-red-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-rose-50"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  Refresh Alerts
                 </button>
-                {topUpAndWalletPills}
+              </div>
+            </div>
+            
+            {/* Emergency Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl border border-rose-100 p-5 shadow-sm bg-gradient-to-br from-rose-50 to-white">
+                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Active Alerts</p>
+                <p className="text-2xl font-black text-rose-700">{emergencyReports.filter(r => r.status !== 6).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Recorded</p>
+                <p className="text-2xl font-black text-slate-800">{totalEmergencyReports}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Resolved Threats</p>
+                <p className="text-2xl font-black text-emerald-700">{emergencyReports.filter(r => r.status === 6).length}</p>
               </div>
             </div>
 
@@ -912,43 +999,53 @@ function AuthorityAdminContent() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── POLLS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === "polls" && (
-          <>
-            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-violet-600 to-purple-900 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
               <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
-                <svg className="w-48 h-48 animate-[pulse_5s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
+                <BarChart2 className="w-48 h-48" />
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
-                <BarChart2 className="w-3.5 h-3.5" />
-                Community Voting
-              </div>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-blue-200">Community Polling</p>
               <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
-                Decentralized Opinion Polls
+                Opinion Polls
               </h1>
               <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
-                Monitor, finalize, and publish public policy votes directly to the community ledger.
+                Create and manage local governance polls. Measure public sentiment on upcoming projects or budgetary decisions.
               </p>
               <div className="flex items-center gap-4 relative z-10 flex-wrap">
                 <Link
                   href="/polls/create"
-                  className="bg-white text-purple-700 hover:bg-slate-50 font-bold px-5 py-2.5 rounded-full transition-all text-sm shadow-sm flex items-center gap-2 hover:shadow-md duration-300"
+                  className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-5 py-2.5 rounded-full transition-all text-sm shadow-sm flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> Create Poll
                 </Link>
                 <button
                   onClick={fetchPolls}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                  className="bg-white/20 text-white border border-white/30 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm hover:bg-white/30"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  Refresh Polls
                 </button>
-                {topUpAndWalletPills}
+              </div>
+            </div>
+            
+            {/* Polls Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Active Polls</p>
+                <p className="text-2xl font-black text-indigo-700">{polls.filter(p => p.isActive).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Created</p>
+                <p className="text-2xl font-black text-slate-800">{polls.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Finalized</p>
+                <p className="text-2xl font-black text-emerald-700">{polls.filter(p => !p.isActive).length}</p>
               </div>
             </div>
 
@@ -1061,7 +1158,7 @@ function AuthorityAdminContent() {
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {/* ── WORKFORCE TAB ─────────────────────────────────────────────────── */}
@@ -1175,7 +1272,7 @@ function AuthorityAdminContent() {
                   Map Workforce Member
                 </h3>
                 <p className="text-slate-500 text-xs">
-                  Link a faculty worker's Ethereum wallet address with their user account in the self-hosted Planka task manager.
+                  Link a faculty worker&apos;s Ethereum wallet address with their user account in the self-hosted Planka task manager.
                 </p>
 
                 <form onSubmit={handleRegisterWorker} className="space-y-4 pt-2">
@@ -1253,8 +1350,6 @@ function AuthorityAdminContent() {
           </div>
         )}
       </main>
-        </div>
-      </div>
     </div>
   );
 }

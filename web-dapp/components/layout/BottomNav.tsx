@@ -28,6 +28,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
   const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
 
   const authorityItems = [
+    { label: "Dashboard", href: "/admin?tab=dashboard", icon: LayoutDashboard },
     { label: "Civic Reports", href: "/admin?tab=reports", icon: FileText },
     { label: "Emergency", href: "/admin?tab=emergency", icon: ShieldAlert },
     { label: "Opinion Polls", href: "/admin?tab=polls", icon: BarChart2 },
