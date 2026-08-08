@@ -272,7 +272,17 @@ function getPhaseVotes(
 
 
 // ── Page ──────────────────────────────────────────────────────────
-export default function IssueDetailPage({
+import { Suspense } from "react";
+
+export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+      <IssueDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+function IssueDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -880,7 +890,7 @@ export default function IssueDetailPage({
 
                           {act.imageCid && act.imageCid.length > 5 && (
                             <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white">
-                              <img src={`/api/ipfs/image/${act.imageCid}`} alt="Attachment" className="w-full h-auto object-cover" />
+                              <img src={`/api/ipfs/image/${act.imageCid}`} alt="Attachment" className="w-full h-auto object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)} />
                             </div>
                           )}
                         </div>
@@ -1004,7 +1014,7 @@ export default function IssueDetailPage({
               </div>
 
               <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight drop-shadow-md max-w-4xl">
-                {report.category ? `${report.category} Issue Reported` : `Civic Report #${report.id}`}
+                {report.category ? `${report.category.replace(/ Issue$/i, '')} Issue Reported` : `Civic Report #${report.id}`}
               </h1>
 
               <div className="flex items-center gap-6 text-white/80 font-medium text-sm">
@@ -1170,7 +1180,7 @@ export default function IssueDetailPage({
                                   <img
                                     src={`/api/ipfs/image/${act.imageCid}`}
                                     alt="Action Attachment"
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)}
                                   />
                                 </div>
                               )}

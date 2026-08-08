@@ -276,11 +276,12 @@ export async function enrichReportWithIPFS(
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          enriched.title = data.title;
-          enriched.description = data.description;
-          enriched.category = data.category;
-          enriched.location = data.location;
-          enriched.images = data.images ?? [];
+          const payload = data.data || data;
+          enriched.title = payload.title;
+          enriched.description = payload.description;
+          enriched.category = payload.category;
+          enriched.location = payload.location;
+          enriched.images = payload.images ?? [];
         }
       }
     } catch (err) {

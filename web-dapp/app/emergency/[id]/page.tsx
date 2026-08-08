@@ -5,27 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ethers } from "ethers";
 import toast from "react-hot-toast";
-import MapPreview from "@/components/MapPreview";
+import dynamic from "next/dynamic";
 import { useAdmin, EMERGENCY_REPORTING_ADDRESS, MULTISIG_ADDRESS } from "@/context/AdminContext";
 import { EmergencyReportingABI, AuthorityMultiSigABI } from "@/lib/contracts/abis";
 import { getEmergencyStatusMeta, shortenAddress, formatLocation, EMERGENCY_STATUS } from "@/lib/reportHelpers";
-import {
-  ArrowLeft,
-  ShieldAlert,
-  AlertTriangle,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  RotateCw,
-  AlertCircle,
-  ShieldCheck,
-  UserCheck,
-  ExternalLink,
-  FileText,
-  Activity,
-  Layers,
-} from "lucide-react";
+import { ArrowLeft, MapPin, Clock, RotateCw, AlertCircle, ImageIcon, Bell, Settings, Landmark, Shield, ShieldAlert, UserCheck, AlertTriangle } from "lucide-react";
 
+const MapPreview = dynamic(() => import("@/components/MapPreview"), {
+  ssr: false,
+});
 interface EmergencyReportDetail {
   id: string;
   ipfsCid: string;
@@ -73,6 +61,7 @@ export default function EmergencyDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionsHistory, setActionsHistory] = useState<ActionLogEntry[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState<{
     data: string;
     mimeType: string;
@@ -199,20 +188,20 @@ export default function EmergencyDetailPage({
         // Fetch IPFS content
         if (base.ipfsCid && base.ipfsCid.length > 5) {
           try {
-            const res = await fetch(`/api/ipfs/report/${base.ipfsCid}`);
+            const cidToFetch = base.ipfsCid.startsWith("ipfs://")
+              ? base.ipfsCid.slice(7)
+              : base.ipfsCid;
+            const res = await fetch(`/api/ipfs/${cidToFetch}`);
             if (res.ok) {
               const data = await res.json();
-              if (data.success && data.data) {
-                const payload = data.data;
+              if (data.success) {
                 setReport({
                   ...base,
-                  title: payload.title || "Emergency Alert",
-                  description: payload.description || "",
-                  category: payload.category || "Emergency",
-                  location: payload.location || "",
-                  lat: payload.location_lat,
-                  lng: payload.location_lng,
-                  images: payload.images || [],
+                  title: data.title || "Emergency Alert",
+                  description: data.description || "",
+                  category: data.category || "Emergency",
+                  location: data.location || "",
+                  images: data.images || [],
                 });
                 return;
               }
@@ -236,247 +225,243 @@ export default function EmergencyDetailPage({
     fetchEmergencyReport();
   }, [id]);
 
+
+  // ── Loading ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center py-24 gap-3">
-        <RotateCw className="w-10 h-10 text-red-600 animate-spin" />
-        <p className="text-sm font-bold text-slate-600">
-          Syncing emergency report #{id} from AuraChain...
-        </p>
+      <div className="flex justify-center items-center h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <RotateCw className="w-10 h-10 animate-spin text-blue-600" />
+          <p className="text-slate-500 font-medium">
+            Retrieving block payload…
+          </p>
+        </div>
       </div>
     );
   }
 
+  // ── Error ────────────────────────────────────────────────────────
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-slate-50 py-16 px-6">
-        <div className="max-w-xl mx-auto bg-white rounded-2xl border border-red-200 p-8 text-center shadow-sm">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-extrabold text-slate-900 mb-2">
-            Alert Not Found
-          </h2>
-          <p className="text-sm text-slate-600 mb-6">{error || "This report does not exist or has been removed."}</p>
-          <Link
-            href="/emergency"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Emergency Feed</span>
-          </Link>
-        </div>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4 px-4">
+        <AlertCircle className="w-12 h-12 text-red-400" />
+
+        <h2 className="text-xl font-bold text-slate-900">
+          Report Not Found
+        </h2>
+
+        <p className="text-slate-500 text-sm text-center max-w-sm">
+          {error ??
+            "The requested report could not be found on the ledger."}
+        </p>
+
+        <button
+          onClick={() => router.back()}
+          className="px-6 py-2 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors"
+        >
+          Go Back
+        </button>
       </div>
     );
   }
 
   const statusMeta = getEmergencyStatusMeta(report.status);
-  const isAssigned =
-    report.assignedAuthority &&
-    report.assignedAuthority !== ethers.ZeroAddress;
+  const reportedAt = new Date(report.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const coordinates = report.lat !== undefined && report.lng !== undefined ? { lat: report.lat, lng: report.lng } : null;
+  const hasImages = report.images && report.images.length > 0;
+  const heroImage = hasImages ? `data:${report.images![0].mimeType || "image/jpeg"};base64,${report.images![0].data}` : null;
+  const isEmbed = false;
 
-  const createdAtDate = new Date(report.createdAt).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Top Banner Strip */}
-      <div className="h-2 bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 w-full" />
-
-      {/* Hero Header Section */}
-      <div className="bg-white border-b border-slate-200/80">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <Link
-              href="/emergency"
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Emergency Hub</span>
-            </Link>
-
-            <span className="text-xs font-mono font-medium text-slate-400">
-              AuraChain Report ID: #{report.id}
-            </span>
-          </div>
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-red-100 text-red-800 border border-red-200">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-                  EMERGENCY #{report.id}
-                </span>
-
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
-                  {statusMeta.label}
-                </span>
-
-                {report.category && (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                    {report.category}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                {report.title || `Emergency Alert #${report.id}`}
-              </h1>
+    <>
+      {/* MOBILE */}
+      <div className="md:hidden min-h-screen bg-[#F9FAFB] pb-[160px] relative">
+        
+        {/* HERO */}
+        <div className="relative h-80 w-full rounded-b-[32px] overflow-hidden shadow-sm mb-6">
+          {hasImages ? (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-slate-900/10 z-10" />
+              <img
+                src={heroImage!}
+                alt={`Report ${report.id}`}
+                className="w-full h-full object-cover absolute inset-0"
+              />
+            </>
+          ) : coordinates ? (
+            <div className="absolute inset-0 w-full h-full">
+              <MapPreview
+                lat={coordinates.lat}
+                lng={coordinates.lng}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent pointer-events-none z-10" />
             </div>
+          ) : (
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent z-10" />
+              <AlertCircle className="h-16 w-16 text-white/10" />
+            </div>
+          )}
 
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-100 px-4 py-2 rounded-xl self-start md:self-center">
-              <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>Submitted: {createdAtDate}</span>
+          {!isEmbed && (
+            <button
+              onClick={() => router.back()}
+              className="absolute top-4 left-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 z-20 shadow-sm"
+            >
+              <ArrowLeft className="h-5 w-5 text-white" />
+            </button>
+          )}
+
+          <div className="absolute bottom-5 left-5 right-5 z-20">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm ${statusMeta.bg} ${statusMeta.text} bg-opacity-90 backdrop-blur-md`}>
+                {statusMeta.label}
+              </span>
+              {report.category && (
+                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md border border-white/10 shadow-sm">
+                  {report.category}
+                </span>
+              )}
+            </div>
+            
+            <h1 className="text-2xl font-extrabold text-white leading-tight drop-shadow-md mb-2">
+              {report.category ? `${report.category} Issue` : `Report #${report.id}`}
+            </h1>
+            
+            <div className="flex items-center gap-4 text-white/80 text-xs font-medium">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                {reportedAt}
+              </span>
+              {report.location && (
+                <span className="flex items-center gap-1.5 truncate">
+                  <MapPin className="h-3 w-3" />
+                  {formatLocation(report.location)}
+                </span>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content Grid */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT 2 COLUMNS: Report Details, Images, Timeline */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Description Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Incident Description
-              </h3>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {report.description || "No additional text description provided for this emergency alert."}
+        <div className="px-5 space-y-6">
+          {/* Description */}
+          <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+            <h2 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-blue-600 rounded-full inline-block"></span>
+              Description
+            </h2>
+            <p className="text-slate-600 text-sm leading-relaxed font-medium">
+              {report.description ?? "No description provided."}
+            </p>
+          </div>
+
+          {/* Evidence Gallery Mobile */}
+          {report.images && report.images.length > 0 && (
+            <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+              <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-slate-400" />
+                Evidence Gallery
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {report.images.map((img, i) => {
+                  const imgSrc = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedImage(imgSrc)}
+                      className="rounded-[16px] overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-100 cursor-pointer"
+                    >
+                      <img
+                        src={imgSrc}
+                        alt="Evidence Photo"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Assigned Authority Mobile */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[24px] p-5 text-white shadow-md relative overflow-hidden flex gap-4 items-center">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 backdrop-blur-sm relative z-10 border border-white/10">
+              <Landmark className="h-5 w-5 text-blue-200" />
+            </div>
+            <div className="relative z-10">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                Assigned Authority
               </p>
-
-              {/* Location Tag */}
-              {report.location && (
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                  <MapPin className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>Reported Location: {formatLocation(report.location)}</span>
+              {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                <p className="text-sm font-bold text-white/90">Pending</p>
+              ) : (
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold text-white">
+                    {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                  </p>
+                  {report.assignedAuthorityProfile && (
+                    <p className="text-[10px] text-blue-300 font-medium">
+                      {report.assignedAuthorityProfile.department}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
+            <Landmark className="absolute -right-2 -bottom-2 w-20 h-20 text-white/5 z-0" />
+          </div>
 
-            {/* Map Preview Component */}
-            {report.lat !== undefined && report.lng !== undefined && (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 px-2">
-                  Geographic Location Coordinates
-                </h3>
-                <div className="rounded-xl overflow-hidden border border-slate-100">
-                  <MapPreview lat={report.lat} lng={report.lng} interactive={true} />
-                </div>
+          {/* Authority Action Log Mobile */}
+          <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+            <h3 className="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-slate-400" />
+              Action Log
+            </h3>
+            {actionsHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 bg-slate-50 rounded-[16px] border border-slate-100 border-dashed">
+                <Clock className="h-6 w-6 text-slate-300 mb-2" />
+                <p className="text-slate-500 font-medium text-xs">No official actions recorded.</p>
               </div>
-            )}
-
-            {/* Evidence Image Gallery */}
-            {report.images && report.images.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
-                  Citizen Photo Evidence ({report.images.length})
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {report.images.map((img, i) => (
-                    <div
-                      key={i}
-                      onClick={() => setActiveImage(img)}
-                      className="rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-100 cursor-pointer hover:opacity-95 transition relative group shadow-sm"
-                    >
-                      <img
-                        src={`data:${img.mimeType || "image/jpeg"};base64,${img.data}`}
-                        alt={`Evidence ${i + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                        <span className="text-white text-xs font-bold px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm">
-                          View Fullsize
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Authority Action Log & Timeline */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-red-500" />
-                Authority Response Timeline & Audit Log
-              </h3>
-
-              {actionsHistory.length === 0 ? (
-                <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-100">
-                  <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-500">
-                    No authority actions recorded yet.
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Once a local official starts response work or uploads resolution evidence, it will appear here on-chain.
-                  </p>
-                </div>
-              ) : (
-                <div className="relative border-l-2 border-slate-200 ml-3 pl-6 space-y-8">
-                  {actionsHistory.map((act, idx) => {
-                    const actMeta = getEmergencyStatusMeta(act.stage);
-                    const actionDate = new Date(act.timestamp).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
+            ) : (
+              <div className="relative ml-2">
+                <div className="absolute left-[11px] top-2 bottom-2 w-[2px] bg-slate-100" />
+                <div className="space-y-6 relative">
+                  {actionsHistory.map((act, index) => {
+                    const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
                     });
+                    const statusMeta = getEmergencyStatusMeta(act.stage);
 
                     return (
-                      <div key={idx} className="relative">
-                        {/* Timeline node */}
-                        <span
-                          className={`absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-white ${actMeta.dot}`}
-                        />
+                      <div key={index} className="relative pl-8 group">
+                        <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-[3px] border-white shadow-sm flex items-center justify-center z-10 ${statusMeta.bg} ${statusMeta.text}`}>
+                          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                        </div>
 
-                        <div className="flex flex-col gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${actMeta.bg} ${actMeta.text} ${actMeta.border}`}
-                            >
-                              {actMeta.label}
+                        <div className="bg-slate-50 rounded-[16px] p-4 border border-slate-100/60">
+                          <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text}`}>
+                              {statusMeta.label}
                             </span>
-                            <span className="text-xs text-slate-400 font-medium">
+                            <span className="text-[10px] text-slate-400 font-medium">
                               {actionDate}
                             </span>
                           </div>
 
-                          {/* Authority Name & Official Position */}
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                            <span>
-                              {act.profile ? act.profile.name : shortenAddress(act.authority)}
-                            </span>
-                            {act.profile && (
-                              <span className="text-slate-400 font-medium">
-                                ({act.profile.position} &bull; {act.profile.department})
-                              </span>
-                            )}
+                          <div className="text-xs font-bold text-slate-800 mb-2">
+                            {act.profile ? act.profile.name : "Official"}
                           </div>
 
-                          {/* Action Comment */}
                           {act.commentText && (
-                            <p className="text-xs text-slate-700 bg-slate-50 border border-slate-200/60 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-xs text-slate-600 bg-white border border-slate-100 rounded-lg p-3 leading-relaxed whitespace-pre-wrap shadow-sm">
                               {act.commentText}
                             </p>
                           )}
 
-                          {/* Uploaded Action Evidence Photo */}
                           {act.imageCid && act.imageCid.length > 5 && (
-                            <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-slate-50">
-                              <img
-                                src={`/api/ipfs/image/${act.imageCid}`}
-                                alt="Authority Proof Photo"
-                                className="w-full h-full object-cover"
-                              />
+                            <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white">
+                              <img src={`/api/ipfs/image/${act.imageCid}`} alt="Attachment" className="w-full h-auto object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)} />
                             </div>
                           )}
                         </div>
@@ -484,129 +469,304 @@ export default function EmergencyDetailPage({
                     );
                   })}
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+
+
+      </div>
+      
+      {/* DESKTOP */}
+      <div className="hidden md:flex flex-col w-full min-h-screen bg-[#F9FAFB] pb-20">
+        
+        {/* Top Bar */}
+        {!isEmbed && (
+          <div className="w-full bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-slate-700 font-bold text-sm hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Emergency Hub
+              </button>
+
+              <div className="flex items-center gap-4 text-slate-500">
+                <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <Bell className="h-5 w-5" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 flex-1 flex flex-col">
+          
+          {/* IMMERSIVE HERO HEADER */}
+          <div className="relative w-full h-[400px] rounded-[32px] overflow-hidden shadow-sm mb-10 group">
+            {hasImages ? (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-slate-900/10 z-10 transition-opacity duration-500" />
+                <img
+                  src={heroImage!}
+                  alt={`Report ${report.id}`}
+                  className="w-full h-full object-cover absolute inset-0 transition-transform duration-700 group-hover:scale-105"
+                />
+              </>
+            ) : coordinates ? (
+              <div className="absolute inset-0 w-full h-full">
+                <MapPreview
+                  lat={coordinates.lat}
+                  lng={coordinates.lng}
+                  interactive={true}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-slate-900/10 pointer-events-none z-10" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent z-10" />
+                <AlertCircle className="h-32 w-32 text-white/10" />
+              </div>
+            )}
+
+            {/* Overlay Content */}
+            <div className="absolute inset-0 z-20 flex flex-col justify-end p-10 md:p-12 text-white">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                <div className="flex items-center gap-3">
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${statusMeta.bg} ${statusMeta.text} bg-opacity-90 backdrop-blur-md`}>
+                    {statusMeta.label}
+                  </span>
+                  {report.category && (
+                    <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md border border-white/10 shadow-sm">
+                      {report.category}
+                    </span>
+                  )}
+                  <span className="text-white/60 text-sm font-mono tracking-widest uppercase">
+                    ID: #{report.id}
+                  </span>
+                </div>
+
+
+              </div>
+
+              <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight drop-shadow-md max-w-4xl">
+                {report.title || `Emergency Alert #${report.id}`}
+              </h1>
+
+              <div className="flex items-center gap-6 text-white/80 font-medium text-sm">
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Reported {reportedAt}
+                </span>
+                {report.location && (
+                  <span className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {formatLocation(report.location)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Authority Dispatch & Protocol Info */}
-          <div className="space-y-6">
-            {/* Rapid Dispatch Status Card */}
-            <div className="bg-white rounded-2xl border border-red-200/80 p-6 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-red-600" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
-                Dispatch & Authority Status
-              </h3>
-
-              <div className="p-4 rounded-xl bg-red-50/50 border border-red-100 mb-4">
-                <div className="flex items-center gap-2.5 mb-1">
-                  <span className={`w-2.5 h-2.5 rounded-full ${statusMeta.dot}`} />
-                  <span className="text-sm font-extrabold text-slate-900">
-                    {statusMeta.label}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  {report.status === EMERGENCY_STATUS.Open
-                    ? "Alert is logged on AuraChain and broadcasting to local authority dispatch centers."
-                    : report.status === EMERGENCY_STATUS.InProgress
-                    ? "An authority has initiated on-site response protocols."
-                    : "The emergency has been officially verified as resolved."}
+          {/* GRID LAYOUT */}
+          <div className="grid grid-cols-[1fr_360px] gap-10">
+            
+            {/* LEFT COLUMN */}
+            <div className="flex flex-col gap-8">
+              
+              {/* Description */}
+              <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+                  Detailed Description
+                </h2>
+                <p className="text-slate-600 text-base leading-relaxed whitespace-pre-wrap font-medium">
+                  {report.description ?? "No description provided."}
                 </p>
               </div>
 
-              {/* Assigned Authority Officer */}
-              <div className="border-t border-slate-100 pt-4">
-                <span className="text-xs font-bold text-slate-400 block mb-2">
-                  Assigned Authority Official
-                </span>
-                {isAssigned ? (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
-                      <UserCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">
-                        {report.assignedAuthorityProfile
-                          ? report.assignedAuthorityProfile.name
-                          : shortenAddress(report.assignedAuthority)}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {report.assignedAuthorityProfile
-                          ? `${report.assignedAuthorityProfile.position} • ${report.assignedAuthorityProfile.department}`
-                          : "Authorized Municipal Responder"}
-                      </p>
-                    </div>
+              {/* Evidence Gallery */}
+              {report.images && report.images.length > 0 && (
+                <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                  <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-slate-400" />
+                    Evidence Gallery
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    {report.images.map((img, i) => {
+                      const imgSrc = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedImage(imgSrc)}
+                          className="rounded-[20px] overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100 group cursor-pointer relative"
+                        >
+                          <img
+                            src={imgSrc}
+                            alt="Evidence Photo"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors duration-300 flex items-center justify-center pointer-events-none" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Elegant Timeline (Authority Action Log) */}
+              <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                <h2 className="text-xl font-bold text-slate-900 mb-8 flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-slate-400" />
+                  Authority Action Log
+                </h2>
+                
+                {actionsHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-[20px] border border-slate-100 border-dashed">
+                    <Clock className="h-8 w-8 text-slate-300 mb-3" />
+                    <p className="text-slate-500 font-medium text-sm">No official actions recorded yet.</p>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-amber-800">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                    <p className="text-xs font-semibold">
-                      Awaiting official authority assignment.
-                    </p>
+                  <div className="relative ml-4">
+                    {/* Continuous vertical line */}
+                    <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-100" />
+                    
+                    <div className="space-y-8 relative">
+                      {actionsHistory.map((act, index) => {
+                        const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        });
+                        const statusMeta = getEmergencyStatusMeta(act.stage);
+
+                        return (
+                          <div key={index} className="relative pl-12 group">
+                            {/* Animated Timeline Node */}
+                            <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center z-10 transition-transform group-hover:scale-110 ${statusMeta.bg} ${statusMeta.text}`}>
+                              <div className="w-2 h-2 rounded-full bg-current" />
+                            </div>
+
+                            <div className="bg-slate-50 rounded-[20px] p-5 border border-slate-100/60 transition-colors group-hover:bg-slate-50/80 group-hover:border-slate-200">
+                              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text}`}>
+                                  {statusMeta.label}
+                                </span>
+                                <span className="text-xs text-slate-400 font-medium tracking-wide">
+                                  {actionDate}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-3">
+                                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
+                                  <Landmark className="w-3.5 h-3.5 text-slate-500" />
+                                </div>
+                                {act.profile ? act.profile.name : "Official Representative"}
+                                {act.profile && (
+                                  <span className="text-slate-400 font-medium text-xs ml-1">
+                                    &bull; {act.profile.position}, {act.profile.department}
+                                  </span>
+                                )}
+                              </div>
+
+                              {act.commentText && (
+                                <p className="text-sm text-slate-600 bg-white border border-slate-100 rounded-xl p-4 leading-relaxed whitespace-pre-wrap shadow-sm">
+                                  {act.commentText}
+                                </p>
+                              )}
+
+                              {act.imageCid && act.imageCid.length > 5 && (
+                                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-white">
+                                  <img
+                                    src={`/api/ipfs/image/${act.imageCid}`}
+                                    alt="Action Attachment"
+                                    className="w-full h-full object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Cryptographic Proof Box */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
-                On-Chain Cryptographic Audit
-              </h3>
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Smart Contract</span>
-                  <span className="font-mono text-slate-700 font-semibold">EmergencyReporting</span>
+            {/* RIGHT COLUMN */}
+            <div className="flex flex-col gap-6 sticky top-24 self-start">
+              
+              
+              {/* Protocol Notice */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden mb-6">
+                <div className="flex items-center gap-2 mb-2 text-red-400">
+                  <ShieldAlert className="w-5 h-5" />
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider">
+                    Emergency Protocol
+                  </h4>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                  <span className="text-slate-500 font-medium">Report ID</span>
-                  <span className="font-mono text-slate-900 font-bold">#{report.id}</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-slate-500 font-medium">IPFS Metadata</span>
-                  <span className="font-mono text-slate-700 truncate max-w-[150px]" title={report.ipfsCid}>
-                    {report.ipfsCid ? `${report.ipfsCid.slice(0, 10)}...` : "None"}
-                  </span>
+                <p className="text-xs text-slate-300 leading-relaxed relative z-10">
+                  To guarantee maximum response speed, Emergency Alerts bypass the 48-hour community validation voting phase. Local authorities are directly accountable for resolution and evidence upload.
+                </p>
+                <div className="absolute -right-6 -bottom-6 opacity-10">
+                  <AlertCircle className="w-32 h-32" />
                 </div>
               </div>
-            </div>
-
-            {/* Protocol Notice */}
-            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-sm">
-              <div className="flex items-center gap-2 mb-2 text-red-400">
-                <ShieldAlert className="w-5 h-5" />
-                <h4 className="text-xs font-extrabold uppercase tracking-wider">
-                  Emergency Protocol
-                </h4>
+              {/* Assigned Authority */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 opacity-10">
+                  <Landmark className="w-32 h-32" />
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 relative z-10">
+                  Assigned Authority
+                </p>
+                <div className="relative z-10">
+                  {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                    <p className="text-base font-bold text-white/90">Pending Assignment</p>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-lg font-bold text-white">
+                        {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                      </p>
+                      {report.assignedAuthorityProfile && (
+                        <p className="text-sm text-blue-300 font-medium">
+                          {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                To guarantee maximum response speed, Emergency Alerts bypass the 48-hour community validation voting phase. Local authorities are directly accountable for resolution and evidence upload.
-              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Image Preview Modal */}
-      {activeImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-all duration-300"
-          onClick={() => setActiveImage(null)}
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 cursor-zoom-out transition-all duration-300"
+          onClick={() => setSelectedImage(null)}
         >
-          <div className="relative max-w-4xl max-h-[85vh] w-full h-full flex items-center justify-center">
-            <img
-              src={`data:${activeImage.mimeType};base64,${activeImage.data}`}
-              alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+          <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center">
+            <img 
+              src={selectedImage} 
+              alt="Evidence Preview" 
+              className="max-w-full max-h-full object-contain rounded-[24px] shadow-2xl" 
             />
-            <button
-              onClick={() => setActiveImage(null)}
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full px-4 py-2 text-xs font-bold backdrop-blur-sm transition"
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors border border-white/10"
             >
-              ✕ Close
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
