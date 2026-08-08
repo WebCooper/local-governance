@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCitizen } from "@/context/CitizenContext";
 import { useAdmin } from "@/context/AdminContext";
-import { Layers, PlusCircle, User, Bell, BarChart2, Vote, ShieldCheck, LayoutDashboard, ShieldAlert, MoreHorizontal, X } from "lucide-react";
+import { Layers, PlusCircle, User, Bell, BarChart2, Vote, ShieldCheck, LayoutDashboard, ShieldAlert, MoreHorizontal, X, FileText, Users } from "lucide-react";
 
 export function BottomNav({ className = "", isSidebar = false }: { className?: string; isSidebar?: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams?.get("tab") || "reports";
   const { wallet } = useCitizen();
   const { account, isAuthority, isSuperAdmin } = useAdmin();
 
@@ -23,15 +25,23 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
     { label: "Notifications", href: "/notifications", icon: Bell },
   ];
 
+  const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
+
   const authorityItems = [
-    { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { label: "Civic Reports", href: "/admin?tab=reports", icon: FileText },
+    { label: "Emergency", href: "/admin?tab=emergency", icon: ShieldAlert },
+    { label: "Opinion Polls", href: "/admin?tab=polls", icon: BarChart2 },
+    ...(ENABLE_WORKFORCE_TRACKING ? [{ label: "Workforce", href: "/admin?tab=workforce", icon: Users }] : []),
   ];
+
+  const isAdminOrSuper = account && (isAuthority || isSuperAdmin);
 
   if (isSidebar) {
     return (
       <nav className={`flex flex-col gap-6 px-4 ${className}`}>
-        {/* Citizen Space - Always visible */}
-        <div>
+        {/* Citizen Space - Visible only for non-admins */}
+        {!isAdminOrSuper && (
+          <div>
             <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Citizen Space</p>
             <div className="flex flex-col gap-1">
               {citizenItems.map((item) => {
@@ -52,14 +62,15 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
               })}
             </div>
           </div>
+        )}
 
         {/* Authority Portal - Visible only if logged in as Admin via MetaMask */}
-        {account && (isAuthority || isSuperAdmin) && (
+        {isAdminOrSuper && (
           <div>
             <p className="px-3 text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Authority Portal</p>
             <div className="flex flex-col gap-1">
               {authorityItems.map((item) => {
-                const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
+                const isActive = pathname === item.href || (pathname === "/admin" && pathname + "?tab=" + currentTab === item.href);
                 const Icon = item.icon;
                 return (
                   <Link
@@ -94,11 +105,12 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
     );
   }
 
-  const allItems = [
-    ...citizenItems,
-    ...(account && isAuthority && !isSuperAdmin ? authorityItems : []),
-    ...(account && isSuperAdmin ? [{ label: "Super", href: "/super-admin", icon: ShieldCheck }] : [])
-  ];
+  const allItems = isAdminOrSuper
+    ? [
+        ...authorityItems,
+        ...(isSuperAdmin ? [{ label: "Super", href: "/super-admin", icon: ShieldCheck }] : []),
+      ]
+    : citizenItems;
 
   const maxVisible = 4;
   const visibleItems = allItems.length > 5 ? allItems.slice(0, maxVisible) : allItems;
@@ -125,7 +137,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
           </div>
           <div className="grid grid-cols-4 gap-4">
             {hiddenItems.map((item) => {
-              const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
+              const isActive = pathname === item.href || (pathname === "/admin" && pathname + "?tab=" + currentTab === item.href);
               const Icon = item.icon;
               return (
                 <Link
@@ -148,7 +160,7 @@ export function BottomNav({ className = "", isSidebar = false }: { className?: s
       <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 pb-safe z-[9999] ${className}`}>
         <div className="flex items-center justify-around p-3">
           {visibleItems.map((item) => {
-            const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/");
+            const isActive = pathname === item.href || (pathname === "/admin" && pathname + "?tab=" + currentTab === item.href);
             const Icon = item.icon;
             return (
               <Link

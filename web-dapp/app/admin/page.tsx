@@ -5,6 +5,7 @@ import { useAdmin } from "@/context/AdminContext";
 import { getPollingContract } from "@/lib/contracts/polling";
 import axios from "axios";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
 import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle, Search, Filter, LayoutGrid, Table, ArrowUpDown, Tag } from "lucide-react";
@@ -102,7 +103,15 @@ export default function AuthorityAdminPage() {
   };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get("tab");
   const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce" | "emergency">("reports");
+
+  useEffect(() => {
+    if (tabParam === "reports" || tabParam === "polls" || tabParam === "workforce" || tabParam === "emergency") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // ── Reports State ─────────────────────────────────────────────────────────
   const [allReports, setAllReports] = useState<EnrichedReport[]>([]);
@@ -564,77 +573,6 @@ export default function AuthorityAdminPage() {
           </div>
 
           <main className="w-full">
-
-        {/* Portal Tabs */}
-        <div className="flex border-b border-slate-200 mb-8 gap-6">
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "reports"
-                ? "text-green-600 border-b-2 border-green-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Civic Reports
-            {totalReports > 0 && (
-              <span className="ml-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {totalReports}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("emergency")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "emergency"
-                ? "text-red-600 border-b-2 border-red-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            Emergency Reports
-            {totalEmergencyReports > 0 && (
-              <span className="ml-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {totalEmergencyReports}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("polls")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "polls"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" />
-            Opinion Polls
-            {polls.length > 0 && (
-              <span className="ml-1 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {polls.length}
-              </span>
-            )}
-          </button>
-          {ENABLE_WORKFORCE_TRACKING && (
-            <button
-              onClick={() => setActiveTab("workforce")}
-              className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-                activeTab === "workforce"
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-slate-400 hover:text-slate-600"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Workforce Tracking
-              {workers.length > 0 && (
-                <span className="ml-1 bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {workers.length}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
-
 
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
