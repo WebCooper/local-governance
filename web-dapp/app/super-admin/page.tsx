@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAdmin } from "@/context/AdminContext";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { ShieldCheck } from "lucide-react";
 import VotingMethodProposalForm from "@/components/admin/VotingMethodProposalForm";
 import VotingConfigPanel from "@/components/admin/VotingConfigPanel";
 import { AuthorityRosterTable } from "@/components/admin/AuthorityRosterTable";
@@ -439,7 +440,10 @@ export default function SuperAdminPage() {
                 <path d="M100 0L107.032 92.9682L200 100L107.032 107.032L100 200L92.9682 107.032L0 100L92.9682 92.9682L100 0Z" fill="currentColor"/>
               </svg>
             </div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-blue-200">Governance Portal</p>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Governance Portal
+            </div>
             <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
               Super Admin Dashboard
             </h1>

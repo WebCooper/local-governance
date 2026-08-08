@@ -531,52 +531,69 @@ export default function AuthorityAdminPage() {
   }
 
 
+  const topUpAndWalletPills = (
+    <>
+      <button 
+        onClick={handleTopUp}
+        disabled={isFunding}
+        className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-5 rounded-full transition-all shadow-sm flex items-center gap-2 text-sm disabled:opacity-50">
+        <span className="bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[10px]">
+          {isFunding ? (
+            <span className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )}
+        </span>
+        {isFunding ? "Scanning..." : "Top-Up Gas Wallets"}
+      </button>
+      <div className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-full text-sm font-medium flex items-center gap-2 text-white">
+        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        {account.slice(0, 6)}…{account.slice(-4)}
+      </div>
+    </>
+  );
+
   // ─── Main Dashboard ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F9FAFB] pb-16 pt-4 md:pt-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-start">
         <div className="w-full flex flex-col">
-          <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-[#059669] to-[#047857] p-8 md:p-10 text-white relative mb-10 shadow-sm flex flex-col justify-center">
-            <div className="absolute top-0 right-0 p-8 opacity-30 pointer-events-none">
-              <svg className="animate-[spin_8s_linear_infinite]" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M100 0L107.032 92.9682L200 100L107.032 107.032L100 200L92.9682 107.032L0 100L92.9682 92.9682L100 0Z" fill="currentColor"/>
-              </svg>
-            </div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-3 text-emerald-200">Authority Portal</p>
-            <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
-              Authority Dashboard
-            </h1>
-            <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
-              Manage Civic Reports, handle emergencies, and oversee community opinion polls.
-            </p>
-            <div className="flex flex-wrap gap-4 items-center">
-                <button 
-                  onClick={handleTopUp}
-                  disabled={isFunding}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-sm flex items-center gap-3 text-sm disabled:opacity-50">
-                  <span className="bg-emerald-600 text-white rounded-full w-5 h-5 flex items-center justify-center font-bold text-xs">
-                    {isFunding ? (
-                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    )}
-                  </span>
-                  {isFunding ? "Scanning..." : "Top-Up Gas Wallets"}
-                </button>
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-3 rounded-full text-sm font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  {account.slice(0, 6)}…{account.slice(-4)}
-                </div>
-            </div>
-          </div>
-
           <main className="w-full">
 
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
           <>
+            {/* 0. Gradient Banner for Civic Reports */}
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-800 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <svg className="w-48 h-48 animate-[pulse_4s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-emerald-200">Civic Reports Dashboard</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Manage & Resolve Community Issues
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Review, triage, and assign municipal issues reported by citizens. Keep the community informed of resolution progress.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => {
+                    setOffset(0);
+                    fetchReports(0);
+                  }}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh Data
+                </button>
+                {topUpAndWalletPills}
+              </div>
+            </div>
+
             {/* 1. Executive KPI Analytics Header */}
             <AdminAnalyticsHeader
               totalReports={allReports.length}
@@ -593,26 +610,6 @@ export default function AuthorityAdminPage() {
               emergencyCount={totalEmergencyReports}
               onSelectEmergencyTab={() => setActiveTab("emergency")}
             />
-
-            {/* Reports Header */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Civic Reports</h2>
-                <p className="text-slate-500 mt-1 text-sm">
-                  Review, triage, and manage municipal issues reported by citizens.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setOffset(0);
-                  fetchReports(0);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-green-600 hover:text-green-700 font-semibold text-sm shadow-sm hover:border-slate-300 transition-all"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Refresh Data</span>
-              </button>
-            </div>
 
             {/* 2. Advanced Multi-Dimension Filtering & Search Bar */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
@@ -822,27 +819,35 @@ export default function AuthorityAdminPage() {
         {/* ── EMERGENCY REPORTS TAB ─────────────────────────────────────────── */}
         {activeTab === "emergency" && (
           <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-red-50 text-red-600 border border-red-100 mb-3 shadow-sm">
-                  <span className="relative flex h-2 w-2 mr-1">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                  HIGH PRIORITY INCIDENTS
-                </div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Emergency Reports</h2>
-                <p className="text-slate-500 mt-1.5 text-sm font-medium">
-                  Urgent civic incidents requiring immediate authority dispatch and resolution.
-                </p>
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-red-600 to-rose-900 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <svg className="w-48 h-48 animate-[pulse_2s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
               </div>
-              <button
-                onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
-                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-red-50 transition-colors bg-white shadow-sm border border-slate-100 hover:shadow"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </button>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
+                <span className="relative flex h-2 w-2 mr-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+                High Priority Incidents
+              </div>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Emergency Command Center
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Immediate dispatch and resolution for urgent civic incidents. Monitor critical situations in real-time.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </button>
+                {topUpAndWalletPills}
+              </div>
             </div>
 
             {emergencyLoading ? (
@@ -911,29 +916,37 @@ export default function AuthorityAdminPage() {
         {/* ── POLLS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === "polls" && (
           <>
-            <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-emerald-50 text-emerald-700 border border-emerald-100 mb-3 shadow-sm">
-                  <BarChart2 className="w-3.5 h-3.5" />
-                  COMMUNITY VOTING
-                </div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Decentralized Opinion Polls</h2>
-                <p className="text-slate-500 mt-1.5 text-sm font-medium">Monitor, finalize, and publish public policy votes.</p>
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-violet-600 to-purple-900 p-8 md:p-10 text-white relative mb-8 shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <svg className="w-48 h-48 animate-[pulse_5s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
+                <BarChart2 className="w-3.5 h-3.5" />
+                Community Voting
+              </div>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Decentralized Opinion Polls
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Monitor, finalize, and publish public policy votes directly to the community ledger.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
                 <Link
                   href="/polls/create"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-[16px] transition-all text-sm shadow-sm flex items-center gap-2 hover:shadow-md hover:-translate-y-0.5 duration-300"
+                  className="bg-white text-purple-700 hover:bg-slate-50 font-bold px-5 py-2.5 rounded-full transition-all text-sm shadow-sm flex items-center gap-2 hover:shadow-md duration-300"
                 >
                   <Plus className="w-4 h-4" /> Create Poll
                 </Link>
                 <button
                   onClick={fetchPolls}
-                  className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-sm"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Refresh
                 </button>
+                {topUpAndWalletPills}
               </div>
             </div>
 
@@ -1054,18 +1067,32 @@ export default function AuthorityAdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-in fade-in duration-300">
             {/* Left: Workers List */}
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Workforce Mappings</h2>
-                  <p className="text-slate-500 text-sm mt-1">Directory of registered workers and their Planka configurations.</p>
+              <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-800 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
+                <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                  <svg className="w-48 h-48 animate-[pulse_4s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
                 </div>
-                <button
-                  onClick={fetchWorkforceData}
-                  className="flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-semibold text-sm"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
-                </button>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
+                  <Users className="w-3.5 h-3.5" />
+                  Workforce Management
+                </div>
+                <h2 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                  Workforce Tracking
+                </h2>
+                <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                  Directory of registered workers and their Planka configurations. Link Ethereum addresses to task managers.
+                </p>
+                <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                  <button
+                    onClick={fetchWorkforceData}
+                    className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                  </button>
+                  {topUpAndWalletPills}
+                </div>
               </div>
 
               {workforceLoading ? (
