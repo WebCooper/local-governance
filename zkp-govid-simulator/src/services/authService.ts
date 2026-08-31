@@ -76,4 +76,36 @@ const getAuthorityPublicKey = (): string => {
   return getGovWallet().address;
 };
 
-export { authenticateAndGenerateProof,getAuthorityPublicKey };
+const verifyRegistrationSignature = (
+  payload: { govId: string; name: string; timestamp: number },
+  signature: string,
+  signerAddress: string
+): boolean => {
+  try {
+    if (!signature || !signerAddress || !payload.govId || !payload.name || !payload.timestamp) {
+      return false;
+    }
+    const message = `ZKP-GovID Registration\nGovID: ${payload.govId}\nName: ${payload.name}\nTimestamp: ${payload.timestamp}`;
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+
+    // Verify recovered address matches provided signer address
+    if (recoveredAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+      return false;
+    }
+
+    // Verify recovered address matches authorized DRP public address from environment (if configured to a non-example address)
+    const expectedDrpAddress = process.env.DRP_PUBLIC_ADDRESS;
+    if (expectedDrpAddress && expectedDrpAddress.toLowerCase() !== '0x3148582292b134c84bb1f63ad2983c59da0887a8') {
+      return recoveredAddress.toLowerCase() === expectedDrpAddress.toLowerCase();
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error verifying registration signature:', error);
+    return false;
+  }
+};
+
+export { authenticateAndGenerateProof, getAuthorityPublicKey, verifyRegistrationSignature };
+
+

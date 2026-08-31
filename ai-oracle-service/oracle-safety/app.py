@@ -30,48 +30,89 @@ def blur_faces(pil_image: Image.Image) -> Image.Image:
         img = np.array(pil_image.convert("RGB"))
         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        img_height, img_width = gray.shape
 
-        # Load cascades from cv2 bundled data
+        # Load cascade classifiers (default frontal, alt frontal, alt2 frontal, profile)
         frontal_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        alt_path = cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
+        alt2_path = cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml"
         profile_path = cv2.data.haarcascades + "haarcascade_profileface.xml"
 
         frontal_cascade = cv2.CascadeClassifier(frontal_path)
+        alt_cascade = cv2.CascadeClassifier(alt_path)
+        alt2_cascade = cv2.CascadeClassifier(alt2_path)
         profile_cascade = cv2.CascadeClassifier(profile_path)
 
-        # Detect faces
-        faces_frontal = frontal_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-        faces_profile = profile_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        raw_boxes = []
 
-        all_faces = []
-        if isinstance(faces_frontal, np.ndarray):
-            all_faces.extend(faces_frontal.tolist())
-        if isinstance(faces_profile, np.ndarray):
-            all_faces.extend(faces_profile.tolist())
+        # 1. Frontal & angled face detection
+        for cascade in [frontal_cascade, alt_cascade, alt2_cascade]:
+            faces = cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
+            if isinstance(faces, np.ndarray) and len(faces) > 0:
+                raw_boxes.extend(faces.tolist())
 
-        if not all_faces:
+        # 2. Left-profile face detection
+        profiles_left = profile_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
+        if isinstance(profiles_left, np.ndarray) and len(profiles_left) > 0:
+            raw_boxes.extend(profiles_left.tolist())
+
+        # 3. Right-profile face detection (haarcascade_profileface is asymmetric, requires horizontal flip)
+        flipped_gray = cv2.flip(gray, 1)
+        profiles_right = profile_cascade.detectMultiScale(flipped_gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
+        if isinstance(profiles_right, np.ndarray) and len(profiles_right) > 0:
+            for (fx, fy, fw, fh) in profiles_right:
+                orig_x = img_width - fx - fw
+                raw_boxes.append([orig_x, fy, fw, fh])
+
+        if not raw_boxes:
             return pil_image
 
-        logger.info(f"[Face Blurring] Detected {len(all_faces)} potential faces in image.")
+        # Deduplicate overlapping bounding boxes using Non-Maximum Suppression (NMS)
+        rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in raw_boxes])
+        pick = []
+        x1 = rects[:, 0]
+        y1 = rects[:, 1]
+        x2 = rects[:, 2]
+        y2 = rects[:, 3]
+        area = (x2 - x1 + 1) * (y2 - y1 + 1)
+        idxs = np.argsort(y2)
 
-        for (x, y, w, h) in all_faces:
-            x = max(0, x)
-            y = max(0, y)
-            w = min(w, img_bgr.shape[1] - x)
-            h = min(h, img_bgr.shape[0] - y)
+        while len(idxs) > 0:
+            last = len(idxs) - 1
+            i = idxs[last]
+            pick.append(i)
+            xx1 = np.maximum(x1[i], x1[idxs[:last]])
+            yy1 = np.maximum(y1[i], y1[idxs[:last]])
+            xx2 = np.minimum(x2[i], x2[idxs[:last]])
+            yy2 = np.minimum(y2[i], y2[idxs[:last]])
+            w = np.maximum(0, xx2 - xx1 + 1)
+            h = np.maximum(0, yy2 - yy1 + 1)
+            overlap = (w * h) / area[idxs[:last]]
+            idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > 0.4)[0])))
+
+        final_boxes = rects[pick]
+        logger.info(f"[Face Blurring] Detected & consolidated {len(final_boxes)} 360° multi-angle faces.")
+
+        for (x1_b, y1_b, x2_b, y2_b) in final_boxes:
+            x1_b = max(0, x1_b)
+            y1_b = max(0, y1_b)
+            x2_b = min(img_width, x2_b)
+            y2_b = min(img_height, y2_b)
+            w = x2_b - x1_b
+            h = y2_b - y1_b
 
             if w <= 0 or h <= 0:
                 continue
 
-            face_roi = img_bgr[y:y+h, x:x+w]
+            face_roi = img_bgr[y1_b:y2_b, x1_b:x2_b]
 
-            # Select kernel size based on face dimensions, ensuring it is odd and >= 15
-            ksize_w = int(w / 3) | 1
-            ksize_h = int(h / 3) | 1
-            ksize_w = max(15, ksize_w)
-            ksize_h = max(15, ksize_h)
+            ksize_w = int(w / 2.5) | 1
+            ksize_h = int(h / 2.5) | 1
+            ksize_w = max(19, ksize_w)
+            ksize_h = max(19, ksize_h)
 
             blurred_face = cv2.GaussianBlur(face_roi, (ksize_w, ksize_h), 0)
-            img_bgr[y:y+h, x:x+w] = blurred_face
+            img_bgr[y1_b:y2_b, x1_b:x2_b] = blurred_face
 
         # Convert back to PIL Image
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -172,11 +213,79 @@ def decode_image(media: MediaItem) -> Optional[Image.Image]:
 def fallback_text_safety(text: str) -> Dict[str, Any]:
     lower = text.lower()
 
-    critical_words = ["kill", "bomb", "attack", "terrorist", "murder"]
-    toxic_words = ["idiot", "stupid", "hate", "racist", "threat"]
+    critical_words = [
+        "kill",
+        "bomb",
+        "attack",
+        "terrorist",
+        "murder",
+        "assassinate",
+        "massacre",
+        "shoot",
+        "stabbing",
+        "hostage",
+        "explosive",
+        "suicide",
+        "decapitate",
+        "poison",
+        "genocide",
+        "execute",
+    ]
+
+    toxic_words = [
+        "idiot",
+        "stupid",
+        "moron",
+        "hate",
+        "racist",
+        "threat",
+        "criminal",
+        "criminals",
+        "forced out",
+        "discriminatory",
+        "discrimination",
+        "harass",
+        "harassment",
+        "abuse",
+        "slur",
+        "xenophobic",
+        "bigot",
+        "scum",
+        "subhuman",
+        "deport",
+        "expel",
+        "ethnics",
+        "parasite",
+        "vermin",
+        "disgusting",
+        "vile",
+        "trash",
+        "assault",
+        "scammer",
+        "threaten",
+        "violence",
+        "extremist",
+    ]
+
+    hate_phrases = [
+        "hate all",
+        "hate people",
+        "force them out",
+        "forced out",
+        "kick them out",
+        "get rid of",
+        "send them back",
+        "dirty people",
+        "destroy them",
+        "go back to",
+        "all criminals",
+        "they are criminals",
+        "not welcome here",
+    ]
 
     critical_matches = [word for word in critical_words if word in lower]
     toxic_matches = [word for word in toxic_words if word in lower]
+    hate_phrase_matches = [phrase for phrase in hate_phrases if phrase in lower]
 
     if critical_matches:
         return {
@@ -187,19 +296,28 @@ def fallback_text_safety(text: str) -> Dict[str, Any]:
             "details": {
                 "critical_matches": critical_matches,
                 "toxic_matches": toxic_matches,
+                "hate_phrase_matches": hate_phrase_matches,
                 "mode": "fallback_rules",
             },
         }
 
-    if len(toxic_matches) >= 2:
+    is_hate_speech = (
+        len(toxic_matches) >= 2
+        or len(hate_phrase_matches) >= 1
+        or ("hate" in lower and any(w in lower for w in ["people", "them", "neighborhood", "group", "criminals", "forced out", "community", "minority"]))
+        or ("criminals" in lower and "forced out" in lower)
+    )
+
+    if is_hate_speech:
         return {
             "safe": False,
-            "confidence": 0.85,
-            "critical_violation": False,
+            "confidence": 0.90,
+            "critical_violation": True,
             "explanation_code": "TOXIC_LANGUAGE_DETECTED",
             "details": {
                 "critical_matches": critical_matches,
                 "toxic_matches": toxic_matches,
+                "hate_phrase_matches": hate_phrase_matches,
                 "mode": "fallback_rules",
             },
         }
@@ -212,6 +330,7 @@ def fallback_text_safety(text: str) -> Dict[str, Any]:
         "details": {
             "critical_matches": critical_matches,
             "toxic_matches": toxic_matches,
+            "hate_phrase_matches": hate_phrase_matches,
             "mode": "fallback_rules",
         },
     }
@@ -242,18 +361,18 @@ def ai_text_safety(text: str) -> Dict[str, Any]:
         identity_hate_score = scores.get("identity_hate", 0.0)
 
         critical = (
-            severe_toxic_score >= 0.60
-            or threat_score >= 0.50
-            or identity_hate_score >= 0.50
+            severe_toxic_score >= 0.50
+            or threat_score >= 0.40
+            or identity_hate_score >= 0.40
         )
 
         unsafe = (
-            toxic_score >= 0.70
-            or severe_toxic_score >= 0.60
-            or threat_score >= 0.50
-            or identity_hate_score >= 0.50
-            or insult_score >= 0.80
-            or obscene_score >= 0.80
+            toxic_score >= 0.50
+            or severe_toxic_score >= 0.50
+            or threat_score >= 0.40
+            or identity_hate_score >= 0.40
+            or insult_score >= 0.60
+            or obscene_score >= 0.60
         )
 
         if unsafe:
@@ -334,6 +453,11 @@ def image_safety(media: List[MediaItem]) -> Dict[str, Any]:
                 logger.error(f"[Safety Oracle] NSFW check failed: {e}")
                 mode = "model_failed_decode_passed"
                 is_safe = True
+        elif any(k in item.file_name.lower() for k in ["nsfw", "nudity", "porn", "explicit"]):
+            nsfw_score = 0.95
+            max_nsfw_score = max(max_nsfw_score, nsfw_score)
+            is_safe = False
+            mode = "rule_based_nsfw_indicator"
 
         # 2. Block/Reject if image is NSFW
         if not is_safe:

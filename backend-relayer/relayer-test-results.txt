@@ -1,0 +1,60 @@
+
+> relayer@0.0.1 test
+> jest --verbose
+
+PASS src/app.controller.spec.ts
+  AppController
+    root
+      ✓ should return "Hello World!" (24 ms)
+
+[33m[Nest] 4683  - [39m08/03/2026, 10:10:23 AM [33m   WARN[39m [38;5;3m[AiOracleService] [39m[33mRELAYER_PRIVATE_KEY is missing from environment variables![39m
+[33m[Nest] 4683  - [39m08/03/2026, 10:10:23 AM [33m   WARN[39m [38;5;3m[AiOracleService] [39m[33mRELAYER_PRIVATE_KEY is missing from environment variables![39m
+[32m[Nest] 4683  - [39m08/03/2026, 10:10:23 AM [32m    LOG[39m [38;5;3m[AiOracleService] [39m[32mPreparing payload for AI Moderation Oracle...[39m
+[33m[Nest] 4683  - [39m08/03/2026, 10:10:23 AM [33m   WARN[39m [38;5;3m[AiOracleService] [39m[33mRELAYER_PRIVATE_KEY is missing from environment variables![39m
+PASS src/ai-oracle/ai-oracle.service.spec.ts
+  AiOracleService
+    T2.5.1 — canonicalJson() produces deterministic, sorted output
+      ✓ produces identical output regardless of object key insertion order (9 ms)
+      ✓ sorts nested object keys recursively (2 ms)
+      ✓ handles arrays without sorting (preserves order) (2 ms)
+      ✓ produces same hash for same canonical string across multiple calls (1 ms)
+    T2.5.2 — Relayer signature can be verified by ethers.js
+      ✓ generates a signature that recovers back to the relayer address (20 ms)
+    T2.5.3 — Missing RELAYER_PRIVATE_KEY throws appropriately
+      ✓ logs a warning when RELAYER_PRIVATE_KEY is missing on construction (3 ms)
+      ✓ moderateContent() throws InternalServerErrorException when key is missing (26 ms)
+      ✓ evaluatePoll() throws InternalServerErrorException when key is missing (4 ms)
+
+[31m[Nest] 4677  - [39m08/03/2026, 10:10:23 AM [31m  ERROR[39m [38;5;3m[ReportingService] [39m[31mPSEUDONYM_DOMAIN_SALT is not set in environment[39m
+[31m[Nest] 4677  - [39m08/03/2026, 10:10:23 AM [31m  ERROR[39m [38;5;3m[ReportingService] [39m[31mVote verification failed: Invalid government ticket for voting[39m
+[31m[Nest] 4677  - [39m08/03/2026, 10:10:24 AM [31m  ERROR[39m [38;5;3m[ReportingService] [39m[31mVote verification failed: non-canonical s; use ._s (argument="s", value="0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", code=INVALID_ARGUMENT, version=6.16.0)[39m
+[31m[Nest] 4677  - [39m08/03/2026, 10:10:24 AM [31m  ERROR[39m [38;5;3m[ReportingService] [39m[31mMissing GOV_PUBLIC_ADDRESS in environment configuration[39m
+PASS src/reporting/reporting.service.spec.ts
+  ReportingService
+    T2.1 — Government ticket verification
+      ✓ T2.1.1 — valid gov signature is accepted and returns a jobId (36 ms)
+      ✓ T2.1.2 — wrong gov signer address is rejected with UnauthorizedException (44 ms)
+      ✓ T2.1.3 — missing zkpSignature field throws BadRequestException (6 ms)
+    T2.2 — Citizen payload signature verification
+      ✓ T2.2.1 — valid citizen signature is accepted (12 ms)
+      ✓ T2.2.2 — tampered description causes signature mismatch → UnauthorizedException (11 ms)
+      ✓ T2.2.3 — wrong citizenPubKey (address mismatch) causes rejection (22 ms)
+      ✓ T2.2.4 — image count mismatch throws BadRequestException (12 ms)
+      ✓ T2.2.5 — malformed imageHashes JSON throws BadRequestException (7 ms)
+    T2.3 — Citizen pseudonym derivation
+      ✓ T2.3.1 — same address + salt always produces the same pseudonym (deterministic) (6 ms)
+      ✓ T2.3.2 — different addresses produce different pseudonyms (11 ms)
+      ✓ T2.3.3 — missing PSEUDONYM_DOMAIN_SALT throws InternalServerErrorException (6 ms)
+    T2.4 — Vote payload verification
+      ✓ T2.4.1 — valid vote payload returns a jobId (12 ms)
+      ✓ T2.4.2 — invalid gov ticket for vote → UnauthorizedException (18 ms)
+      ✓ T2.4.3 — tampered vote citizen signature → UnauthorizedException (7 ms)
+      ✓ T2.4.4 — missing required vote fields → BadRequestException (3 ms)
+    T2.5 — Environment configuration validation
+      ✓ T2.5.1 — missing GOV_PUBLIC_ADDRESS throws on module init (4 ms)
+
+Test Suites: 3 passed, 3 total
+Tests:       25 passed, 25 total
+Snapshots:   0 total
+Time:        2.538 s, estimated 3 s
+Ran all test suites.

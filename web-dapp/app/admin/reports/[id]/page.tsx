@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import { use, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,9 @@ import {
   AlertCircle,
   ImageIcon,
   Calendar,
+  Users,
+  MessageSquare,
+  Plus,
 } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { useCitizen } from "@/context/CitizenContext";
@@ -31,8 +34,17 @@ import {
   extractCoordinates,
 } from "@/lib/reportHelpers";
 import Link from "next/link";
+import {
+  getTaskByReportId,
+  assignTask,
+  getTaskComments,
+  addTaskComment,
+  getWorkers,
+} from "@/lib/relayerAPI";
+import toast from "react-hot-toast";
 
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
+
   ssr: false,
 });
 
@@ -50,6 +62,8 @@ interface ActionLogEntry {
   } | null;
 }
 
+const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
+
 export default function AuthorityReportDetailPage({
   params,
 }: {
@@ -57,7 +71,7 @@ export default function AuthorityReportDetailPage({
 }) {
   const router = useRouter();
   const { id } = use(params);
-  const { account, isAuthority, isConnecting, reportingContract, connectWallet } = useAdmin();
+  const { account, isAuthority, isSuperAdmin, isConnecting, reportingContract, connectWallet } = useAdmin();
   const { wallet } = useCitizen();
 
   const [report, setReport] = useState<EnrichedReport | null>(null);
@@ -65,7 +79,73 @@ export default function AuthorityReportDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // --- Planka Task Tracking States ---
+  const [taskAssignment, setTaskAssignment] = useState<any | null>(null);
+  const [workers, setWorkers] = useState<any[]>([]);
+  const [internalNotes, setInternalNotes] = useState<any[]>([]);
+  const [newNoteText, setNewNoteText] = useState("");
+  const [isPostingNote, setIsPostingNote] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignAddress, setAssignAddress] = useState("");
+  const [assignPriority, setAssignPriority] = useState("MEDIUM");
+  const [assignDueDate, setAssignDueDate] = useState("");
+
+  const handleAssignWorker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignAddress) {
+      toast.error("Please select a worker.");
+      return;
+    }
+    setIsAssigning(true);
+    const loadToast = toast.loading("Updating off-chain task assignment...");
+    try {
+      const res = await assignTask(
+        Number(id),
+        assignAddress,
+        assignPriority,
+        assignDueDate || undefined
+      );
+      if (res.success) {
+        toast.success("Task successfully assigned off-chain!", { id: loadToast });
+        // Reload details
+        const taskRes = await getTaskByReportId(Number(id));
+        if (taskRes.success) setTaskAssignment(taskRes.data);
+      } else {
+        toast.error(res.message || "Failed to update assignment.", { id: loadToast });
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to assign task.", { id: loadToast });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handlePostNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteText.trim()) return;
+    setIsPostingNote(true);
+    try {
+      const res = await addTaskComment(Number(id), newNoteText);
+      if (res.success) {
+        setNewNoteText("");
+        // Reload notes
+        const commentsRes = await getTaskComments(Number(id));
+        if (commentsRes.success) {
+          setInternalNotes(commentsRes.data);
+        }
+        toast.success("Internal note posted.");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to post note.");
+    } finally {
+      setIsPostingNote(false);
+    }
+  };
+
   const loadReport = async () => {
+
     setLoading(true);
     setError(null);
     try {
@@ -145,7 +225,38 @@ export default function AuthorityReportDetailPage({
       // Async IPFS enrichment
       const enriched = await enrichReportWithIPFS(base);
       setReport(enriched);
+
+      // Fetch Planka task assignment & workers directory if enabled
+      if (ENABLE_WORKFORCE_TRACKING) {
+        try {
+          const taskRes = await getTaskByReportId(Number(id));
+          if (taskRes.success && taskRes.data) {
+            setTaskAssignment(taskRes.data);
+            setAssignAddress(taskRes.data.assignedWorkerAddress || "");
+            setAssignPriority(taskRes.data.priority || "MEDIUM");
+            setAssignDueDate(taskRes.data.dueDate ? taskRes.data.dueDate.slice(0, 10) : "");
+            
+            // Fetch card comments
+            const commentsRes = await getTaskComments(Number(id));
+            if (commentsRes.success) {
+              setInternalNotes(commentsRes.data);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load Planka task tracking data:", err);
+        }
+
+        try {
+          const workersRes = await getWorkers();
+          if (workersRes.success) {
+            setWorkers(workersRes.data);
+          }
+        } catch (err) {
+          console.error("Failed to load workers directory:", err);
+        }
+      }
     } catch (err: any) {
+
       setError(err?.message || "Failed to load report.");
     } finally {
       setLoading(false);
@@ -204,26 +315,6 @@ export default function AuthorityReportDetailPage({
     );
   }
 
-  // ─── Guard: connected but not authority ─────────────────────────────────────
-  if (!isAuthority) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center border border-red-100">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-red-600" />
-          </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h1>
-          <p className="text-slate-500 text-sm mb-4">
-            This wallet is not registered as an Authority on-chain.
-          </p>
-          <p className="font-mono text-xs text-slate-600 bg-slate-50 p-3 rounded-lg break-all">
-            {account}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ─── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -235,6 +326,27 @@ export default function AuthorityReportDetailPage({
       </div>
     );
   }
+
+  // ─── Guard: connected but not authority ─────────────────────────────────────
+  if (!isAuthority && !isSuperAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white max-w-md w-full rounded-2xl shadow-xl p-8 text-center border border-red-100">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">Access Denied</h1>
+          <p className="text-slate-500 text-sm mb-4">
+            This wallet is not registered as an Admin or Authority on-chain.
+          </p>
+          <p className="font-mono text-xs text-slate-600 bg-slate-50 p-3 rounded-lg break-all">
+            {account}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
 
   // ─── Error ───────────────────────────────────────────────────────────────────
   if (error || !report) {
@@ -319,7 +431,8 @@ export default function AuthorityReportDetailPage({
                 <img
                   src={heroImage!}
                   alt={`Report ${report.id}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setSelectedImage(`data:${report.images![0].mimeType || "image/jpeg"};base64,${report.images![0].data}`)}
                 />
               ) : coordinates ? (
                 <MapPreview lat={coordinates.lat} lng={coordinates.lng} interactive />
@@ -396,13 +509,19 @@ export default function AuthorityReportDetailPage({
                   {report.images!.map((img, i) => (
                     <div
                       key={i}
-                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100"
+                      onClick={() => setSelectedImage(`data:${img.mimeType || "image/jpeg"};base64,${img.data}`)}
+                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100 cursor-pointer hover:opacity-90 transition group relative"
                     >
                       <img
                         src={`data:${img.mimeType || "image/jpeg"};base64,${img.data}`}
                         alt={img.originalName}
                         className="w-full h-full object-cover"
                       />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <span className="text-white text-xs font-bold px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm">
+                          View Fullsize
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -502,7 +621,7 @@ export default function AuthorityReportDetailPage({
                               <img
                                 src={`/api/ipfs/image/${act.imageCid}`}
                                 alt="Action Attachment"
-                                className="w-full h-full object-cover hover:scale-[1.02] transition-all"
+                                className="w-full h-full object-cover hover:scale-[1.02] transition-all cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)}
                               />
                             </div>
                           )}
@@ -514,7 +633,65 @@ export default function AuthorityReportDetailPage({
               )}
             </div>
 
+            {/* Internal Discussion Notes (Off-Chain) */}
+            {ENABLE_WORKFORCE_TRACKING && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-purple-600" />
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Internal Discussion Notes (Off-Chain)
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Collaborate internally on this task. These comments are stored off-chain on Planka and are gasless.
+                </p>
+
+                {/* Comment Thread */}
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                  {internalNotes.length === 0 ? (
+                    <p className="text-slate-400 italic text-sm text-center py-6">
+                      No internal discussion notes yet.
+                    </p>
+                  ) : (
+                    internalNotes.map((note) => {
+                      const noteDate = new Date(note.createdAt).toLocaleString();
+                      return (
+                        <div key={note.id} className="bg-slate-50 border border-slate-100/50 rounded-xl p-3 space-y-1">
+                          <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>{note.user?.name || "System User"}</span>
+                            <span>{noteDate}</span>
+                          </div>
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                            {note.text}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Comment Box */}
+                <form onSubmit={handlePostNote} className="space-y-3 pt-2 border-t border-slate-100">
+                  <textarea
+                    rows={3}
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder="Type an internal note to team members..."
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-800"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isPostingNote || !newNoteText.trim()}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+                  >
+                    {isPostingNote ? "Posting..." : "Post Note"}
+                  </button>
+                </form>
+              </div>
+            )}
+
           </div>
+
 
           {/* ── RIGHT COLUMN ────────────────────────────────────────────────── */}
           <div className="flex flex-col gap-5 lg:sticky lg:top-24 lg:self-start">
@@ -590,7 +767,77 @@ export default function AuthorityReportDetailPage({
               </div>
             </div>
 
+            {/* Workforce Assignment (Off-Chain) */}
+            {ENABLE_WORKFORCE_TRACKING && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  Workforce Assignment
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Assign a registered worker and schedule details off-chain (gasless).
+                </p>
+
+                <form onSubmit={handleAssignWorker} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                      Assignee
+                    </label>
+                    <select
+                      value={assignAddress}
+                      onChange={(e) => setAssignAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-700"
+                    >
+                      <option value="">Unassigned</option>
+                      {workers.map((w) => (
+                        <option key={w.walletAddress} value={w.walletAddress}>
+                          {w.name} ({w.department})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                        Priority
+                      </label>
+                      <select
+                        value={assignPriority}
+                        onChange={(e) => setAssignPriority(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-700"
+                      >
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={assignDueDate}
+                        onChange={(e) => setAssignDueDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all font-medium text-slate-700"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isAssigning}
+                    className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {isAssigning ? "Assigning..." : "Assign Task"}
+                  </button>
+                </form>
+              </div>
+            )}
+
             {/* On-Chain Hashes */}
+
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-slate-400" />
@@ -617,6 +864,29 @@ export default function AuthorityReportDetailPage({
           </div>
         </div>
       </main>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 cursor-zoom-out transition-all duration-300"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center">
+            <img 
+              src={selectedImage} 
+              alt="Evidence Preview" 
+              className="max-w-full max-h-full object-contain rounded-[24px] shadow-2xl" 
+            />
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors border border-white/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

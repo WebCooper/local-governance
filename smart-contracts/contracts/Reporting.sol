@@ -4,6 +4,10 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface IAuthorityMultiSig {
+    function isSuperAdmin(address account) external view returns (bool);
+}
+
 contract Reporting is Ownable, ReentrancyGuard {
     // ─── Enums ───────────────────────────────────────────────────────────────
 
@@ -17,6 +21,8 @@ contract Reporting is Ownable, ReentrancyGuard {
         Closed,
         Reopened
     }
+
+    enum VotingMethod { Majority51, SuperMajority66, Threshold, Hybrid }
 
     // ─── Structs ─────────────────────────────────────────────────────────────
 
@@ -45,6 +51,9 @@ contract Reporting is Ownable, ReentrancyGuard {
         // Latest authority update (comment + image) for quick display
         string authorityComment;
         string authorityImageCid;
+        // Revote management
+        bool isRevotable;
+        uint8 revoteCount;
     }
 
     /**
@@ -64,6 +73,11 @@ contract Reporting is Ownable, ReentrancyGuard {
     uint256 public reportCount;
     uint256 public votingWindowDuration = 6 hours;
 
+    // Configurable voting strategy
+    VotingMethod public currentVotingMethod = VotingMethod.Majority51;
+    uint256 public minVotesRequired = 0;
+    VotingMethod[2] public hybridMethods;
+
     // Primary store: reportId → Report
     mapping(uint256 => Report) public reports;
 
@@ -75,14 +89,16 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     // Replay-attack guards
     mapping(bytes32 => bool) public usedSubmissionNullifiers;
-    mapping(uint256 => mapping(bytes32 => bool))
+    // Validation nullifiers keyed by (reportId, revoteCycle, nullifier) to prevent cross-cycle collisions
+    mapping(uint256 => mapping(uint8 => mapping(bytes32 => bool)))
         public usedValidationVoteNullifiers;
     mapping(uint256 => mapping(bytes32 => bool))
         public usedVerificationVoteNullifiers;
     mapping(uint256 => mapping(bytes32 => bool))
         public usedRejectionReviewVoteNullifiers;
 
-    mapping(uint256 => mapping(bytes32 => bool)) public hasVotedValidation;
+    // Citizen-pseudonym vote guards: validation uses cycle dimension
+    mapping(uint256 => mapping(uint8 => mapping(bytes32 => bool))) public hasVotedValidation;
     mapping(uint256 => mapping(bytes32 => bool)) public hasVotedVerification;
     mapping(uint256 => mapping(bytes32 => bool)) public hasVotedRejectionReview;
 
@@ -104,6 +120,7 @@ contract Reporting is Ownable, ReentrancyGuard {
     error VotingWindowStillOpen();
     error VotingWindowClosed();
     error InvalidPagination();
+    error MaxRevotesReached();
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -176,8 +193,26 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 upholdVotes,
         uint256 appealVotes
     );
+    event VotingConfigUpdated(
+        VotingMethod indexed method,
+        uint256 minVotes,
+        VotingMethod h1,
+        VotingMethod h2
+    );
+    event ValidationRevoteTriggered(uint256 indexed reportId, uint8 newCycle);
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
+
+    function _isAuthorizedAuthority(address caller) internal view returns (bool) {
+        if (caller == owner()) return true;
+        if (authorizedAuthorities[caller]) return true;
+        if (owner() != address(0) && owner().code.length > 0) {
+            try IAuthorityMultiSig(owner()).isSuperAdmin(caller) returns (bool isAdmin) {
+                if (isAdmin) return true;
+            } catch {}
+        }
+        return false;
+    }
 
     modifier onlyRelayer() {
         if (!authorizedRelayers[msg.sender]) revert Unauthorized();
@@ -185,7 +220,13 @@ contract Reporting is Ownable, ReentrancyGuard {
     }
 
     modifier onlyAuthority() {
-        if (!authorizedAuthorities[msg.sender]) revert Unauthorized();
+        if (!_isAuthorizedAuthority(msg.sender)) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyAuthorityOrRelayer() {
+        if (!_isAuthorizedAuthority(msg.sender) && !authorizedRelayers[msg.sender])
+            revert Unauthorized();
         _;
     }
 
@@ -197,6 +238,18 @@ contract Reporting is Ownable, ReentrancyGuard {
         address initialAuthority = 0xEE8670A4d50cdcf0afE7C99bF9a45976BaF576c2;
         authorizedAuthorities[initialAuthority] = true;
         authoritiesList.push(initialAuthority);
+
+        // Initial Super Admins automatically authorized as authorities
+        address[4] memory initialSuperAdmins = [
+            0x416109618A1f1A89C7Fd156be62b5fc734745340,
+            0x22c3488E96fccE1077365309A92e6BD895a00AAf,
+            0xA7Fe174054755c27c870772f47E52081c4b250b5,
+            0xda90b18Df16955Da5352C21D00d3ac4CDb52125b
+        ];
+        for (uint256 i = 0; i < initialSuperAdmins.length; i++) {
+            authorizedAuthorities[initialSuperAdmins[i]] = true;
+            authoritiesList.push(initialSuperAdmins[i]);
+        }
     }
 
     // ─── Admin Functions ──────────────────────────────────────────────────────
@@ -233,6 +286,35 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     function setVotingWindowDuration(uint256 duration) external onlyOwner {
         votingWindowDuration = duration;
+    }
+
+    /**
+     * @notice Configure the global voting strategy applied to all phases.
+     * @param method  VotingMethod enum index (0=Majority51, 1=SuperMajority66, 2=Threshold, 3=Hybrid).
+     * @param minVotes Minimum total votes required (only used by Threshold and Hybrid with Threshold sub-method).
+     * @param h1      First hybrid sub-method enum index.
+     * @param h2      Second hybrid sub-method enum index.
+     * @dev   Hybrid sub-methods cannot themselves be Hybrid to prevent unbounded recursion.
+     */
+    function setVotingConfig(
+        uint8 method,
+        uint256 minVotes,
+        uint8 h1,
+        uint8 h2
+    ) external onlyOwner {
+        require(method <= uint8(type(VotingMethod).max), "Invalid voting method");
+        require(h1 <= uint8(type(VotingMethod).max), "Invalid hybrid method h1");
+        require(h2 <= uint8(type(VotingMethod).max), "Invalid hybrid method h2");
+        // Guard: Hybrid sub-methods cannot themselves be Hybrid (prevents infinite recursion)
+        require(h1 != uint8(VotingMethod.Hybrid), "h1 cannot be Hybrid");
+        require(h2 != uint8(VotingMethod.Hybrid), "h2 cannot be Hybrid");
+
+        currentVotingMethod = VotingMethod(method);
+        minVotesRequired = minVotes;
+        hybridMethods[0] = VotingMethod(h1);
+        hybridMethods[1] = VotingMethod(h2);
+
+        emit VotingConfigUpdated(currentVotingMethod, minVotes, hybridMethods[0], hybridMethods[1]);
     }
 
     // ─── Core Functions ───────────────────────────────────────────────────────
@@ -305,6 +387,7 @@ contract Reporting is Ownable, ReentrancyGuard {
             block.timestamp
         );
     }
+
 
     // ─── Internal State Transition Helper ────────────────────────────────────
 
@@ -531,13 +614,15 @@ contract Reporting is Ownable, ReentrancyGuard {
         }
 
         // ─── NORMAL VOTING LOGIC ──────────────────────────────────────────────
-        if (usedValidationVoteNullifiers[reportId][voteNullifier])
+        // Use revoteCount as the cycle dimension to allow fresh nullifiers per revote cycle
+        uint8 cycle = report.revoteCount;
+        if (usedValidationVoteNullifiers[reportId][cycle][voteNullifier])
             revert NullifierAlreadyUsed();
-        if (hasVotedValidation[reportId][citizenPseudonym])
+        if (hasVotedValidation[reportId][cycle][citizenPseudonym])
             revert CitizenAlreadyVoted();
 
-        usedValidationVoteNullifiers[reportId][voteNullifier] = true;
-        hasVotedValidation[reportId][citizenPseudonym] = true;
+        usedValidationVoteNullifiers[reportId][cycle][voteNullifier] = true;
+        hasVotedValidation[reportId][cycle][citizenPseudonym] = true;
 
         if (support) {
             report.votes.validationUpvotes++;
@@ -552,6 +637,34 @@ contract Reporting is Ownable, ReentrancyGuard {
             report.votes.validationUpvotes,
             report.votes.validationDownvotes
         );
+    }
+
+    /**
+     * @notice Triggers a new validation vote cycle for a community-rejected report.
+     *         Only callable when the rejection was due to a quorum failure (isRevotable == true).
+     *         Capped at 3 total revote cycles.
+     * @param reportId  The ID of the rejected report to revote on.
+     */
+    function triggerRevote(uint256 reportId) external onlyRelayer nonReentrant {
+        Report storage report = reports[reportId];
+
+        if (report.status != ReportStatus.CommunityRejected) revert InvalidState();
+        if (!report.isRevotable) revert InvalidState();
+        if (report.revoteCount >= 3) revert MaxRevotesReached();
+
+        report.revoteCount++;
+        report.isRevotable = false;
+
+        // Reset validation counters for the new cycle
+        report.votes.validationUpvotes = 0;
+        report.votes.validationDownvotes = 0;
+
+        // Re-open validation window
+        report.status = ReportStatus.PendingValidation;
+        report.phaseDeadline = block.timestamp + votingWindowDuration;
+        report.updatedAt = block.timestamp;
+
+        emit ValidationRevoteTriggered(reportId, report.revoteCount);
     }
 
     function castVerificationVote(
@@ -668,6 +781,9 @@ contract Reporting is Ownable, ReentrancyGuard {
 
     /**
      * @dev Internal logic extracted to support both single (lazy) and batch finalization.
+     *      Uses _evaluateVote for configurable strategy dispatch.
+     *      Validation phase sets isRevotable when quorum fails and cap not reached.
+     *      Verification and RejectionReview phases fall back to tie-break on quorum failure.
      */
     function _finalizeSingleReport(
         uint256 reportId,
@@ -677,20 +793,44 @@ contract Reporting is Ownable, ReentrancyGuard {
         ReportStatus newStatus;
 
         if (previousStatus == ReportStatus.PendingValidation) {
-            newStatus = report.votes.validationUpvotes >
-                report.votes.validationDownvotes
-                ? ReportStatus.Open
-                : ReportStatus.CommunityRejected;
+            (bool passed, bool quorumFailed) = _evaluateVote(
+                report.votes.validationUpvotes,
+                report.votes.validationDownvotes,
+                currentVotingMethod
+            );
+
+            if (passed) {
+                newStatus = ReportStatus.Open;
+                report.isRevotable = false;
+            } else {
+                newStatus = ReportStatus.CommunityRejected;
+                // Allow revote only when rejection was due to quorum failure and cap not reached
+                report.isRevotable = quorumFailed && report.revoteCount < 3;
+            }
         } else if (previousStatus == ReportStatus.PendingVerification) {
-            newStatus = report.votes.verificationAcceptVotes >=
-                report.votes.verificationRejectVotes
-                ? ReportStatus.Closed
-                : ReportStatus.Reopened;
+            (bool passed, bool quorumFailed) = _evaluateVote(
+                report.votes.verificationAcceptVotes,
+                report.votes.verificationRejectVotes,
+                currentVotingMethod
+            );
+
+            // Verification ignores quorum failure — fall back to tie-break
+            if (!passed && quorumFailed) {
+                passed = report.votes.verificationAcceptVotes >= report.votes.verificationRejectVotes;
+            }
+            newStatus = passed ? ReportStatus.Closed : ReportStatus.Reopened;
         } else if (previousStatus == ReportStatus.PendingRejectionReview) {
-            newStatus = report.votes.rejectionUpholdVotes >=
-                report.votes.rejectionAppealVotes
-                ? ReportStatus.Closed
-                : ReportStatus.Reopened;
+            (bool passed, bool quorumFailed) = _evaluateVote(
+                report.votes.rejectionUpholdVotes,
+                report.votes.rejectionAppealVotes,
+                currentVotingMethod
+            );
+
+            // Rejection Review ignores quorum failure — fall back to tie-break
+            if (!passed && quorumFailed) {
+                passed = report.votes.rejectionUpholdVotes >= report.votes.rejectionAppealVotes;
+            }
+            newStatus = passed ? ReportStatus.Closed : ReportStatus.Reopened;
         } else {
             return; // Not in a resolvable state, gracefully exit
         }
@@ -702,6 +842,47 @@ contract Reporting is Ownable, ReentrancyGuard {
             newStatus,
             block.timestamp
         );
+    }
+
+    /**
+     * @dev Core voting evaluation logic dispatched by the configured VotingMethod.
+     * @param positive  Votes in favour (upvotes / acceptVotes / upholdVotes).
+     * @param negative  Votes against (downvotes / rejectVotes / appealVotes).
+     * @param method    The VotingMethod to apply.
+     * @return passed       True if the positive side wins under the given method.
+     * @return quorumFailed True if a hard quorum was required but not met.
+     */
+    function _evaluateVote(
+        uint256 positive,
+        uint256 negative,
+        VotingMethod method
+    ) internal view returns (bool passed, bool quorumFailed) {
+        uint256 total = positive + negative;
+
+        if (method == VotingMethod.Majority51) {
+            // Simple majority — no hard quorum
+            passed = positive > negative;
+            quorumFailed = false;
+        } else if (method == VotingMethod.SuperMajority66) {
+            // At least 2/3 of total votes must be positive
+            passed = total > 0 && (positive * 3 >= total * 2);
+            quorumFailed = false;
+        } else if (method == VotingMethod.Threshold) {
+            if (total < minVotesRequired) {
+                quorumFailed = true;
+                passed = false;
+            } else {
+                passed = positive > negative;
+                quorumFailed = false;
+            }
+        } else {
+            // Hybrid: both sub-methods must pass; either quorum failure propagates
+            // Sub-methods are guaranteed non-Hybrid by setVotingConfig guards
+            (bool p1, bool q1) = _evaluateVote(positive, negative, hybridMethods[0]);
+            (bool p2, bool q2) = _evaluateVote(positive, negative, hybridMethods[1]);
+            passed = p1 && p2;
+            quorumFailed = q1 || q2;
+        }
     }
 
     // ─── Authority Action Functions ───────────────────────────────────────────
@@ -716,14 +897,16 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
             report.status != ReportStatus.Reopened
         ) revert InvalidState();
 
-        report.assignedAuthority = msg.sender;
+        if (report.assignedAuthority == address(0) || authorizedAuthorities[msg.sender]) {
+            report.assignedAuthority = msg.sender;
+        }
         _changeStatus(reportId, ReportStatus.InProgress);
         _recordAuthorityAction(reportId, ReportStatus.InProgress, comment, imageCid);
 
@@ -740,10 +923,13 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (report.status != ReportStatus.InProgress) revert InvalidState();
-        if (report.assignedAuthority != msg.sender) revert Unauthorized();
+        if (
+            !authorizedRelayers[msg.sender] &&
+            report.assignedAuthority != msg.sender
+        ) revert Unauthorized();
 
         _changeStatus(reportId, ReportStatus.PendingVerification);
         report.phaseDeadline = block.timestamp + votingWindowDuration;
@@ -762,7 +948,7 @@ contract Reporting is Ownable, ReentrancyGuard {
         uint256 reportId,
         string calldata comment,
         string calldata imageCid
-    ) external onlyAuthority nonReentrant {
+    ) external onlyAuthorityOrRelayer nonReentrant {
         Report storage report = reports[reportId];
         if (
             report.status != ReportStatus.Open &&
@@ -772,6 +958,7 @@ contract Reporting is Ownable, ReentrancyGuard {
 
         if (
             report.status == ReportStatus.InProgress &&
+            !authorizedRelayers[msg.sender] &&
             report.assignedAuthority != msg.sender
         ) {
             revert Unauthorized();

@@ -68,7 +68,7 @@ export default function LocationPicker({ value, onChange }: Props) {
     } else {
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:28px;height:28px;background:#2563eb;border:3px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.35)"></div>`,
+        html: `<div style="width:28px;height:28px;background:#f97316;border:3px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.35)"></div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 28],
       });
@@ -204,27 +204,27 @@ export default function LocationPicker({ value, onChange }: Props) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-900 text-slate-200 placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all rounded-[16px] text-sm"
             />
           </div>
           <button
             type="button"
             onClick={handleSearch}
             disabled={searchLoading}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-[16px] text-sm font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
           >
             {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
           </button>
         </div>
 
         {showResults && searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-[1000] mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 z-[1000] mt-1 bg-white border border-slate-200 rounded-[16px] shadow-xl overflow-hidden max-h-52 overflow-y-auto">
             {searchResults.map((r, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => selectResult(r)}
-                className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 border-b border-slate-100 last:border-0 transition-colors flex items-start gap-2"
+                className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-orange-50 hover:text-orange-700 border-b border-slate-100 last:border-0 transition-colors flex items-start gap-2"
               >
                 <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                 <span className="line-clamp-2">{r.address}</span>
@@ -233,7 +233,7 @@ export default function LocationPicker({ value, onChange }: Props) {
           </div>
         )}
         {showResults && searchResults.length === 0 && (
-          <div className="absolute top-full left-0 right-0 z-[1000] mt-1 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-sm text-slate-400">
+          <div className="absolute top-full left-0 right-0 z-[1000] mt-1 bg-white border border-slate-200 rounded-[16px] shadow-xl px-4 py-3 text-sm text-slate-400">
             No results found.
           </div>
         )}
@@ -245,7 +245,7 @@ export default function LocationPicker({ value, onChange }: Props) {
           type="button"
           onClick={handleAutoDetect}
           disabled={geoLoading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:opacity-50 text-white rounded-[16px] text-xs font-semibold transition-colors shadow-sm"
         >
           {geoLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
           {geoLoading ? "Detecting…" : "Auto-detect"}
@@ -255,14 +255,14 @@ export default function LocationPicker({ value, onChange }: Props) {
           <button
             type="button"
             onClick={clearLocation}
-            className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-xl text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-[16px] text-xs font-medium transition-colors"
           >
             <X className="h-3.5 w-3.5" /> Clear
           </button>
         )}
 
         <p className="text-xs text-slate-400 ml-auto">
-          Or <span className="text-blue-500 font-medium">click the map</span> to pin
+          Or <span className="text-orange-500 font-medium">click the map</span> to pin
         </p>
       </div>
 
@@ -273,18 +273,18 @@ export default function LocationPicker({ value, onChange }: Props) {
       )}
 
       {/* Map */}
-      <div className="rounded-xl overflow-hidden border border-slate-200" style={{ height: "320px" }}>
+      <div className="relative z-0 rounded-[16px] overflow-hidden border border-slate-200 shadow-inner" style={{ height: "320px" }}>
         <div ref={containerRef} style={{ height: "100%", width: "100%" }} />
       </div>
 
       {/* Selected location */}
       {value && (
-        <div className="flex items-start gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
-          <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 px-4 py-3 bg-orange-50 border border-orange-100 rounded-[16px]">
+          <MapPin className="h-4 w-4 text-orange-600 shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-blue-700 mb-0.5">Selected Location</p>
-            <p className="text-xs text-blue-600 leading-relaxed line-clamp-2">{value.address}</p>
-            <p className="text-[10px] text-blue-400 mt-0.5 font-mono">
+            <p className="text-xs font-semibold text-orange-700 mb-0.5">Selected Location</p>
+            <p className="text-xs text-orange-600 leading-relaxed line-clamp-2">{value.address}</p>
+            <p className="text-[10px] text-orange-400 mt-0.5 font-mono">
               {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
             </p>
           </div>

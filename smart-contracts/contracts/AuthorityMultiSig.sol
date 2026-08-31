@@ -6,6 +6,12 @@ interface IReporting {
     function transferOwnership(address newOwner) external;
     function authorizedAuthorities(address account) external view returns (bool);
     function setVotingWindowDuration(uint256 duration) external;
+    function setVotingConfig(
+        uint8 method,
+        uint256 minVotes,
+        uint8 h1,
+        uint8 h2
+    ) external;
 }
 
 /**
@@ -32,14 +38,16 @@ contract AuthorityMultiSig {
     // ─── Enums ───────────────────────────────────────────────────────────────
 
     /**
-     * @notice The four governance actions Super Admins can propose.
+     * @notice The five governance actions Super Admins can propose.
      * AddAuthority / RemoveAuthority manage Authority Worker access in Reporting.sol.
+     * SetVotingMethod configures the global voting strategy via multi-sig approval.
      */
     enum ActionType {
         AddSuperAdmin,
         RemoveSuperAdmin,
-        AddAuthority,    // Grants an Authority Worker access to act on reports
-        RemoveAuthority  // Revokes an Authority Worker's access
+        AddAuthority,       // Grants an Authority Worker access to act on reports
+        RemoveAuthority,    // Revokes an Authority Worker's access
+        SetVotingMethod     // Configures the voting strategy on Reporting.sol
     }
 
     // ─── Structs ─────────────────────────────────────────────────────────────
@@ -67,6 +75,11 @@ contract AuthorityMultiSig {
         string name;
         string position;
         string department;
+        // Voting configuration payload (only populated for SetVotingMethod proposals)
+        uint8 newVotingMethod;
+        uint256 newMinVotes;
+        uint8 newHybrid1;
+        uint8 newHybrid2;
     }
 
     struct VoteInfo {
@@ -92,12 +105,14 @@ contract AuthorityMultiSig {
     mapping(uint256 => mapping(address => VoteInfo)) public voteInfo;
 
     IReporting public reportingContract;
+    IReporting public emergencyReportingContract;
 
     // ─── Events ───────────────────────────────────────────────────────────────
     event ProposalSubmitted(uint256 indexed proposalId, address indexed target, ActionType actionType, address indexed proposer);
     event VoteCast(uint256 indexed proposalId, address indexed voter);
     event ProposalExecuted(uint256 indexed proposalId, address indexed target, ActionType actionType);
     event ReportingContractUpdated(address indexed newContract);
+    event EmergencyReportingContractUpdated(address indexed newContract);
     event ProfileUpdated(address indexed account, string name, string position, string department);
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
@@ -126,7 +141,8 @@ contract AuthorityMultiSig {
         string[] memory initialNames,
         string[] memory initialPositions,
         string[] memory initialDepartments,
-        address _reportingContract
+        address _reportingContract,
+        address _emergencyReportingContract
     ) {
         require(initialSuperAdmins.length > 0, "Must have at least 1 super admin");
         require(
@@ -168,12 +184,23 @@ contract AuthorityMultiSig {
             });
             emit ProfileUpdated(initialAuthority, "Initial Authority", "Field Officer", "Municipal Works Department");
         }
+
+        if (_emergencyReportingContract != address(0)) {
+            emergencyReportingContract = IReporting(_emergencyReportingContract);
+        }
     }
 
     // ─── Admin Functions ──────────────────────────────────────────────────────
     function setReportingContract(address _reportingContract) external onlySuperAdmin {
+        require(_reportingContract != address(0), "Invalid address");
         reportingContract = IReporting(_reportingContract);
         emit ReportingContractUpdated(_reportingContract);
+    }
+
+    function setEmergencyReportingContract(address _emergencyContract) external onlySuperAdmin {
+        require(_emergencyContract != address(0), "Invalid address");
+        emergencyReportingContract = IReporting(_emergencyContract);
+        emit EmergencyReportingContractUpdated(_emergencyContract);
     }
 
     /**
@@ -208,6 +235,7 @@ contract AuthorityMultiSig {
         string calldata position,
         string calldata department
     ) external onlySuperAdmin returns (uint256) {
+        require(actionType != ActionType.SetVotingMethod, "Use submitVotingConfigProposal");
         require(target != address(0), "Invalid target address");
         require(durationInDays > 0, "Duration must be > 0");
 
@@ -239,10 +267,64 @@ contract AuthorityMultiSig {
             executed: false,
             name: name,
             position: position,
-            department: department
+            department: department,
+            newVotingMethod: 0,
+            newMinVotes: 0,
+            newHybrid1: 0,
+            newHybrid2: 0
         });
 
         emit ProposalSubmitted(proposalId, target, actionType, msg.sender);
+
+        // Automatically cast a yes vote for the proposer
+        vote(proposalId, true);
+
+        return proposalId;
+    }
+
+    /**
+     * @notice Submit a proposal to change the global voting configuration on Reporting.sol.
+     *         Requires multi-sig approval before the configuration is applied.
+     *
+     * @param durationInDays   Number of days until the proposal expires.
+     * @param newVotingMethod  VotingMethod enum index (0=Majority51, 1=SuperMajority66, 2=Threshold, 3=Hybrid).
+     * @param newMinVotes      Minimum votes required (used only by Threshold / Hybrid with Threshold sub-method).
+     * @param newHybrid1       First hybrid sub-method enum index.
+     * @param newHybrid2       Second hybrid sub-method enum index.
+     *
+     * @dev The proposer automatically casts a YES vote upon submission.
+     */
+    function submitVotingConfigProposal(
+        uint256 durationInDays,
+        uint8 newVotingMethod,
+        uint256 newMinVotes,
+        uint8 newHybrid1,
+        uint8 newHybrid2
+    ) external onlySuperAdmin returns (uint256) {
+        require(address(reportingContract) != address(0), "Reporting contract not set");
+        require(durationInDays > 0, "Duration must be > 0");
+
+        proposalCount++;
+        uint256 proposalId = proposalCount;
+
+        proposals[proposalId] = Proposal({
+            id: proposalId,
+            target: address(reportingContract),
+            actionType: ActionType.SetVotingMethod,
+            yesVotes: 0,
+            noVotes: 0,
+            deadline: block.timestamp + (durationInDays * 1 days),
+            executed: false,
+            name: "",
+            position: "",
+            department: "",
+            newVotingMethod: newVotingMethod,
+            newMinVotes: newMinVotes,
+            newHybrid1: newHybrid1,
+            newHybrid2: newHybrid2
+        });
+
+        emit ProposalSubmitted(proposalId, address(reportingContract), ActionType.SetVotingMethod, msg.sender);
 
         // Automatically cast a yes vote for the proposer
         vote(proposalId, true);
@@ -346,6 +428,9 @@ contract AuthorityMultiSig {
         } else if (proposal.actionType == ActionType.AddAuthority) {
             require(address(reportingContract) != address(0), "Reporting contract not set");
             reportingContract.setAuthority(proposal.target, true);
+            if (address(emergencyReportingContract) != address(0)) {
+                emergencyReportingContract.setAuthority(proposal.target, true);
+            }
 
             // Set profile for the newly added Authority Worker
             profiles[proposal.target] = Profile({
@@ -358,9 +443,20 @@ contract AuthorityMultiSig {
         } else if (proposal.actionType == ActionType.RemoveAuthority) {
             require(address(reportingContract) != address(0), "Reporting contract not set");
             reportingContract.setAuthority(proposal.target, false);
+            if (address(emergencyReportingContract) != address(0)) {
+                emergencyReportingContract.setAuthority(proposal.target, false);
+            }
 
             // Clear the profile
             delete profiles[proposal.target];
+        } else if (proposal.actionType == ActionType.SetVotingMethod) {
+            require(address(reportingContract) != address(0), "Reporting contract not set");
+            reportingContract.setVotingConfig(
+                proposal.newVotingMethod,
+                proposal.newMinVotes,
+                proposal.newHybrid1,
+                proposal.newHybrid2
+            );
         }
 
         emit ProposalExecuted(proposalId, proposal.target, proposal.actionType);

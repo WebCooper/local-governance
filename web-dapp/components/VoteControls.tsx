@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, XCircle } from "lucide-react";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { VOTE_PHASE_OPTIONS, getVoteDecisionCopy, type VotePhase } from "@/lib/vote";
 
 export interface VoteControlsProps {
@@ -91,38 +91,42 @@ export function VoteControls({
             type="button"
             onClick={() => onVote(true)}
             disabled={isSubmitting}
-            className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${
+            className={`group relative w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 border transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
               selectedDecision === true
-                ? "bg-blue-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
+                ? "bg-blue-600 border-blue-600 text-white ring-4 ring-blue-500/20 scale-[1.02] shadow-md shadow-blue-600/20"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 active:bg-blue-600 active:text-white active:scale-[0.98]"
             }`}
           >
-            <CheckCircle2 className="h-4 w-4" />
-            {copy.positiveLabel}
+            <ThumbsUp className={`h-5 w-5 transition-transform duration-200 ease-out group-hover:scale-125 group-hover:-rotate-12 shrink-0 ${
+              selectedDecision === true ? "scale-110 -rotate-12" : ""
+            }`} />
+            <span className="truncate">{copy.positiveLabel}</span>
           </button>
 
           <button
             type="button"
             onClick={() => onVote(false)}
             disabled={isSubmitting}
-            className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+            className={`group relative w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 border transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
               selectedDecision === false
-                ? "border-slate-400 bg-slate-100 text-slate-900"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                ? "bg-red-600 border-red-600 text-white ring-4 ring-red-500/20 scale-[1.02] shadow-md shadow-red-600/20"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-red-50 hover:border-red-300 hover:text-red-600 active:bg-red-600 active:text-white active:scale-[0.98]"
             }`}
           >
-            <XCircle className="h-4 w-4" />
-            {copy.negativeLabel}
+            <ThumbsDown className={`h-5 w-5 transition-transform duration-200 ease-out group-hover:scale-125 group-hover:rotate-12 shrink-0 ${
+              selectedDecision === false ? "scale-110 rotate-12" : ""
+            }`} />
+            <span className="truncate">{copy.negativeLabel}</span>
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-600 space-y-1">
+      <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-600 space-y-1.5">
         <p>
-          <span className="font-semibold text-slate-700">Yes:</span> {copy.positiveHint}
+          <span className="font-semibold text-blue-700">✓ {copy.positiveLabel}:</span> {copy.positiveHint}
         </p>
         <p>
-          <span className="font-semibold text-slate-700">No:</span> {copy.negativeHint}
+          <span className="font-semibold text-slate-700">✗ {copy.negativeLabel}:</span> {copy.negativeHint}
         </p>
       </div>
     </div>

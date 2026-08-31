@@ -44,6 +44,30 @@ export function getStatusMeta(status: number): StatusMeta {
   };
 }
 
+export const EMERGENCY_STATUS = {
+  Open: 0,
+  InProgress: 1,
+  Resolved: 2,
+  Reclassified: 3,
+} as const;
+
+export const EMERGENCY_STATUS_MAP: Record<number, StatusMeta> = {
+  0: { label: "Emergency - Open",         bg: "bg-red-100",    text: "text-red-800",    border: "border-red-300",    dot: "bg-red-500" },
+  1: { label: "Emergency - In Progress",  bg: "bg-indigo-100", text: "text-indigo-800", border: "border-indigo-300", dot: "bg-indigo-500" },
+  2: { label: "Emergency - Resolved",     bg: "bg-green-100",  text: "text-green-800",  border: "border-green-300",  dot: "bg-green-500" },
+  3: { label: "Reclassified (Penalized)", bg: "bg-slate-100",  text: "text-slate-800",  border: "border-slate-300",  dot: "bg-slate-500" },
+};
+
+export function getEmergencyStatusMeta(status: number): StatusMeta {
+  return EMERGENCY_STATUS_MAP[status] ?? {
+    label: "Unknown Emergency",
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-slate-400",
+  };
+}
+
 // ─── Vote Phase Detection ─────────────────────────────────────────────────────
 export function getVotePhaseFromStatus(status: number): VotePhase | null {
   switch (status) {
@@ -59,7 +83,7 @@ export function getVotePhaseFromStatus(status: number): VotePhase | null {
 }
 
 // ─── Authority Action Definitions ─────────────────────────────────────────────
-export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue" | "addUpdate";
+export type AuthorityAction = "startWork" | "markAsSolved" | "rejectIssue" | "addUpdate" | "downgradeEmergency";
 
 export interface AuthorityActionMeta {
   action: AuthorityAction;
@@ -107,6 +131,15 @@ const ACTION_META: Record<AuthorityAction, AuthorityActionMeta> = {
       "You are about to post a progress update for this report on-chain. This will not change the report status.",
     color: "green",
   },
+  downgradeEmergency: {
+    action: "downgradeEmergency",
+    label: "Downgrade Fake Emergency",
+    description: "Reclassify this as non-emergency. Applies a 30-day penalty to the citizen.",
+    confirmTitle: "Downgrade Emergency?",
+    confirmMessage:
+      "You are about to downgrade this emergency report. This will strip its emergency status and immediately lock the citizen's ID in the cryptographic penalty box for 30 days.",
+    color: "red",
+  },
 };
 
 export function getActionMeta(action: AuthorityAction): AuthorityActionMeta {
@@ -116,22 +149,31 @@ export function getActionMeta(action: AuthorityAction): AuthorityActionMeta {
 export function getAvailableActions(
   status: number,
   assignedAuthority: string,
-  currentAccount: string
+  currentAccount: string,
+  isEmergency: boolean = false
 ): AuthorityAction[] {
   const nullAddress = "0x0000000000000000000000000000000000000000";
   const isAssigned =
     assignedAuthority.toLowerCase() === currentAccount.toLowerCase();
   const isUnassigned = assignedAuthority === nullAddress;
 
+  let actions: AuthorityAction[] = [];
+
   switch (status) {
     case REPORT_STATUS.Open:
     case REPORT_STATUS.Reopened:
-      return ["startWork", "rejectIssue"];
+      actions = ["startWork", "rejectIssue"];
+      break;
     case REPORT_STATUS.InProgress:
-      return isAssigned ? ["markAsSolved"] : [];
-    default:
-      return [];
+      if (isAssigned) actions = ["markAsSolved", "rejectIssue", "addUpdate"];
+      break;
   }
+
+  if (isEmergency && status !== REPORT_STATUS.Closed) {
+    actions.push("downgradeEmergency");
+  }
+
+  return actions;
 }
 
 // ─── Admin Status Filter Tabs ─────────────────────────────────────────────────
@@ -172,15 +214,18 @@ export interface EnrichedReport {
   authorityComment?: string;
   authorityImageCid?: string;
   authorityCommentResolved?: string;
+  title?: string;
   description?: string;
   category?: string;
   location?: string;
   images?: { data: string; mimeType: string; originalName: string }[];
+  potentialDuplicates?: number[];
   ipfsLoaded: boolean;
+  isEmergency: boolean;
 }
 
 // ─── Converters ───────────────────────────────────────────────────────────────
-export function rawToEnriched(raw: any): EnrichedReport {
+export function rawToEnriched(raw: any, forceEmergency = false): EnrichedReport {
   return {
     id: Number(raw.id),
     ipfsCid: raw.ipfsCid,
@@ -188,19 +233,27 @@ export function rawToEnriched(raw: any): EnrichedReport {
     status: Number(raw.status),
     createdAt: Number(raw.createdAt),
     updatedAt: Number(raw.updatedAt),
-    phaseDeadline: Number(raw.phaseDeadline),
-    assignedAuthority: raw.assignedAuthority,
-    votes: {
+    phaseDeadline: raw.phaseDeadline ? Number(raw.phaseDeadline) : 0,
+    assignedAuthority: raw.assignedAuthority || "0x0000000000000000000000000000000000000000",
+    votes: raw.votes ? {
       validationUpvotes: Number(raw.votes.validationUpvotes),
       validationDownvotes: Number(raw.votes.validationDownvotes),
       verificationAcceptVotes: Number(raw.votes.verificationAcceptVotes),
       verificationRejectVotes: Number(raw.votes.verificationRejectVotes),
       rejectionUpholdVotes: Number(raw.votes.rejectionUpholdVotes),
       rejectionAppealVotes: Number(raw.votes.rejectionAppealVotes),
+    } : {
+      validationUpvotes: 0,
+      validationDownvotes: 0,
+      verificationAcceptVotes: 0,
+      verificationRejectVotes: 0,
+      rejectionUpholdVotes: 0,
+      rejectionAppealVotes: 0,
     },
     authorityComment: raw.authorityComment,
     authorityImageCid: raw.authorityImageCid,
     ipfsLoaded: false,
+    isEmergency: forceEmergency || (raw.isEmergency !== undefined ? Boolean(raw.isEmergency) : false),
   };
 }
 
@@ -223,10 +276,12 @@ export async function enrichReportWithIPFS(
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          enriched.description = data.description;
-          enriched.category = data.category;
-          enriched.location = data.location;
-          enriched.images = data.images ?? [];
+          const payload = data.data || data;
+          enriched.title = payload.title;
+          enriched.description = payload.description;
+          enriched.category = payload.category;
+          enriched.location = payload.location;
+          enriched.images = payload.images ?? [];
         }
       }
     } catch (err) {

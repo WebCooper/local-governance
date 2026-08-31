@@ -1,0 +1,48 @@
+
+
+[1m═══════════════════════════════════════════════════════[0m
+[1m  T5 — Blockchain Performance Benchmark[0m
+  Network: unknown
+  Deployer: 0x3253678aF33758255f6d97069d9102597AFFf92c
+  Relayer: 0x3253678aF33758255f6d97069d9102597AFFf92c
+  Authority: 0x3253678aF33758255f6d97069d9102597AFFf92c
+[1m═══════════════════════════════════════════════════════[0m
+
+[1m[33m  ── Deploying Contracts ──[0m
+  Reporting deployed: 0x0934dE4540Dcd8e30E922BFaeF6cAD29593cba50
+
+[1m[33m  ── T5.4 — Gas per submitReport() ──[0m
+  [36mAvg gas per submitReport()                   [0m [32m309056 gas[0m
+
+[1m[33m  ── T5.2 — End-to-End Submission Latency ──[0m
+    Report 5: 4877ms
+    Report 6: 4876ms
+    Report 7: 4789ms
+    Report 8: 4900ms
+    Report 9: 5642ms
+  [36mAverage latency (submit → confirmed)         [0m [32m5017ms[0m
+  [36mMin / Max latency                            [0m [32m4789ms / 5642ms[0m
+
+[1m[33m  ── T5.1 — Transaction Throughput (TPS) ──[0m
+  [36mTransactions submitted                       [0m [32m20[0m
+  [36mConfirmed transactions                       [0m [32m20[0m
+  [36mElapsed time                                 [0m [32m22956ms[0m
+  [36mThroughput (submit rate)                     [0m [32m0.87 TPS[0m
+
+[1m[33m  ── T5.3 — Clique Block Time Observation ──[0m
+    Block #41407: +5s since last block
+    Block #41408: +5s since last block
+    Block #41409: +5s since last block
+  [36mAvg Clique block interval                    [0m [32m5.0s[0m
+
+[1m[33m  ── T5.5 — Gas per castValidationVote() ──[0m
+  [36mAvg gas per castValidationVote()             [0m [32m51806 gas[0m
+
+[1m[33m  ── T5.6 — batchFinalizeVotingWindows() Gas & Execution ──[0m
+  [36mbatchFinalizeVotingWindows(10) gas           [0m [32m251909 gas[0m
+  [36mBatch gas per report                         [0m [32m25190 gas[0m
+
+[1m═══════════════════════════════════════════════════════[0m
+[1m  Benchmark Complete[0m
+[1m═══════════════════════════════════════════════════════[0m
+

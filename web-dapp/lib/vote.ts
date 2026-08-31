@@ -17,41 +17,41 @@ export const VOTE_PHASE_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    value: "validation",
-    label: "Validation",
-    description: "Initial community check for legitimacy.",
-  },
-  {
-    value: "verification",
-    label: "Verification",
-    description: "Confirm the issue details after validation.",
-  },
-  {
-    value: "rejectionReview",
-    label: "Rejection Review",
-    description: "Review an earlier rejection decision.",
-  },
-];
+    {
+      value: "validation",
+      label: "Validation",
+      description: "Initial community check for legitimacy.",
+    },
+    {
+      value: "verification",
+      label: "Verification",
+      description: "Confirm the issue details after validation.",
+    },
+    {
+      value: "rejectionReview",
+      label: "Rejection Review",
+      description: "Review an earlier rejection decision.",
+    },
+  ];
 
 const VOTE_DECISION_COPY: Record<VotePhase, VoteDecisionCopy> = {
   validation: {
-    positiveLabel: "Legitimate",
-    negativeLabel: "Spam/Invalid",
-    positiveHint: "Support the report as valid.",
-    negativeHint: "Mark the report as invalid.",
+    positiveLabel: "Valid",
+    negativeLabel: "Invalid",
+    positiveHint: "Verify that this is a real problem in your community.",
+    negativeHint: "Flag this report as inaccurate, duplicate, or invalid.",
   },
   verification: {
-    positiveLabel: "Verify",
+    positiveLabel: "Approve",
     negativeLabel: "Reject",
-    positiveHint: "Confirm the report should advance.",
-    negativeHint: "Reject the report from verification.",
+    positiveHint: "Confirm details are accurate and resolution is needed.",
+    negativeHint: "Reject this report due to insufficient info or incorrect details.",
   },
   rejectionReview: {
     positiveLabel: "Uphold Rejection",
     negativeLabel: "Overturn Rejection",
-    positiveHint: "Keep the rejection decision in place.",
-    negativeHint: "Send the rejection back for review.",
+    positiveHint: "Agree that this report should remain rejected.",
+    negativeHint: "Appeal to re-open and re-investigate this report.",
   },
 };
 

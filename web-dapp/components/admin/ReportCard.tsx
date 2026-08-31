@@ -88,6 +88,11 @@ export function ReportCard({
                   {report.category}
                 </span>
               )}
+              {report.isEmergency && report.status !== REPORT_STATUS.Closed && (
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-600 text-white shadow-sm flex items-center gap-1 animate-pulse">
+                  🚨 EMERGENCY
+                </span>
+              )}
               {isAssigned && (
                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
                   Assigned to you
@@ -166,45 +171,66 @@ export function ReportCard({
         </div>
       )}
 
-      {/* Footer: Actions */}
-      <div className="px-5 pb-5 flex items-center justify-between gap-3 flex-wrap border-t border-slate-50 pt-4">
-        {/* Action Buttons */}
-        <ReportActionButtons
-          report={report}
-          currentAccount={currentAccount}
-          reportingContract={reportingContract}
-          onActionSuccess={onActionSuccess}
-        />
+      {/* Footer: Actions & Image Preview */}
+      <div className="px-5 pb-5 border-t border-slate-50 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left: Action Buttons */}
+          <div>
+            <ReportActionButtons
+              report={report}
+              currentAccount={currentAccount}
+              reportingContract={reportingContract}
+              onActionSuccess={onActionSuccess}
+            />
+          </div>
 
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Expand / Collapse images */}
-          {report.images && report.images.length > 0 && (
-            <button
-              onClick={() => setExpanded((p) => !p)}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
-            >
-              {expanded ? (
-                <>
-                  <ChevronUp className="w-3.5 h-3.5" />
-                  Hide images
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                  {report.images.length} image{report.images.length !== 1 ? "s" : ""}
-                </>
+          {/* Right: Image Preview & Links */}
+          <div className="flex flex-col h-full">
+            {report.images && report.images.length > 0 ? (
+              <div className="flex-1 rounded-xl overflow-hidden bg-slate-100 border border-slate-100 mb-3 relative min-h-[120px]">
+                <img
+                  src={`data:${report.images[0].mimeType || "image/jpeg"};base64,${report.images[0].data}`}
+                  alt={report.images[0].originalName}
+                  className="w-full h-full object-cover absolute inset-0"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 rounded-xl bg-slate-50 border border-slate-100 border-dashed mb-3 flex items-center justify-center text-slate-400 text-xs min-h-[120px]">
+                No images provided
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 mt-auto pt-1">
+              {/* Expand / Collapse extra images */}
+              {report.images && report.images.length > 1 && (
+                <button
+                  onClick={() => setExpanded((p) => !p)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                      Hide extra images
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      +{report.images.length - 1} more image{report.images.length - 1 !== 1 ? "s" : ""}
+                    </>
+                  )}
+                </button>
               )}
-            </button>
-          )}
 
-          {/* View full detail */}
-          <Link
-            href={`/admin/reports/${report.id}`}
-            className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-bold transition-colors"
-          >
-            Full Detail
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+              {/* View full detail */}
+              <Link
+                href={`/admin/reports/${report.id}`}
+                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-bold transition-colors"
+              >
+                Full Detail
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

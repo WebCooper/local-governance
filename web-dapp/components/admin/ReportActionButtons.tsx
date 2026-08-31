@@ -128,6 +128,7 @@ const ACTION_ICONS: Record<AuthorityAction, React.ReactNode> = {
   markAsSolved: <CheckCircle2 className="w-3.5 h-3.5" />,
   rejectIssue: <XCircle className="w-3.5 h-3.5" />,
   addUpdate: <MessageSquare className="w-3.5 h-3.5" />,
+  downgradeEmergency: <AlertTriangle className="w-3.5 h-3.5" />,
 };
 
 const ACTION_STYLES: Record<AuthorityAction, string> = {
@@ -135,6 +136,7 @@ const ACTION_STYLES: Record<AuthorityAction, string> = {
   markAsSolved: "bg-slate-900 hover:bg-slate-800 text-white border-transparent",
   rejectIssue: "border border-red-200 text-red-600 hover:bg-red-50 bg-white",
   addUpdate: "bg-indigo-600 hover:bg-indigo-700 text-white border-transparent",
+  downgradeEmergency: "bg-red-600 hover:bg-red-700 text-white border-transparent shadow-[0_0_15px_rgba(220,38,38,0.5)]",
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -259,9 +261,16 @@ export function ReportActionButtons({
         case "addUpdate":
           tx = await reportingContract.addAuthorityUpdate(report.id, commentCid, imageCid);
           break;
+        case "downgradeEmergency": {
+          const relayerUrl = process.env.NEXT_PUBLIC_RELAYER_URL || "https://relayer.internalbuildtools.online";
+          const res = await fetch(`${relayerUrl}/admin/tasks/${report.id}/downgrade-emergency`, { method: "POST" });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || "Relayer error");
+          break;
+        }
       }
 
-      await tx.wait();
+      if (tx) await tx.wait();
 
       toast.success(
         pendingAction === "addUpdate"
