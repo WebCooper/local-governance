@@ -15,8 +15,8 @@ services:
       - "30303:30303"
       - "30303:30303/udp"
     volumes:
-      - ./node1:/root/node1
-      - ./genesis.json:/root/genesis.json
+      - ./blockchain/node1:/root/node1
+      - ./blockchain/genesis.json:/root/genesis.json
       - node1_data:/root/node1/geth
     command:
       - "if [ ! -s /root/node1/nodekey ] || [ $$(wc -c < /root/node1/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo 'c5ba367e9f33080ec1eda12a9447ded9e70b723d63fead5f5874acfbfb452477' > /root/node1/nodekey; fi;
@@ -53,8 +53,8 @@ services:
       - "30304:30304"
       - "30304:30304/udp"
     volumes:
-      - ./node2:/root/node2
-      - ./genesis.json:/root/genesis.json
+      - ./blockchain/node2:/root/node2
+      - ./blockchain/genesis.json:/root/genesis.json
       - node2_data:/root/node2/geth
     command:
       - "sleep 10 && if [ ! -s /root/node2/nodekey ] || [ $$(wc -c < /root/node2/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '3b8b81d5a115960783805cf02faa7cb573ca101f5459793dc1ecb3a7ecb3be0b' > /root/node2/nodekey; fi;
@@ -91,8 +91,8 @@ services:
       - "30305:30305"
       - "30305:30305/udp"
     volumes:
-      - ./node3:/root/node3
-      - ./genesis.json:/root/genesis.json
+      - ./blockchain/node3:/root/node3
+      - ./blockchain/genesis.json:/root/genesis.json
       - node3_data:/root/node3/geth
     command:
       - "sleep 15 && if [ ! -s /root/node3/nodekey ] || [ $$(wc -c < /root/node3/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '94c15b2e48649fbc752b7a2e4ed23dc169a742984adfac980cfb8150204d8ea9' > /root/node3/nodekey; fi;
@@ -130,8 +130,8 @@ services:
       - "30306:30306"
       - "30306:30306/udp"
     volumes:
-      - ./node4:/root/node4
-      - ./genesis.json:/root/genesis.json
+      - ./blockchain/node4:/root/node4
+      - ./blockchain/genesis.json:/root/genesis.json
       - node4_data:/root/node4/geth
     command:
       - "sleep 15 && if [ ! -s /root/node4/nodekey ] || [ $$(wc -c < /root/node4/nodekey) -lt 64 ]; then echo 'Writing static persistent nodekey...' && echo '6e8ce3664ebc1d168a43b818fa955574ec8065dd08e60cf8c75dda55a608f463' > /root/node4/nodekey; fi;
