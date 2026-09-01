@@ -339,6 +339,21 @@ def evaluate_result(test_case: Dict[str, Any], status_code: int, response_json: 
                 print(f"[Test Evaluation] Failed: image {orig['file_name']} was not returned in blurred_media.")
                 return False
 
+    if test_case.get("validate_not_blurred") and file_summaries:
+        blurred_media = response_json.get("blurred_media") or []
+        blurred_names = {item["file_name"] for item in blurred_media}
+        unexpected = [
+            item["file_name"]
+            for item in file_summaries
+            if item["file_name"] in blurred_names
+        ]
+        if unexpected:
+            print(
+                "[Test Evaluation] Failed: no-face images were unexpectedly "
+                f"returned as blurred: {unexpected}."
+            )
+            return False
+
     return True
 
 
@@ -461,6 +476,7 @@ def run_standard_tests() -> List[Dict[str, Any]]:
             "category": "Road Damage",
             "image_paths": ["test_client/test_assets/safe/pothole_road.png"],
             "expected_decision": "ACCEPT",
+            "validate_not_blurred": True,
             "skip_if_file_missing": True,
         },
         {
