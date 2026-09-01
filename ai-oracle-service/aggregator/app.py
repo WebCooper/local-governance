@@ -16,6 +16,8 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Body
 from pydantic import BaseModel
+from decision_policy import is_civic_rejection
+from payload_routing import build_oracle_payload
 
 load_dotenv()
 
@@ -372,17 +374,7 @@ def aggregate_votes(oracle_votes: List[Dict[str, Any]]) -> Dict[str, Any]:
         for vote in oracle_votes
     )
 
-    civic_rejection = any(
-        vote.get("oracle_id") == "ORACLE_3_CIVIC_RELEVANCE"
-        and vote.get("vote") == "REJECT"
-        for vote in oracle_votes
-    )
-
-    spam_rejection = any(
-        vote.get("oracle_id") == "ORACLE_2_SPAM_ABUSE"
-        and vote.get("vote") == "REJECT"
-        for vote in oracle_votes
-    )
+    civic_rejection = any(is_civic_rejection(vote) for vote in oracle_votes)
 
     if critical_violation or safety_rejection:
         final_decision = "REJECT"
@@ -520,7 +512,11 @@ async def moderate_report(
     oracle_votes = []
 
     for oracle_name, oracle_url in ORACLE_URLS.items():
-        vote = call_oracle(oracle_name, oracle_url, oracle_payload)
+        vote = call_oracle(
+            oracle_name,
+            oracle_url,
+            build_oracle_payload(oracle_name, oracle_payload),
+        )
         oracle_votes.append(vote)
     
     aggregation = aggregate_votes(oracle_votes)
@@ -656,7 +652,11 @@ async def moderate_poll(
     # 5. Execute AI Microservices
     oracle_votes = []
     for oracle_name, oracle_url in ORACLE_URLS.items():
-        vote = call_oracle(oracle_name, oracle_url, oracle_payload)
+        vote = call_oracle(
+            oracle_name,
+            oracle_url,
+            build_oracle_payload(oracle_name, oracle_payload),
+        )
         oracle_votes.append(vote)
     
     aggregation = aggregate_votes(oracle_votes)
