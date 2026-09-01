@@ -27,7 +27,11 @@ app = FastAPI(
     version="2.1.0",
 )
 
-logging.basicConfig(level=logging.WARNING)
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger("ai-oracle-aggregator")
 
 cors_origins_raw = os.getenv(
@@ -117,6 +121,20 @@ def init_db() -> None:
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    logger.info("=" * 60)
+    logger.info("AI Oracle Aggregator starting up...")
+    logger.info("ORACLE_API_KEY: %s", ORACLE_API_KEY)
+    logger.info("TRUSTED_RELAYER_ADDRESS: %s", TRUSTED_RELAYER_ADDRESS or "(not set)")
+    if AGGREGATOR_PRIVATE_KEY:
+        try:
+            account = Account.from_key(AGGREGATOR_PRIVATE_KEY)
+            logger.info("AGGREGATOR WALLET ADDRESS: %s", account.address)
+        except Exception as e:
+            logger.warning("AGGREGATOR_PRIVATE_KEY is set but invalid: %s", e)
+    else:
+        logger.warning("AGGREGATOR_PRIVATE_KEY is NOT set!")
+    logger.info("=" * 60)
+    print(f"[STARTUP] AI Oracle Aggregator started. ORACLE_API_KEY: {ORACLE_API_KEY}", flush=True)
 
 
 def canonical_json(data: Dict[str, Any]) -> str:
