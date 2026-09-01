@@ -387,7 +387,13 @@ def aggregate_votes(oracle_votes: List[Dict[str, Any]]) -> Dict[str, Any]:
     critical_violation = any(vote.get("critical_violation") is True for vote in oracle_votes)
 
     safety_rejection = any(
-        vote.get("oracle_id") == "ORACLE_1_SAFETY"
+        vote.get("oracle_id") in ["ORACLE_1_SAFETY", "ORACLE_SAFETY"]
+        and vote.get("vote") == "REJECT"
+        for vote in oracle_votes
+    )
+
+    spam_rejection = any(
+        vote.get("oracle_id") in ["ORACLE_2_SPAM_ABUSE", "ORACLE_SPAM", "ORACLE_2_SPAM"]
         and vote.get("vote") == "REJECT"
         for vote in oracle_votes
     )
