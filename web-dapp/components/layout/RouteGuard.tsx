@@ -12,7 +12,7 @@ const ADMIN_ROUTES = ["/admin", "/super-admin", "/dashboard", "/polls/create"];
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { wallet } = useCitizen();
+  const { wallet, isLocked } = useCitizen();
   const { account, isAuthority, isSuperAdmin, isConnecting } = useAdmin();
   const [isReady, setIsReady] = useState(false);
 
@@ -26,7 +26,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
     // Check Citizen Routes
     if (CITIZEN_ROUTES.some(route => pathname.startsWith(route))) {
-      if (!wallet) {
+      if (!wallet && !isLocked) {
         toast.error("You must be logged in as a Citizen to access this page.");
         router.push("/login");
       }
@@ -45,7 +45,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
         router.push("/");
       }
     }
-  }, [pathname, wallet, account, isAuthority, isSuperAdmin, isConnecting, isReady, router]);
+  }, [pathname, wallet, isLocked, account, isAuthority, isSuperAdmin, isConnecting, isReady, router]);
 
   return <>{children}</>;
 }

@@ -50,6 +50,13 @@ export const initializeDatabase = (): void => {
     CREATE INDEX IF NOT EXISTS idx_ticketStatus ON issued_tickets(status);
   `);
 
+  try {
+    db.prepare('SELECT citizenSeed FROM citizens LIMIT 1').run();
+  } catch (error) {
+    console.log('🔄 Migrating citizens table: adding missing citizenSeed column...');
+    db.exec("ALTER TABLE citizens ADD COLUMN citizenSeed TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000000000000000000000000000'");
+  }
+
   console.log('✅ Database initialized successfully');
 };
 

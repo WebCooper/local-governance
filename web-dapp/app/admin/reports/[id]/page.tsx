@@ -79,6 +79,8 @@ export default function AuthorityReportDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // --- Planka Task Tracking States ---
   const [taskAssignment, setTaskAssignment] = useState<any | null>(null);
   const [workers, setWorkers] = useState<any[]>([]);
@@ -429,7 +431,8 @@ export default function AuthorityReportDetailPage({
                 <img
                   src={heroImage!}
                   alt={`Report ${report.id}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setSelectedImage(`data:${report.images![0].mimeType || "image/jpeg"};base64,${report.images![0].data}`)}
                 />
               ) : coordinates ? (
                 <MapPreview lat={coordinates.lat} lng={coordinates.lng} interactive />
@@ -506,13 +509,19 @@ export default function AuthorityReportDetailPage({
                   {report.images!.map((img, i) => (
                     <div
                       key={i}
-                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100"
+                      onClick={() => setSelectedImage(`data:${img.mimeType || "image/jpeg"};base64,${img.data}`)}
+                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100 cursor-pointer hover:opacity-90 transition group relative"
                     >
                       <img
                         src={`data:${img.mimeType || "image/jpeg"};base64,${img.data}`}
                         alt={img.originalName}
                         className="w-full h-full object-cover"
                       />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <span className="text-white text-xs font-bold px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm">
+                          View Fullsize
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -612,7 +621,7 @@ export default function AuthorityReportDetailPage({
                               <img
                                 src={`/api/ipfs/image/${act.imageCid}`}
                                 alt="Action Attachment"
-                                className="w-full h-full object-cover hover:scale-[1.02] transition-all"
+                                className="w-full h-full object-cover hover:scale-[1.02] transition-all cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)}
                               />
                             </div>
                           )}
@@ -855,6 +864,29 @@ export default function AuthorityReportDetailPage({
           </div>
         </div>
       </main>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 cursor-zoom-out transition-all duration-300"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center">
+            <img 
+              src={selectedImage} 
+              alt="Evidence Preview" 
+              className="max-w-full max-h-full object-contain rounded-[24px] shadow-2xl" 
+            />
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors border border-white/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

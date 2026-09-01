@@ -2,51 +2,93 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import './index.css';
 
-const ZKP_BACKEND_URL = import.meta.env.VITE_ZKP_SERVER_URL || 'http://localhost:5001/api';
-const ENV_PRIVATE_KEY = import.meta.env.VITE_FRONTEND_PRIVATE_KEY || '';
-const ENV_REGISTRATION_SECRET = import.meta.env.VITE_REGISTRATION_SECRET || 'default_admin_secret';
+const getBackendUrl = () => {
+  let url = (
+    import.meta.env.VITE_ZKP_SERVER_URL ||
+    import.meta.env.VITE_API_URL ||
+    'https://zkp.internalbuildtools.online/api'
+  ).trim();
+  url = url.replace(/\/+$/, '');
+  if (!url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
+const ZKP_BACKEND_URL = getBackendUrl();
+const ENV_PRIVATE_KEY =
+  import.meta.env.VITE_FRONTEND_PRIVATE_KEY &&
+  import.meta.env.VITE_FRONTEND_PRIVATE_KEY !== 'your_private_key_here'
+    ? import.meta.env.VITE_FRONTEND_PRIVATE_KEY
+    : '';
+const rawSecret =
+  import.meta.env.VITE_REGISTRATION_SECRET ||
+  import.meta.env.VITE_ADMIN_SECRET ||
+  '';
+const ENV_REGISTRATION_SECRET =
+  rawSecret &&
+  rawSecret !== 'your_admin_secret_here' &&
+  rawSecret !== 'default_admin_secret'
+    ? rawSecret
+    : 'GQZa8aPRmwxNn1uNMufqIJzCDJJZJwsDShxVb4/YGx0';
+const DAPP_LOGIN_URL = 'https://dapp.internalbuildtools.online/';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'register' | 'test-login' | 'system'>('register');
+  // Registration Wizard State
+  // 1 = Registration Form Page (Student Register ID / GovID *, Account Password *, Confirm Password *)
+  // 2 = Success Completion & DApp Login Link
+  const [regStep, setRegStep] = useState<1 | 2>(1);
 
-  // Form State
+  // Registration Form State (Only requested fields: GovID, Password, Confirm Password)
   const [govId, setGovId] = useState('EG/2021/1001');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [registrationSecret, setRegistrationSecret] = useState(ENV_REGISTRATION_SECRET);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [registrationSecret] = useState(ENV_REGISTRATION_SECRET);
 
-  // Client Wallet for Payload Signing
+  // Client Wallet for ECDSA Signature (handled automatically in background)
   const [clientWallet, setClientWallet] = useState<ethers.HDNodeWallet | ethers.Wallet | null>(null);
   const [timestamp, setTimestamp] = useState<number>(Date.now());
   const [signature, setSignature] = useState<string>('');
-  const [isSigning, setIsSigning] = useState<boolean>(false);
+  const [authorityAddress, setAuthorityAddress] = useState<string>('');
 
-  // Submission Status
+  // Submission Status & Result Details
   const [loading, setLoading] = useState(false);
-  const [registerStatus, setRegisterStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; details?: any } | null>(null);
+  const [registerStatus, setRegisterStatus] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+    details?: any;
+  } | null>(null);
 
-  // Login Verification State
-  const [loginGovId, setLoginGovId] = useState('EG/2021/1001');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginStatus, setLoginStatus] = useState<{ type: 'success' | 'error'; message: string; data?: any } | null>(null);
-
-  // Generate or load signing wallet on component mount
+  // Generate or load signing wallet and connect to Authority Node on mount
   useEffect(() => {
     if (ENV_PRIVATE_KEY) {
       try {
         const wallet = new ethers.Wallet(ENV_PRIVATE_KEY);
         setClientWallet(wallet);
-        return;
       } catch (e) {
         console.warn('Invalid VITE_FRONTEND_PRIVATE_KEY in .env, generating random wallet instead.');
+        generateNewWallet();
       }
+    } else {
+      generateNewWallet();
     }
-    generateNewWallet();
+
+    // Connect to ZKP Simulator /api/public-key endpoint to verify server and fetch Authority Address
+    const checkAuthorityNode = async () => {
+      try {
+        const res = await fetch(`${ZKP_BACKEND_URL}/public-key`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authorityAddress) {
+            setAuthorityAddress(data.authorityAddress);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not connect to ZKP Authority Node:', err);
+      }
+    };
+    checkAuthorityNode();
   }, []);
 
   const generateNewWallet = () => {
@@ -54,20 +96,24 @@ export function App() {
     setClientWallet(newWallet);
   };
 
+  // Derive a canonical name from GovID so backend validation succeeds cleanly
+  const resolvedName = useMemo(() => {
+    return govId.trim() ? `Student (${govId.trim().toUpperCase()})` : 'Student Citizen';
+  }, [govId]);
+
   // Canonical message format for registration verification
   const canonicalMessage = useMemo(() => {
-    return `ZKP-GovID Registration\nGovID: ${govId.trim().toUpperCase()}\nName: ${name.trim()}\nTimestamp: ${timestamp}`;
-  }, [govId, name, timestamp]);
+    return `ZKP-GovID Registration\nGovID: ${govId.trim().toUpperCase()}\nName: ${resolvedName}\nTimestamp: ${timestamp}`;
+  }, [govId, resolvedName, timestamp]);
 
   // Recalculate signature when wallet or input changes
   useEffect(() => {
     let isCancelled = false;
     const signPayload = async () => {
-      if (!clientWallet || !govId || !name) {
+      if (!clientWallet || !govId.trim()) {
         setSignature('');
         return;
       }
-      setIsSigning(true);
       try {
         const sig = await clientWallet.signMessage(canonicalMessage);
         if (!isCancelled) {
@@ -75,8 +121,6 @@ export function App() {
         }
       } catch (err) {
         console.error('Signing error:', err);
-      } finally {
-        if (!isCancelled) setIsSigning(false);
       }
     };
 
@@ -84,30 +128,35 @@ export function App() {
     return () => {
       isCancelled = true;
     };
-  }, [clientWallet, canonicalMessage, govId, name]);
+  }, [clientWallet, canonicalMessage, govId]);
 
-  // Quick preset helper
   const setPresetStudentId = (preset: string) => {
     setGovId(preset);
   };
 
-  // Handle Form Submission
+  // Handle Complete Registration (Validates fields & submits to ZKP backend)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisterStatus(null);
 
+    // Validate fields
     if (!govId.trim()) {
-      setRegisterStatus({ type: 'error', message: 'Student Register Number / GovID is required.' });
+      setRegisterStatus({ type: 'error', message: 'Please enter a Student Register ID / GovID.' });
       return;
     }
-
     if (!password) {
-      setRegisterStatus({ type: 'error', message: 'Password is required for registration.' });
+      setRegisterStatus({ type: 'error', message: 'Please set an Account Password for your digital identity.' });
       return;
     }
-
-    if (!name.trim()) {
-      setRegisterStatus({ type: 'error', message: 'Full Name is required.' });
+    if (!confirmPassword) {
+      setRegisterStatus({ type: 'error', message: 'Please confirm your Account Password.' });
+      return;
+    }
+    if (password !== confirmPassword) {
+      setRegisterStatus({
+        type: 'error',
+        message: 'Passwords do not match. Please ensure both Account Password and Password Confirmation are identical.'
+      });
       return;
     }
 
@@ -121,17 +170,13 @@ export function App() {
     setTimestamp(currentTimestamp);
 
     try {
-      // Re-sign message with updated timestamp
-      const freshMessage = `ZKP-GovID Registration\nGovID: ${govId.trim().toUpperCase()}\nName: ${name.trim()}\nTimestamp: ${currentTimestamp}`;
+      const freshMessage = `ZKP-GovID Registration\nGovID: ${govId.trim().toUpperCase()}\nName: ${resolvedName}\nTimestamp: ${currentTimestamp}`;
       const freshSignature = await clientWallet.signMessage(freshMessage);
 
       const payload = {
-        govId: govId.trim(),
+        govId: govId.trim().toUpperCase(),
         password,
-        name: name.trim(),
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        address: address.trim() || undefined,
+        name: resolvedName,
         timestamp: currentTimestamp,
         signature: freshSignature,
         signerAddress: clientWallet.address,
@@ -149,414 +194,259 @@ export function App() {
       if (response.ok && data.success) {
         setRegisterStatus({
           type: 'success',
-          message: `User/Student registered successfully! Registered as ${data.citizen?.name} (${data.citizen?.govId}).`,
+          message: `Identity successfully enrolled! Registered Student ID: ${govId.trim().toUpperCase()}`,
           details: data.citizen
         });
-        // Pre-fill login test form
-        setLoginGovId(govId.trim());
-        setLoginPassword(password);
+        // Move directly to celebratory completion screen!
+        setRegStep(2);
+      } else if (response.status === 409) {
+        setRegisterStatus({
+          type: 'error',
+          message: `GovID / Student ID "${govId.trim().toUpperCase()}" is already enrolled in the ZKP registry! Try entering a new ID or use a preset.`
+        });
       } else {
         setRegisterStatus({
           type: 'error',
-          message: data.error || 'Failed to register student.'
+          message: data.error || 'Failed to enroll student identity.'
         });
       }
     } catch (err: any) {
       console.error('Registration fetch error:', err);
       setRegisterStatus({
         type: 'error',
-        message: 'Could not connect to ZKP GovID server at ' + ZKP_BACKEND_URL + '. Ensure backend server is running.'
+        message: `Could not connect to ZKP GovID server at ${ZKP_BACKEND_URL}. Ensure backend server is running.`
       });
     } finally {
       setLoading(false);
     }
   };
 
-
-  // Handle Login & Ticket Verification Test
-  const handleTestLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginStatus(null);
-
-    if (!loginGovId || !loginPassword) {
-      setLoginStatus({ type: 'error', message: 'GovID/Student ID and Password are required.' });
-      return;
-    }
-
-    setLoginLoading(true);
-    try {
-      const response = await fetch(`${ZKP_BACKEND_URL}/govid/verify-citizen`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          govId: loginGovId.trim(),
-          password: loginPassword
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setLoginStatus({
-          type: 'success',
-          message: 'Identity verified successfully! Signed ZKP Ticket Batch issued.',
-          data
-        });
-      } else {
-        setLoginStatus({
-          type: 'error',
-          message: data.error || 'Authentication failed.'
-        });
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setLoginStatus({
-        type: 'error',
-        message: 'Failed to connect to ZKP server.'
-      });
-    } finally {
-      setLoginLoading(false);
-    }
+  const handleRegisterAnother = () => {
+    setGovId('EG/2021/1001');
+    setPassword('');
+    setConfirmPassword('');
+    setRegisterStatus(null);
+    setRegStep(1);
+    generateNewWallet();
   };
 
+  const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   return (
-    <div className="app-container">
-      {/* Top Header Bar */}
-      <header className="glass-card app-header">
-        <div className="brand-container">
-          <div className="logo-badge">🎓</div>
-          <div className="brand-title">
-            <h1>ZKP GovID Portal — Faculty Premise Deployment</h1>
-            <p>Student Identity Registration & Cryptographic Verification Node</p>
+    <div className="app-shell">
+      {/* SaaS App Shell Topbar (NO TABS) */}
+      <header className="app-topbar">
+        <div className="brand-block">
+          <div className="brand-icon">🏛️</div>
+          <div className="brand-text">
+            <h1>ZKP GovID Authority Node</h1>
+            <p>Decentralized Student &amp; Citizen Identity Enrollment</p>
           </div>
         </div>
-        <div className="status-badge">
-          <span className="status-dot"></span>
-          Simulator Online (Port 5000)
+
+        {/* Topbar right side: Network status indicator only */}
+        <div className="topbar-actions">
+          <div className="node-status-pill">
+            <span className="status-indicator"></span>
+            <span>
+              {authorityAddress
+                ? `ZKP Authority • Connected (${authorityAddress.slice(0, 6)}...${authorityAddress.slice(-4)})`
+                : 'AuraChain Network • Connected'}
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="tab-navigation">
-        <button
-          className={`tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-          onClick={() => setActiveTab('register')}
-        >
-          <span>📝</span> Register Student / User
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'test-login' ? 'active' : ''}`}
-          onClick={() => setActiveTab('test-login')}
-        >
-          <span>🧪</span> Test Ticket Verification
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'system' ? 'active' : ''}`}
-          onClick={() => setActiveTab('system')}
-        >
-          <span>⚙️</span> Server Config & Info
-        </button>
-      </nav>
-
-      {/* TAB 1: Student Registration */}
-      {activeTab === 'register' && (
-        <div className="portal-grid">
-          {/* Registration Form */}
-          <div className="glass-card form-section">
-            <h2 className="section-title">
-              <span>🆔</span> Student Registration Form
-            </h2>
-            <p className="section-desc">
-              Register faculty student IDs (EG/20__/____ format) or 12-digit national NICs with custom passwords.
-            </p>
-
-            {registerStatus && (
-              <div className={`alert-box alert-${registerStatus.type}`}>
-                {registerStatus.type === 'success' && <span>✅</span>}
-                {registerStatus.type === 'error' && <span>⚠️</span>}
-                <div>
-                  <strong>{registerStatus.message}</strong>
+      {/* Main Workspace Canvas */}
+      <main className="main-workspace">
+        <div>
+          {/* ========================================================
+             WIZARD CARD WRAPPER FOR STEPS 1 AND 2
+             ======================================================== */}
+          <div className="wizard-card" style={{ maxWidth: '640px', margin: '0 auto' }}>
+              {/* Global Error Banner if any */}
+              {registerStatus && registerStatus.type === 'error' && (
+                <div className="status-banner status-error" style={{ margin: '20px 32px 0' }}>
+                  <span style={{ fontSize: '18px' }}>⚠️</span>
+                  <div><strong>{registerStatus.message}</strong></div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <form onSubmit={handleRegister}>
-              <div className="input-group">
-                <label className="input-label">Student Register ID / GovID *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. EG/2021/1234 or 199912345678"
-                  value={govId}
-                  onChange={(e) => setGovId(e.target.value)}
-                  required
-                />
-                <div className="format-pills">
-                  <span className="pill-btn" onClick={() => setPresetStudentId('EG/2021/1001')}>
-                    + EG/2021/1001
-                  </span>
-                  <span className="pill-btn" onClick={() => setPresetStudentId('EG/2020/0452')}>
-                    + EG/2020/0452
-                  </span>
-                  <span className="pill-btn" onClick={() => setPresetStudentId('199812345678')}>
-                    + 12-Digit NIC
-                  </span>
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Full Name *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Subodha Gunawardena"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Account Password *</label>
-                <div className="input-wrapper" style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-input"
-                    placeholder="Set account password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pill-btn"
-                    style={{ whiteSpace: 'nowrap', padding: '0 14px' }}
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Faculty Email (Optional)</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  placeholder="e.g. student@eng.pdn.ac.lk"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Phone Number (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. +94771234567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Address (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Faculty Hostels, Peradeniya"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Registration / Admin Secret (from .env)</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="Secret key for ZKP backend"
-                  value={registrationSecret}
-                  onChange={(e) => setRegistrationSecret(e.target.value)}
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Registering...' : '🔒 Sign & Register Student'}
-
-              </button>
-            </form>
-          </div>
-
-          {/* Cryptography & Payload Verification Display */}
-          <div className="glass-card crypto-card">
-            <div className="crypto-header">
-              <h2 className="section-title">
-                <span>🔐</span> Payload Signing Engine
-              </h2>
-              <button className="pill-btn" onClick={generateNewWallet}>
-                🔄 New Client Keypair
-              </button>
-            </div>
-
-            <div>
-              <span className="input-label">Client Signer Address</span>
-              <div className="code-block" style={{ color: '#67e8f9' }}>
-                {clientWallet ? clientWallet.address : 'Generating keypair...'}
-              </div>
-            </div>
-
-            <div>
-              <span className="input-label">Canonical Signed Payload Digest</span>
-              <div className="code-block">
-                {canonicalMessage}
-              </div>
-            </div>
-
-            <div>
-              <span className="input-label">ECDSA Signature (ethers.verifyMessage)</span>
-              <div className="code-block" style={{ color: '#a7f3d0' }}>
-                {isSigning ? 'Calculating signature...' : signature || 'Awaiting input...'}
-              </div>
-            </div>
-
-            <div className="alert-box alert-info" style={{ marginTop: 'auto' }}>
-              <span>ℹ️</span>
-              <div>
-                <strong>Zero-Knowledge Identity Verification:</strong>
-                <br />
-                The frontend signs the student registration payload using an ECDSA private key. The ZKP simulator verifies the signature prior to saving to SQLite.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: Test Ticket Verification */}
-      {activeTab === 'test-login' && (
-        <div className="portal-grid">
-          <div className="glass-card form-section">
-            <h2 className="section-title">
-              <span>🎟️</span> ZKP Ticket Verification Test
-            </h2>
-            <p className="section-desc">
-              Test authenticating a registered student/user and obtaining a batch of signed ZKP tickets from the authority.
-            </p>
-
-            {loginStatus && (
-              <div className={`alert-box alert-${loginStatus.type}`}>
-                {loginStatus.type === 'success' && <span>✅</span>}
-                {loginStatus.type === 'error' && <span>⚠️</span>}
-                <div>
-                  <strong>{loginStatus.message}</strong>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleTestLogin}>
-              <div className="input-group">
-                <label className="input-label">Student ID / GovID</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. EG/2021/1001"
-                  value={loginGovId}
-                  onChange={(e) => setLoginGovId(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Password</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="Enter registered password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn-primary" disabled={loginLoading}>
-                {loginLoading ? 'Verifying...' : '⚡ Authenticate & Request Tickets'}
-              </button>
-            </form>
-          </div>
-
-          <div className="glass-card crypto-card">
-            <h2 className="section-title">
-              <span>📦</span> Issued ZKP Ticket Batch
-            </h2>
-
-            {loginStatus?.data ? (
-              <>
-                <div>
-                  <span className="input-label">Deterministic Citizen Seed</span>
-                  <div className="code-block" style={{ color: '#fef08a' }}>
-                    {loginStatus.data.citizenSeed}
+              {/* STEP 1: STUDENT REGISTER ID / GOVID & PASSWORD (ONLY STEP BEFORE SUCCESS) */}
+              {regStep === 1 && (
+                <form onSubmit={handleRegister}>
+                  <div className="wizard-header">
+                    <div className="wizard-header-text">
+                      <h2>Student Identity Registration</h2>
+                      <p>Enter your Student Register ID / GovID and set a secure account password to enroll.</p>
+                    </div>
+                    <span className="step-counter-badge">SECURE ENROLLMENT</span>
                   </div>
-                </div>
 
-                <div>
-                  <span className="input-label">
-                    Issued Tickets ({loginStatus.data.ticketBatch?.length || 0})
-                  </span>
-                  <div className="ticket-list">
-                    {loginStatus.data.ticketBatch?.map((t: any, idx: number) => (
-                      <div className="ticket-item" key={idx}>
-                        <div>
-                          <div className="ticket-id">ID: {t.ticketId.slice(0, 18)}...</div>
-                          <div style={{ fontSize: '10px', color: '#9ca3af' }}>
-                            Sig: {t.signature.slice(0, 24)}...
-                          </div>
+                  <div className="wizard-body">
+                    <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: '22px' }}>
+                      {/* Field 1: Student Register ID / GovID * */}
+                      <div className="input-block">
+                        <div className="label-row">
+                          <span className="input-label">Student Register ID / GovID *</span>
+                          <span className="label-tag">PRIMARY KEY</span>
                         </div>
-                        <span className="ticket-status">AVAILABLE</span>
+                        <input
+                          type="text"
+                          className="clean-input"
+                          placeholder="e.g. EG/2021/1001 or 199912345678"
+                          value={govId}
+                          onChange={(e) => setGovId(e.target.value)}
+                          required
+                          autoFocus
+                        />
+                        <div className="preset-strip">
+                          <button type="button" className="preset-chip" onClick={() => setPresetStudentId('EG/2021/1001')}>
+                            + EG/2021/1001
+                          </button>
+                          <button type="button" className="preset-chip" onClick={() => setPresetStudentId('EG/2020/0452')}>
+                            + EG/2020/0452
+                          </button>
+                          <button type="button" className="preset-chip" onClick={() => setPresetStudentId('199912345678')}>
+                            + 12-Digit NIC
+                          </button>
+                          <button
+                            type="button"
+                            className="preset-chip"
+                            style={{ backgroundColor: '#eff6ff', color: '#2563eb', borderColor: '#bfdbfe' }}
+                            onClick={() => setPresetStudentId(`EG/2026/${Math.floor(1000 + Math.random() * 9000)}`)}
+                          >
+                            ⚡ Random ID
+                          </button>
+                        </div>
                       </div>
-                    ))}
+
+                      {/* Field 2: Account Password * */}
+                      <div className="input-block">
+                        <div className="label-row">
+                          <span className="input-label">Account Password *</span>
+                        </div>
+                        <div className="input-container" style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            className="clean-input"
+                            placeholder="Set account password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ whiteSpace: 'nowrap', padding: '12px 18px', fontWeight: '700' }}
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Field 3: Confirm Password * */}
+                      <div className="input-block">
+                        <div className="label-row">
+                          <span className="input-label">Confirm Password *</span>
+                          {passwordsMatch && (
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              ✓ Passwords match
+                            </span>
+                          )}
+                          {passwordsMismatch && (
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              ✕ Passwords do not match
+                            </span>
+                          )}
+                        </div>
+                        <div className="input-container" style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            className="clean-input"
+                            placeholder="Re-enter account password to confirm"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            style={{ whiteSpace: 'nowrap', padding: '12px 18px', fontWeight: '700' }}
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          >
+                            {showConfirmPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="wizard-footer" style={{ justifyContent: 'flex-end' }}>
+                    <button type="submit" className="btn-civic" disabled={loading}>
+                      {loading ? 'Enrolling Identity...' : '⚡ Complete Digital Registration'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* STEP 2: SUCCESS COMPLETION SCREEN & DAPP LOGIN LINK */}
+              {regStep === 2 && (
+                <div className="success-screen">
+                  <div className="success-icon-circle">✓</div>
+                  <h2 className="success-title">🎉 You Have Successfully Completed Digital Identity Registration!</h2>
+                  <p className="success-subtitle">
+                    Your student / civic identity has been cryptographically signed and enrolled in the Zero-Knowledge credential ledger.
+                  </p>
+
+                  {/* Enrolled Profile Summary */}
+                  <div className="success-profile-summary">
+                    <div className="summary-row">
+                      <span className="summary-label">Student ID / GovID</span>
+                      <span className="summary-value" style={{ fontWeight: '800', color: '#0f172a' }}>{govId}</span>
+                    </div>
+                    <div className="summary-row">
+                      <span className="summary-label">Enrolled Status</span>
+                      <span className="summary-value" style={{ color: '#16a34a', fontWeight: '700' }}>✓ Verified ZKP Citizen</span>
+                    </div>
+                    
+                  </div>
+
+                  {/* Prominent DApp Login Box */}
+                  <div className="dapp-link-card">
+                    <span style={{ fontSize: '32px' }}>🏛️</span>
+                    <h3 className="dapp-link-title">Ready for Decentralized Governance</h3>
+                    <p className="dapp-link-desc">
+                      You can now log into the Decentralized Civic Governance DApp using your registered credentials (<strong>{govId}</strong>) to participate in voting and civic proposals.
+                    </p>
+
+                    <a
+                      href={DAPP_LOGIN_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-dapp-cta"
+                    >
+                      <span>🚀</span>
+                      <span>Open Governance DApp ({DAPP_LOGIN_URL})</span>
+                    </a>
+                  </div>
+
+                  <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleRegisterAnother}
+                    >
+                      🔄 Enroll Another Student Identity
+                    </button>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="alert-box alert-info">
-                <span>💡</span>
-                <div>
-                  Submit the credentials on the left to verify real-time ticket batch issuance from the ZKP GovID SQLite database.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: System Config */}
-      {activeTab === 'system' && (
-        <div className="glass-card form-section" style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h2 className="section-title">
-            <span>⚙️</span> ZKP GovID Simulator Architecture
-          </h2>
-          <br />
-          <div className="input-group">
-            <label className="input-label">ZKP Simulator Endpoint</label>
-            <div className="code-block">{ZKP_BACKEND_URL}</div>
-          </div>
-          <div className="input-group">
-            <label className="input-label">Supported GovID Formats</label>
-            <div className="code-block">
-              1. Student Registration Number (Faculty deployment): EG/20__/____ (e.g. EG/2021/1001)<br />
-              2. Government National Identity Card (12-Digit NIC): e.g. 199812345678
+              )}
             </div>
-          </div>
-          <div className="input-group">
-            <label className="input-label">Database Engine</label>
-            <div className="code-block">
-              SQLite 3 (`data/citizens.db`) with `govId` UNIQUE constraint.
-            </div>
-          </div>
         </div>
-      )}
+      </main>
     </div>
   );
 }

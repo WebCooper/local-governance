@@ -5,15 +5,19 @@ import { useAdmin } from "@/context/AdminContext";
 import { getPollingContract } from "@/lib/contracts/polling";
 import axios from "axios";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useCitizen } from "@/context/CitizenContext";
-import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle } from "lucide-react";
+import { RefreshCw, ChevronLeft, ChevronRight, BarChart2, FileText, Users, CheckCircle, Calendar, Plus, AlertTriangle, Search, Filter, LayoutGrid, Table, ArrowUpDown, Tag , Menu, X, Home } from "lucide-react";
 import { ReportCard } from "@/components/admin/ReportCard";
 import { EmergencyReportCard } from "@/components/admin/EmergencyReportCard";
+import { AdminAnalyticsHeader } from "@/components/admin/AdminAnalyticsHeader";
+import { ReportTableView } from "@/components/admin/ReportTableView";
 import {
   rawToEnriched,
   enrichReportWithIPFS,
   ADMIN_STATUS_FILTERS,
+  STATUS_MAP,
   type EnrichedReport,
   type StatusFilter,
 } from "@/lib/reportHelpers";
@@ -52,8 +56,10 @@ const FILTER_COLORS: Record<string, { active: string; border: string }> = {
 
 const ENABLE_WORKFORCE_TRACKING = process.env.NEXT_PUBLIC_ENABLE_WORKFORCE_TRACKING === "true";
 
+import { Suspense } from "react";
+
 // ─── Page Component ───────────────────────────────────────────────────────────
-export default function AuthorityAdminPage() {
+function AuthorityAdminContent() {
   const {
     account,
     isAuthority,
@@ -99,7 +105,15 @@ export default function AuthorityAdminPage() {
   };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"reports" | "polls" | "workforce" | "emergency">("reports");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get("tab");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "reports" | "polls" | "workforce" | "emergency">("dashboard");
+
+  useEffect(() => {
+    if (tabParam === "dashboard" || tabParam === "reports" || tabParam === "polls" || tabParam === "workforce" || tabParam === "emergency") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // ── Reports State ─────────────────────────────────────────────────────────
   const [allReports, setAllReports] = useState<EnrichedReport[]>([]);
@@ -110,6 +124,10 @@ export default function AuthorityAdminPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     ADMIN_STATUS_FILTERS[0] // default: Actionable
   );
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "upvotes" | "duplicates">("newest");
 
   // ── Polls State ───────────────────────────────────────────────────────────
   const [polls, setPolls] = useState<PollStructure[]>([]);
@@ -357,11 +375,95 @@ export default function AuthorityAdminPage() {
     }
   };
 
-  // ─── Filter reports ────────────────────────────────────────────────────────
-  const filteredReports =
-    statusFilter.statuses.length === 0
-      ? allReports
-      : allReports.filter((r) => statusFilter.statuses.includes(r.status));
+  // ─── Filter & Sort reports ──────────────────────────────────────────────────
+  const filteredReports = allReports
+    .filter((r) => {
+      // 1. Status Filter
+      if (
+        statusFilter.statuses.length > 0 &&
+        !statusFilter.statuses.includes(r.status)
+      ) {
+        return false;
+      }
+      // 2. Category Filter
+      if (
+        categoryFilter !== "ALL" &&
+        r.category?.toLowerCase() !== categoryFilter.toLowerCase()
+      ) {
+        return false;
+      }
+      // 3. Search Query Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = r.title?.toLowerCase().includes(q);
+        const matchesDesc = r.description?.toLowerCase().includes(q);
+        const matchesLoc = r.location?.toLowerCase().includes(q);
+        const matchesCat = r.category?.toLowerCase().includes(q);
+        const matchesCid = r.ipfsCid?.toLowerCase().includes(q);
+        const matchesId = r.id.toString() === q;
+        if (
+          !matchesTitle &&
+          !matchesDesc &&
+          !matchesLoc &&
+          !matchesCat &&
+          !matchesCid &&
+          !matchesId
+        ) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "oldest") return a.createdAt - b.createdAt;
+      if (sortBy === "upvotes")
+        return (b.votes?.validationUpvotes || 0) - (a.votes?.validationUpvotes || 0);
+      if (sortBy === "duplicates")
+        return (
+          (b.potentialDuplicates?.length || 0) -
+          (a.potentialDuplicates?.length || 0)
+        );
+      return b.createdAt - a.createdAt; // "newest" default
+    });
+
+  const handleTableStartWork = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Starting work on report...");
+    try {
+      const tx = await reportingContract.startWork(id, "", "");
+      await tx.wait();
+      toast.success("Work started successfully!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to start work", { id: loadToast });
+    }
+  };
+
+  const handleTableResolve = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Marking report as solved...");
+    try {
+      const tx = await reportingContract.markAsSolved(id, "", "");
+      await tx.wait();
+      toast.success("Report marked as solved!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to mark as solved", { id: loadToast });
+    }
+  };
+
+  const handleTableReject = async (id: number) => {
+    if (!reportingContract) return;
+    const loadToast = toast.loading("Rejecting report...");
+    try {
+      const tx = await reportingContract.rejectIssue(id, "", "");
+      await tx.wait();
+      toast.success("Report rejected!", { id: loadToast });
+      fetchReports(offset);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reject report", { id: loadToast });
+    }
+  };
 
   const totalPages = Math.ceil(totalReports / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
@@ -431,141 +533,251 @@ export default function AuthorityAdminPage() {
   }
 
 
+  const topUpAndWalletPills = (
+    <>
+      <button 
+        onClick={handleTopUp}
+        disabled={isFunding}
+        className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-5 rounded-full transition-all shadow-sm flex items-center gap-2 text-sm disabled:opacity-50">
+        <span className="bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold text-[10px]">
+          {isFunding ? (
+            <span className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )}
+        </span>
+        {isFunding ? "Scanning..." : "Top-Up Gas Wallets"}
+      </button>
+      <div className="bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2.5 rounded-full text-sm font-medium flex items-center gap-2 text-white">
+        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        {account.slice(0, 6)}…{account.slice(-4)}
+      </div>
+    </>
+  );
+
   // ─── Main Dashboard ────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top Nav */}
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-sm">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Authority Dashboard</h1>
-            <p className="text-sm text-slate-500">Manage Civic Reports &amp; Opinion Polls</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleTopUp}
-            disabled={isFunding}
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-1.5 shadow-md hover:shadow-lg"
-          >
-            {isFunding ? (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            )}
-            {isFunding ? "Scanning..." : "Top-Up Wallets"}
-          </button>
-          <div className="flex items-center gap-3 bg-slate-100 py-2 px-4 rounded-full border border-slate-200 shadow-sm">
-            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm font-mono text-slate-700">
-              {account.slice(0, 6)}…{account.slice(-4)}
-            </span>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#F9FAFB]">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+          
+        {/* ── DASHBOARD TAB ───────────────────────────────────────────────────── */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-8 md:p-10 text-white relative shadow-lg">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <LayoutGrid className="w-48 h-48" />
+              </div>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-indigo-300">Overview</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Global Command Center
+              </h1>
+              <p className="text-sm text-slate-300 max-w-xl leading-relaxed mb-6">
+                Monitor all municipal activity, triage incoming emergencies, and manage civic reports across the district from a single vantage point.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => {
+                    setOffset(0);
+                    fetchReports(0);
+                    fetchEmergencyReports(0);
+                    fetchPolls();
+                  }}
+                  className="bg-white text-slate-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-slate-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Sync All Data
+                </button>
+                <button
+                  onClick={handleTopUp}
+                  disabled={isFunding}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md disabled:opacity-50"
+                >
+                  {isFunding ? "Scanning..." : "Top-Up Gas"}
+                </button>
+              </div>
+            </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-6 md:p-8">
+            {/* Global Insights */}
+            <AdminAnalyticsHeader
+              totalReports={allReports.length}
+              solvedCount={allReports.filter((r) => r.status === 6).length}
+              openCount={allReports.filter((r) => r.status === 2 || r.status === 7).length}
+              inProgressCount={allReports.filter((r) => r.status === 3).length}
+              emergencyCount={totalEmergencyReports}
+              onSelectEmergencyTab={() => setActiveTab("emergency")}
+            />
 
-        {/* Portal Tabs */}
-        <div className="flex border-b border-slate-200 mb-8 gap-6">
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "reports"
-                ? "text-green-600 border-b-2 border-green-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Civic Reports
-            {totalReports > 0 && (
-              <span className="ml-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {totalReports}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("emergency")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "emergency"
-                ? "text-red-600 border-b-2 border-red-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            Emergency Reports
-            {totalEmergencyReports > 0 && (
-              <span className="ml-1 bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {totalEmergencyReports}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("polls")}
-            className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === "polls"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" />
-            Opinion Polls
-            {polls.length > 0 && (
-              <span className="ml-1 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {polls.length}
-              </span>
-            )}
-          </button>
-          {ENABLE_WORKFORCE_TRACKING && (
-            <button
-              onClick={() => setActiveTab("workforce")}
-              className={`pb-4 text-base font-bold transition-all flex items-center gap-2 relative ${
-                activeTab === "workforce"
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-slate-400 hover:text-slate-600"
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Workforce Tracking
-              {workers.length > 0 && (
-                <span className="ml-1 bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {workers.length}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+               <div className="lg:col-span-2 space-y-6">
+                  {/* We can put some quick shortcuts or recently actionable items here */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                       <AlertTriangle className="w-5 h-5 text-rose-500" /> Actionable Urgent Items
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      You have {totalEmergencyReports} total emergency alerts on record. Navigate to the Emergency Alerts tab to resolve them.
+                    </p>
+                  </div>
+               </div>
+               <div className="lg:col-span-1">
+                  {/* We can move the Map Workforce Member here or just leave a nice summary */}
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-4 bg-gradient-to-br from-indigo-50 to-white">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
+                       <Users className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-slate-900">Workforce Management</h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                       Manage assignments, link Ethereum wallets to Planka accounts, and track resolution teams.
+                    </p>
+                    <button onClick={() => setActiveTab('workforce')} className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm shadow-sm hover:bg-indigo-700 transition-colors">
+                       Manage Crews
+                    </button>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
 
 
         {/* ── REPORTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === "reports" && (
-          <>
-            {/* Reports Header */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Civic Reports</h2>
-                <p className="text-slate-500 mt-1 text-sm">
-                  Review and manage issues reported by citizens.
-                </p>
+          <div className="space-y-6">
+            {/* 0. Gradient Banner for Civic Reports */}
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-emerald-600 to-teal-800 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <FileText className="w-48 h-48" />
               </div>
-              <button
-                onClick={() => { setOffset(0); fetchReports(0); }}
-                className="flex items-center gap-1.5 text-green-600 hover:text-green-700 font-semibold text-sm"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </button>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-emerald-200">Civic Reports</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Community Issues
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Review, triage, and assign municipal issues reported by citizens. Keep the community informed of resolution progress.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => {
+                    setOffset(0);
+                    fetchReports(0);
+                  }}
+                  className="bg-white text-emerald-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-emerald-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh Data
+                </button>
+              </div>
             </div>
 
-            {/* Status Filter Pills */}
+            {/* Civic Reports Specific Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Reports</p>
+                <p className="text-2xl font-black text-slate-800">{allReports.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Solved</p>
+                <p className="text-2xl font-black text-emerald-700">{allReports.filter((r) => r.status === 6).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Open / Actionable</p>
+                <p className="text-2xl font-black text-blue-700">{allReports.filter((r) => r.status === 2 || r.status === 7).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">In Progress</p>
+                <p className="text-2xl font-black text-indigo-700">{allReports.filter((r) => r.status === 3).length}</p>
+              </div>
+            </div>
+
+            {/* 2. Advanced Multi-Dimension Filtering & Search Bar */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-6 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+              {/* Search input */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search report title, description, location, ID, or IPFS CID..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Category Dropdown */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <Filter className="w-4 h-4 text-slate-400" />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                  >
+                    <option value="ALL">All Categories</option>
+                    <option value="Roads">Roads</option>
+                    <option value="Streetlights">Streetlights</option>
+                    <option value="Sanitation">Sanitation</option>
+                    <option value="Water">Water</option>
+                    <option value="Electricity">Electricity</option>
+                    <option value="Corruption">Corruption</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1.5">
+                  <ArrowUpDown className="w-4 h-4 text-slate-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e: any) => setSortBy(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
+                  >
+                    <option value="newest">Sort: Newest First</option>
+                    <option value="oldest">Sort: Oldest First</option>
+                    <option value="upvotes">Sort: Highest Upvotes</option>
+                    <option value="duplicates">Sort: Most Duplicates</option>
+                  </select>
+                </div>
+
+                {/* View Mode Switcher (Card vs Table) */}
+                <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200">
+                  <button
+                    onClick={() => setViewMode("card")}
+                    title="Card Grid View"
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "card"
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("table")}
+                    title="Dense Triage Table View"
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === "table"
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Table className="w-3.5 h-3.5" />
+                    <span>Table</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Status Filter Pills */}
             <div className="flex items-center flex-wrap gap-2 mb-6">
               {ADMIN_STATUS_FILTERS.map((filter) => {
                 const isActive = statusFilter.key === filter.key;
@@ -581,9 +793,9 @@ export default function AuthorityAdminPage() {
                   <button
                     key={filter.key}
                     onClick={() => setStatusFilter(filter)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
                       isActive
-                        ? `${colors.active} border-current bg-white shadow-sm`
+                        ? `${colors.active} border-current bg-white shadow-sm scale-[1.02]`
                         : "text-slate-500 border-slate-200 bg-white hover:border-slate-300 hover:text-slate-700"
                     }`}
                   >
@@ -596,29 +808,49 @@ export default function AuthorityAdminPage() {
               })}
             </div>
 
-            {/* Reports Grid */}
+            {/* 4. Reports View (Card Grid or Triage Table) */}
             {reportsLoading ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
                 <p className="text-slate-500 font-medium">Loading reports…</p>
               </div>
             ) : filteredReports.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400">
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-slate-400 bg-white rounded-2xl border border-slate-200/80 p-8">
                 <FileText className="w-16 h-16 text-slate-300" />
-                <p className="font-semibold text-slate-500">
+                <p className="font-semibold text-slate-600 text-sm">
                   {allReports.length === 0
-                    ? "No reports found."
-                    : `No reports matching "${statusFilter.label}".`}
+                    ? "No reports found on-chain."
+                    : `No reports match your active filters (${statusFilter.label}${
+                        categoryFilter !== "ALL" ? ` / ${categoryFilter}` : ""
+                      }${searchQuery ? ` / "${searchQuery}"` : ""}).`}
                 </p>
-                {allReports.length > 0 && statusFilter.key !== "all" && (
+                {(statusFilter.key !== "all" ||
+                  categoryFilter !== "ALL" ||
+                  searchQuery) && (
                   <button
-                    onClick={() => setStatusFilter(ADMIN_STATUS_FILTERS[ADMIN_STATUS_FILTERS.length - 1])}
-                    className="text-xs text-green-600 font-semibold hover:underline"
+                    onClick={() => {
+                      setStatusFilter(
+                        ADMIN_STATUS_FILTERS[ADMIN_STATUS_FILTERS.length - 1]
+                      );
+                      setCategoryFilter("ALL");
+                      setSearchQuery("");
+                    }}
+                    className="text-xs text-blue-600 font-bold hover:underline"
                   >
-                    Show all reports
+                    Reset all filters & search
                   </button>
                 )}
               </div>
+            ) : viewMode === "table" ? (
+              <ReportTableView
+                reports={filteredReports}
+              onStartWork={handleTableStartWork}
+                onResolve={handleTableResolve}
+                onReject={handleTableReject}
+                onViewDetails={(report) => {
+                  window.location.href = `/admin/reports/${report.id}`;
+                }}
+              />
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {filteredReports.map((report) => (
@@ -660,30 +892,51 @@ export default function AuthorityAdminPage() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── EMERGENCY REPORTS TAB ─────────────────────────────────────────── */}
         {activeTab === "emergency" && (
-          <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 mb-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-                  HIGH PRIORITY INCIDENTS
-                </div>
-                <h2 className="text-2xl font-bold text-slate-900">Emergency Reports</h2>
-                <p className="text-slate-500 mt-1 text-sm">
-                  Urgent civic incidents requiring immediate authority dispatch and resolution.
-                </p>
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-rose-600 via-red-700 to-red-900 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <AlertTriangle className="w-48 h-48 animate-[pulse_2s_ease-in-out_infinite]" />
               </div>
-              <button
-                onClick={() => { setEmergencyOffset(0); fetchEmergencyReports(0); }}
-                className="flex items-center gap-1.5 text-red-600 hover:text-red-700 font-semibold text-sm"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh
-              </button>
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-rose-200">Emergency Response</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Urgent Alerts
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Direct channel for high-priority incidents, hazards, and infrastructure failures. Immediate action required.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                <button
+                  onClick={() => {
+                    setEmergencyOffset(0);
+                    fetchEmergencyReports(0);
+                  }}
+                  className="bg-white text-red-900 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-md hover:bg-rose-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh Alerts
+                </button>
+              </div>
+            </div>
+            
+            {/* Emergency Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl border border-rose-100 p-5 shadow-sm bg-gradient-to-br from-rose-50 to-white">
+                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> Active Alerts</p>
+                <p className="text-2xl font-black text-rose-700">{emergencyReports.filter(r => r.status !== 6).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Recorded</p>
+                <p className="text-2xl font-black text-slate-800">{totalEmergencyReports}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Resolved Threats</p>
+                <p className="text-2xl font-black text-emerald-700">{emergencyReports.filter(r => r.status === 6).length}</p>
+              </div>
             </div>
 
             {emergencyLoading ? (
@@ -746,31 +999,53 @@ export default function AuthorityAdminPage() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* ── POLLS TAB ─────────────────────────────────────────────────────── */}
         {activeTab === "polls" && (
-          <>
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Decentralized Opinion Polls</h2>
-                <p className="text-slate-500 mt-1 text-sm">Monitor, finalize, and publish public policy votes.</p>
+          <div className="space-y-6">
+            <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
+              <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                <BarChart2 className="w-48 h-48" />
               </div>
-              <div className="flex items-center gap-3">
+              <p className="text-xs font-bold tracking-widest uppercase mb-3 text-blue-200">Community Polling</p>
+              <h1 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                Opinion Polls
+              </h1>
+              <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                Create and manage local governance polls. Measure public sentiment on upcoming projects or budgetary decisions.
+              </p>
+              <div className="flex items-center gap-4 relative z-10 flex-wrap">
                 <Link
                   href="/polls/create"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-sm flex items-center gap-1.5"
+                  className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-5 py-2.5 rounded-full transition-all text-sm shadow-sm flex items-center gap-2"
                 >
-                  + Create Poll
+                  <Plus className="w-4 h-4" /> Create Poll
                 </Link>
                 <button
                   onClick={fetchPolls}
-                  className="flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-sm"
+                  className="bg-white/20 text-white border border-white/30 font-bold py-2.5 px-6 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm hover:bg-white/30"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Refresh
+                  Refresh Polls
                 </button>
+              </div>
+            </div>
+            
+            {/* Polls Insights */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Active Polls</p>
+                <p className="text-2xl font-black text-indigo-700">{polls.filter(p => p.isActive).length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Created</p>
+                <p className="text-2xl font-black text-slate-800">{polls.length}</p>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Finalized</p>
+                <p className="text-2xl font-black text-emerald-700">{polls.filter(p => !p.isActive).length}</p>
               </div>
             </div>
 
@@ -883,7 +1158,7 @@ export default function AuthorityAdminPage() {
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {/* ── WORKFORCE TAB ─────────────────────────────────────────────────── */}
@@ -891,18 +1166,32 @@ export default function AuthorityAdminPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 animate-in fade-in duration-300">
             {/* Left: Workers List */}
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Workforce Mappings</h2>
-                  <p className="text-slate-500 text-sm mt-1">Directory of registered workers and their Planka configurations.</p>
+              <div className="w-full rounded-[32px] overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-800 p-8 md:p-10 text-white relative shadow-sm flex flex-col justify-center">
+                <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+                  <svg className="w-48 h-48 animate-[pulse_4s_ease-in-out_infinite]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
                 </div>
-                <button
-                  onClick={fetchWorkforceData}
-                  className="flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-semibold text-sm"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
-                </button>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black tracking-wider uppercase bg-white/20 text-white border border-white/30 mb-4 shadow-sm w-max backdrop-blur-sm">
+                  <Users className="w-3.5 h-3.5" />
+                  Workforce Management
+                </div>
+                <h2 className="text-3xl md:text-5xl font-bold mb-4 max-w-lg leading-[1.15]">
+                  Workforce Tracking
+                </h2>
+                <p className="text-sm text-white/90 max-w-xl leading-relaxed mb-6">
+                  Directory of registered workers and their Planka configurations. Link Ethereum addresses to task managers.
+                </p>
+                <div className="flex items-center gap-4 relative z-10 flex-wrap">
+                  <button
+                    onClick={fetchWorkforceData}
+                    className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white font-bold py-2.5 px-5 rounded-full transition-all flex items-center gap-2 text-sm shadow-sm"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                  </button>
+                  {topUpAndWalletPills}
+                </div>
               </div>
 
               {workforceLoading ? (
@@ -983,7 +1272,7 @@ export default function AuthorityAdminPage() {
                   Map Workforce Member
                 </h3>
                 <p className="text-slate-500 text-xs">
-                  Link a faculty worker's Ethereum wallet address with their user account in the self-hosted Planka task manager.
+                  Link a faculty worker&apos;s Ethereum wallet address with their user account in the self-hosted Planka task manager.
                 </p>
 
                 <form onSubmit={handleRegisterWorker} className="space-y-4 pt-2">
@@ -1065,3 +1354,10 @@ export default function AuthorityAdminPage() {
   );
 }
 
+export default function AuthorityAdminPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+      <AuthorityAdminContent />
+    </Suspense>
+  );
+}

@@ -1,0 +1,365 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ethers } from "ethers";
+import MapPreview from "@/components/MapPreview";
+import {
+  ShieldAlert,
+  AlertTriangle,
+  Clock,
+  MapPin,
+  Search,
+  RotateCw,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Filter,
+  ChevronDown,
+} from "lucide-react";
+import { EmergencyReportingABI } from "@/lib/contracts/abis";
+import { EMERGENCY_REPORTING_ADDRESS } from "@/context/AdminContext";
+import {
+  type EnrichedReport,
+  rawToEnriched,
+  enrichReportWithIPFS,
+  getEmergencyStatusMeta,
+  shortenAddress,
+  formatLocation,
+  extractCoordinates,
+  EMERGENCY_STATUS,
+} from "@/lib/reportHelpers";
+
+export function CitizenEmergencyFeed() {
+  const [reports, setReports] = useState<EnrichedReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "open" | "inProgress" | "resolved">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+
+  const fetchEmergencyReports = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
+      const contractAddress =
+        EMERGENCY_REPORTING_ADDRESS || "0x43491d6850cef4B2E2D0d5CaCdF59B014B4A49ba";
+
+      const provider = new ethers.JsonRpcProvider(RPC_URL);
+      const contract = new ethers.Contract(
+        contractAddress,
+        EmergencyReportingABI,
+        provider
+      );
+
+      const [page, total] = await contract.getAllReports(0, 50);
+
+      const baseReports: EnrichedReport[] = page.map((r: any) =>
+        rawToEnriched(r, true)
+      );
+
+      const enrichedReports = await Promise.all(
+        baseReports.map((r) => enrichReportWithIPFS(r))
+      );
+
+      setReports(enrichedReports);
+    } catch (err: any) {
+      console.error("Failed to load emergency reports:", err);
+      setError(err.message || "Could not retrieve emergency reports from the network.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmergencyReports();
+  }, []);
+
+  const filteredReports = reports.filter((report) => {
+    if (filter === "open" && report.status !== EMERGENCY_STATUS.Open) return false;
+    if (filter === "inProgress" && report.status !== EMERGENCY_STATUS.InProgress) return false;
+    if (
+      filter === "resolved" &&
+      report.status !== EMERGENCY_STATUS.Resolved &&
+      report.status !== EMERGENCY_STATUS.Reclassified
+    )
+      return false;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = (report.title || "").toLowerCase().includes(query);
+      const matchDesc = (report.description || "").toLowerCase().includes(query);
+      const matchCategory = (report.category || "").toLowerCase().includes(query);
+      const matchLocation = (report.location || "").toLowerCase().includes(query);
+      const matchId = report.id.toString().includes(query);
+      return matchTitle || matchDesc || matchCategory || matchLocation || matchId;
+    }
+
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filters Bar */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm relative z-[2000]">
+        {/* Desktop Filter Pills */}
+        <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              filter === "all"
+                ? "bg-red-600 text-white shadow-sm"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            All Emergencies ({reports.length})
+          </button>
+          <button
+            onClick={() => setFilter("open")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              filter === "open"
+                ? "bg-red-600 text-white shadow-sm"
+                : "bg-red-50 text-red-700 hover:bg-red-100"
+            }`}
+          >
+            Open Alerts
+          </button>
+          <button
+            onClick={() => setFilter("inProgress")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              filter === "inProgress"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+            }`}
+          >
+            In Progress
+          </button>
+          <button
+            onClick={() => setFilter("resolved")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              filter === "resolved"
+                ? "bg-green-600 text-white shadow-sm"
+                : "bg-green-50 text-green-700 hover:bg-green-100"
+            }`}
+          >
+            Resolved
+          </button>
+        </div>
+
+        {/* Mobile Filter Dropdown */}
+        <div className="w-full md:hidden relative">
+          <button
+            onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+            className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-red-500/20 shadow-sm"
+          >
+            {filter === "all" ? `All Emergencies (${reports.length})` : filter === "open" ? "Open Alerts" : filter === "inProgress" ? "In Progress" : "Resolved"}
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </button>
+          {isFilterDropdownOpen && (
+            <div className="absolute top-full mt-2 w-full bg-white border border-slate-100 rounded-xl shadow-lg z-[2000] py-2">
+              <button
+                onClick={() => { setFilter("all"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "all" ? "bg-red-50 text-red-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                All Emergencies ({reports.length})
+              </button>
+              <button
+                onClick={() => { setFilter("open"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "open" ? "bg-red-50 text-red-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                Open Alerts
+              </button>
+              <button
+                onClick={() => { setFilter("inProgress"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "inProgress" ? "bg-indigo-50 text-indigo-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                In Progress
+              </button>
+              <button
+                onClick={() => { setFilter("resolved"); setIsFilterDropdownOpen(false); }}
+                className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition-colors ${filter === "resolved" ? "bg-green-50 text-green-600" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                Resolved
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search emergencies by ID, location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-slate-50/50"
+          />
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200/80 shadow-sm gap-3">
+          <RotateCw className="w-8 h-8 text-red-600 animate-spin" />
+          <p className="text-xs font-semibold text-slate-500">
+            Syncing emergency alerts from AuraChain...
+          </p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12 bg-red-50/50 rounded-2xl border border-red-200 text-center p-6 gap-3">
+          <AlertCircle className="w-10 h-10 text-red-500" />
+          <h3 className="text-sm font-bold text-red-900">Failed to Load Alerts</h3>
+          <p className="text-xs text-red-600 max-w-md">{error}</p>
+          <button
+            onClick={fetchEmergencyReports}
+            className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+          >
+            Retry Sync
+          </button>
+        </div>
+      ) : filteredReports.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-slate-200/80 shadow-sm text-center p-6 gap-3">
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+            <ShieldCheck className="w-6 h-6 text-red-500" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">No Emergency Alerts Found</h3>
+          <p className="text-xs text-slate-500 max-w-sm">
+            {searchQuery || filter !== "all"
+              ? "No emergency reports matched your selected filter criteria."
+              : "There are currently no emergency reports registered on-chain."}
+          </p>
+          {(searchQuery || filter !== "all") && (
+            <button
+              onClick={() => {
+                setFilter("all");
+                setSearchQuery("");
+              }}
+              className="mt-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredReports.map((report) => {
+            const statusMeta = getEmergencyStatusMeta(report.status);
+            const isAssigned =
+              report.assignedAuthority &&
+              report.assignedAuthority !== "0x0000000000000000000000000000000000000000";
+
+            const thumbImage =
+              report.images && report.images.length > 0 && report.images[0].data
+                ? `data:${report.images[0].mimeType || "image/jpeg"};base64,${report.images[0].data}`
+                : null;
+
+            const coords = extractCoordinates(report.location);
+
+            return (
+              <div
+                key={report.id}
+                className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-1 transition-all duration-300 group p-2"
+              >
+                {/* Top Image / Media Banner */}
+                <div className="relative h-[200px] bg-slate-100 overflow-hidden rounded-[16px]">
+                  {thumbImage ? (
+                    <img
+                      src={thumbImage}
+                      alt={report.description || `Emergency Alert #${report.id}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : coords ? (
+                    <div className="relative w-full h-full">
+                      <MapPreview lat={coords.lat} lng={coords.lng} />
+                      <div className="absolute top-3 right-3 z-[1000] bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-red-600" />
+                        Location
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                      <div className="text-center">
+                        <ShieldAlert className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-400">No Media</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top-Left Status Badge overlaid on banner */}
+                  <span
+                    className={`absolute top-3 left-3 z-[1200] px-3 py-1 rounded-full text-xs font-bold border ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border} shadow-sm backdrop-blur-sm bg-white/95`}
+                  >
+                    <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusMeta.dot} mr-1.5`} />
+                    {statusMeta.label}
+                  </span>
+
+                  {/* Top-Right Emergency Badge overlaid on banner */}
+                  <span className="absolute top-3 right-3 z-[1200] inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-red-600 text-white shadow-sm">
+                    <AlertTriangle className="w-3.5 h-3.5 animate-pulse" />
+                    EMERGENCY #{report.id}
+                  </span>
+                </div>
+
+                {/* Card Body Padding */}
+                <div className="p-4 flex flex-col flex-1">
+                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <ShieldAlert className="h-3 w-3" />
+                    {report.category || "EMERGENCY ALERT"}
+                  </p>
+
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">
+                    {report.title || `Emergency Alert #${report.id}`}
+                  </h3>
+
+                  <p className="text-sm text-slate-500 leading-relaxed line-clamp-3 flex-1 mb-3">
+                    {report.description ||
+                      "High-priority citizen emergency report awaiting rapid authority dispatch and on-site investigation."}
+                  </p>
+
+                  {report.location && (
+                    <div className="flex items-start gap-1.5 text-xs text-slate-400 mb-4">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span className="line-clamp-2">{formatLocation(report.location)}</span>
+                    </div>
+                  )}
+
+                  {/* Bottom Border Footer */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
+                    <div className="flex items-center gap-4">
+                      {isAssigned ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                          Authority Assigned
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          Awaiting Authority
+                        </span>
+                      )}
+
+                      <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {new Date(report.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <Link
+                      href={`/emergency/${report.id}`}
+                      className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      Detail →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

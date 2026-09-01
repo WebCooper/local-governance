@@ -272,7 +272,17 @@ function getPhaseVotes(
 
 
 // ── Page ──────────────────────────────────────────────────────────
-export default function IssueDetailPage({
+import { Suspense } from "react";
+
+export default function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+      <IssueDetailContent params={params} />
+    </Suspense>
+  );
+}
+
+function IssueDetailContent({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -291,6 +301,7 @@ export default function IssueDetailPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
   const [actionsHistory, setActionsHistory] = useState<ActionLogEntry[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Derive the correct vote phase from the report's on-chain status
   const votePhase: VotePhase | null = report ? getVotePhaseFromStatus(report.status) : null;
@@ -610,51 +621,81 @@ export default function IssueDetailPage({
   return (
     <>
       {/* MOBILE */}
-      <div className="md:hidden min-h-screen pb-24">
-
+      <div className="md:hidden min-h-screen bg-[#F9FAFB] pb-[160px] relative">
+        
         {/* HERO */}
-        <div className="relative h-64 bg-slate-100">
-
+        <div className="relative h-80 w-full rounded-b-[32px] overflow-hidden shadow-sm mb-6">
           {hasImages ? (
-            <img
-              src={heroImage!}
-              alt={`Report ${report.id}`}
-              className="w-full h-full object-cover"
-            />
+            <>
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-slate-900/10 z-10" />
+              <img
+                src={heroImage!}
+                alt={`Report ${report.id}`}
+                className="w-full h-full object-cover absolute inset-0"
+              />
+            </>
           ) : coordinates ? (
-            <MapPreview
-              lat={coordinates.lat}
-              lng={coordinates.lng}
-            />
+            <div className="absolute inset-0 w-full h-full">
+              <MapPreview
+                lat={coordinates.lat}
+                lng={coordinates.lng}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent pointer-events-none z-10" />
+            </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
-              No Preview Available
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent z-10" />
+              <AlertCircle className="h-16 w-16 text-white/10" />
             </div>
           )}
 
           {!isEmbed && (
             <button
               onClick={() => router.back()}
-              className="absolute top-4 left-4 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm"
+              className="absolute top-4 left-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 z-20 shadow-sm"
             >
-              <ArrowLeft className="h-4 w-4 text-slate-700" />
+              <ArrowLeft className="h-5 w-5 text-white" />
             </button>
           )}
 
-          <span
-            className={`absolute bottom-4 left-4 px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
-          >
-            {status.label}
-          </span>
+          <div className="absolute bottom-5 left-5 right-5 z-20">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm ${status.bg} ${status.text} bg-opacity-90 backdrop-blur-md`}>
+                {status.label}
+              </span>
+              {report.category && (
+                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md border border-white/10 shadow-sm">
+                  {report.category}
+                </span>
+              )}
+            </div>
+            
+            <h1 className="text-2xl font-extrabold text-white leading-tight drop-shadow-md mb-2">
+              {report.category ? `${report.category} Issue` : `Report #${report.id}`}
+            </h1>
+            
+            <div className="flex items-center gap-4 text-white/80 text-xs font-medium">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                {reportedAt}
+              </span>
+              {report.location && (
+                <span className="flex items-center gap-1.5 truncate">
+                  <MapPin className="h-3 w-3" />
+                  {formatLocation(report.location)}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="p-4 space-y-5">
+        <div className="px-5 space-y-6">
           {/* Active Voting Phase Countdown */}
           {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
-                <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
-                <span>Voting Ends In:</span>
+            <div className="bg-rose-50 border border-rose-100 rounded-[24px] p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2 text-rose-600 font-bold text-xs tracking-wider uppercase">
+                <Clock className="h-4 w-4 text-rose-500 animate-pulse" />
+                <span>Ends In:</span>
               </div>
               <CountdownTimer deadline={report.phaseDeadline} compact={true} />
             </div>
@@ -662,434 +703,194 @@ export default function IssueDetailPage({
 
           {/* Voting Phase Explanations */}
           {report.status === 0 && (
-            <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
+            <div className="bg-amber-50/70 border border-amber-100/80 rounded-[24px] p-5 text-sm text-amber-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
-                <span>Community Validation Phase</span>
+                <span>Validation Phase</span>
               </div>
-              <p className="leading-relaxed text-xs sm:text-sm text-amber-900/90 font-medium">
-                Community members vote to confirm if this report is genuine. If validated by votes, it opens for local authorities to take action. If flagged as fake or duplicate, it is rejected.
+              <p className="leading-relaxed text-xs text-amber-900/90 font-medium">
+                Vote to confirm if this report is genuine. Validated reports are sent to authorities.
               </p>
             </div>
           )}
 
           {report.status === 5 && (
-            <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
+            <div className="bg-purple-50/70 border border-purple-100/80 rounded-[24px] p-5 text-sm text-purple-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
-                <span>Community Verification Phase</span>
+                <span>Verification Phase</span>
               </div>
-              <p className="leading-relaxed text-xs sm:text-sm text-purple-900/90 font-medium">
-                An authority has submitted work to solve this issue. Citizens vote to verify if the resolution was completed properly or if further work is required.
+              <p className="leading-relaxed text-xs text-purple-900/90 font-medium">
+                An authority has resolved this. Vote to verify the work was completed properly.
               </p>
             </div>
           )}
 
           {report.status === 4 && (
-            <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
+            <div className="bg-orange-50/70 border border-orange-100/80 rounded-[24px] p-5 text-sm text-orange-900 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
                 <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
-                <span>Community Rejection Review Phase</span>
+                <span>Rejection Review Phase</span>
               </div>
-              <p className="leading-relaxed text-xs sm:text-sm text-orange-900/90 font-medium">
-                An authority rejected this issue. Citizens vote to either uphold the authority&apos;s rejection or overturn it to reopen the report for investigation.
+              <p className="leading-relaxed text-xs text-orange-900/90 font-medium">
+                The authority rejected this. Vote to uphold the rejection or overturn it.
               </p>
             </div>
           )}
 
+          {/* Consensus Mini-Card */}
+          <div className="bg-white rounded-[24px] shadow-sm border border-slate-100/60 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Consensus
+              </h3>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+                {phaseVotes.phaseLabel}
+              </span>
+            </div>
+
+            <div className="flex items-end justify-between mb-2">
+              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                {pct}%
+              </span>
+              <span className="text-xl font-extrabold tracking-tight text-slate-300">
+                {100 - pct}%
+              </span>
+            </div>
+
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex mb-3">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000" style={{ width: `${pct}%` }} />
+              <div className="h-full bg-slate-200 transition-all duration-1000" style={{ width: `${100 - pct}%` }} />
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+              <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">
+                <ThumbsUp className="h-3 w-3" /> {phaseVotes.agree}
+              </div>
+              <div className="flex items-center gap-1 bg-slate-50 text-slate-600 px-2 py-0.5 rounded-md">
+                <ThumbsDown className="h-3 w-3" /> {phaseVotes.disagree}
+              </div>
+            </div>
+          </div>
+
           {/* Description */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <h2 className="text-lg font-bold text-slate-900 mb-3">
+          <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+            <h2 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <span className="w-1 h-4 bg-blue-600 rounded-full inline-block"></span>
               Description
             </h2>
-
-            <p className="text-slate-600 text-sm leading-relaxed">
-              {report.description ??
-                "No description provided."}
+            <p className="text-slate-600 text-sm leading-relaxed font-medium">
+              {report.description ?? "No description provided."}
             </p>
           </div>
 
-          {/* Meta */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3 text-sm text-slate-600">
-
-            {report.location && (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
-                <span>{formatLocation(report.location)}</span>
+          {/* Evidence Gallery Mobile */}
+          {report.images && report.images.length > 0 && (
+            <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+              <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-slate-400" />
+                Evidence Gallery
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {report.images.map((img, i) => {
+                  const imgSrc = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedImage(imgSrc)}
+                      className="rounded-[16px] overflow-hidden border border-slate-100 shadow-sm aspect-square bg-slate-100 cursor-pointer"
+                    >
+                      <img
+                        src={imgSrc}
+                        alt={img.originalName || "Evidence Photo"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-              <span>Reported {reportedAt}</span>
             </div>
+          )}
 
-
-          </div>
-
-          {/* Assigned Authority Mobile (No wallet addresses, CIDs, or hashes) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-              <Landmark className="h-5 w-5 text-slate-500" />
+          {/* Assigned Authority Mobile */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[24px] p-5 text-white shadow-md relative overflow-hidden flex gap-4 items-center">
+            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 backdrop-blur-sm relative z-10 border border-white/10">
+              <Landmark className="h-5 w-5 text-blue-200" />
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+            <div className="relative z-10">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
                 Assigned Authority
               </p>
               {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
-                <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+                <p className="text-sm font-bold text-white/90">Pending</p>
               ) : (
                 <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-slate-900">
+                  <p className="text-sm font-bold text-white">
                     {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
                   </p>
                   {report.assignedAuthorityProfile && (
-                    <p className="text-xs text-slate-500 font-medium">
-                      {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                    <p className="text-[10px] text-blue-300 font-medium">
+                      {report.assignedAuthorityProfile.department}
                     </p>
                   )}
                 </div>
               )}
             </div>
+            <Landmark className="absolute -right-2 -bottom-2 w-20 h-20 text-white/5 z-0" />
           </div>
 
-          {/* Authority Action Log Mobile (No wallet addresses, CIDs, or hashes) */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              Authority Action Log
+          {/* Authority Action Log Mobile */}
+          <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm p-6">
+            <h3 className="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-slate-400" />
+              Action Log
             </h3>
             {actionsHistory.length === 0 ? (
-              <p className="text-slate-400 italic text-sm text-center py-2">
-                No authority actions recorded on-chain yet.
-              </p>
+              <div className="flex flex-col items-center justify-center py-6 bg-slate-50 rounded-[16px] border border-slate-100 border-dashed">
+                <Clock className="h-6 w-6 text-slate-300 mb-2" />
+                <p className="text-slate-500 font-medium text-xs">No official actions recorded.</p>
+              </div>
             ) : (
-              <div className="relative border-l border-slate-200 ml-3 pl-5 space-y-6">
-                {actionsHistory.map((act, index) => {
-                  const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  });
-
-                  const statusMeta = getStatusMeta(act.stage);
-
-                  return (
-                    <div key={index} className="relative">
-                      {/* Timeline dot */}
-                      <span className={`absolute -left-[27px] top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
-
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
-                            {statusMeta.label}
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            {actionDate}
-                          </span>
-                        </div>
-
-                        {/* Authority Name / Role (No wallet address) */}
-                        <div className="text-xs font-semibold text-slate-700">
-                          <span className="text-slate-800">
-                            {act.profile ? act.profile.name : "Official Representative"}
-                          </span>
-                          {act.profile && (
-                            <span className="text-slate-400 font-medium">
-                              {" "}({act.profile.position} &bull; {act.profile.department})
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Comment Content */}
-                        {act.commentText && (
-                          <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-2.5 leading-relaxed whitespace-pre-wrap">
-                            {act.commentText}
-                          </p>
-                        )}
-
-                        {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
-                        {act.imageCid && act.imageCid.length > 5 && (
-                          <div className="mt-1.5 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-xs aspect-video bg-slate-50">
-                            <img
-                              src={`/api/ipfs/image/${act.imageCid}`}
-                              alt="Action Attachment"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {voteControls}
-
-          {voteMessage && (
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
-              <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{voteMessage}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* DESKTOP */}
-      <div className="hidden md:flex flex-col w-full">
-
-        {/* Top Bar */}
-        {!isEmbed && (
-          <div className="flex items-center justify-between px-8 py-4">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-blue-600 font-bold text-sm hover:text-blue-800 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Report Detail
-            </button>
-
-            <div className="flex items-center gap-4 text-slate-500">
-              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <Bell className="h-5 w-5" />
-              </button>
-
-              <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <Settings className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Grid */}
-        <div className="grid grid-cols-[1fr_320px] gap-8 px-8 pb-8">
-
-          {/* LEFT */}
-          <div className="flex flex-col gap-6">
-
-            {/* HERO */}
-            <div className="relative w-full h-85 rounded-2xl overflow-hidden bg-slate-100 shadow-sm">
-
-              {hasImages ? (
-                <img
-                  src={heroImage!}
-                  alt={`Report ${report.id}`}
-                  className="w-full h-full object-cover"
-                />
-              ) : coordinates ? (
-                <MapPreview
-                  lat={coordinates.lat}
-                  lng={coordinates.lng}
-                  interactive={true}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
-                  No Preview Available
-                </div>
-              )}
-            </div>
-
-            {/* Status */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}
-                >
-                  {status.label}
-                </span>
-
-                {report.category && (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600">
-                    {report.category}
-                  </span>
-                )}
-
-                <span className="text-slate-400 text-sm font-mono">
-                  ID: #{report.id}
-                </span>
-              </div>
-
-              {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
-                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full text-blue-700 text-xs font-bold shadow-sm">
-                  <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
-                  <span>VOTING ENDS IN:</span>
-                  <CountdownTimer deadline={report.phaseDeadline} compact={true} />
-                </div>
-              )}
-            </div>
-
-            {/* Title */}
-            <h1 className="text-4xl font-extrabold text-slate-900 leading-tight">
-              {report.category
-                ? `${report.category} Issue`
-                : `Report #${report.id}`}
-            </h1>
-
-            {/* Meta */}
-            <div className="flex items-center flex-wrap gap-4 text-sm text-slate-500">
-
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
-                Reported {reportedAt}
-              </span>
-
-              {report.location && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  {formatLocation(report.location)}
-                </span>
-              )}
-            </div>
-
-            {/* Voting Phase Explanations */}
-            {report.status === 0 && (
-              <div className="bg-amber-50/70 border border-amber-100/80 rounded-2xl p-4.5 text-sm text-amber-900 space-y-1.5 shadow-sm">
-                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-                  <Info className="h-4.5 w-4.5 text-amber-600 shrink-0" />
-                  <span>Community Validation Phase</span>
-                </div>
-                <p className="leading-relaxed text-xs sm:text-sm text-amber-900/90 font-medium">
-                  Community members vote to confirm if this report is genuine. If validated by votes, it opens for local authorities to take action. If flagged as fake or duplicate, it is rejected.
-                </p>
-              </div>
-            )}
-
-            {report.status === 5 && (
-              <div className="bg-purple-50/70 border border-purple-100/80 rounded-2xl p-4.5 text-sm text-purple-900 space-y-1.5 shadow-sm">
-                <div className="flex items-center gap-2 text-purple-900 font-bold text-sm">
-                  <Info className="h-4.5 w-4.5 text-purple-600 shrink-0" />
-                  <span>Community Verification Phase</span>
-                </div>
-                <p className="leading-relaxed text-xs sm:text-sm text-purple-900/90 font-medium">
-                  An authority has submitted work to solve this issue. Citizens vote to verify if the resolution was completed properly or if further work is required.
-                </p>
-              </div>
-            )}
-
-            {report.status === 4 && (
-              <div className="bg-orange-50/70 border border-orange-100/80 rounded-2xl p-4.5 text-sm text-orange-900 space-y-1.5 shadow-sm">
-                <div className="flex items-center gap-2 text-orange-900 font-bold text-sm">
-                  <Info className="h-4.5 w-4.5 text-orange-600 shrink-0" />
-                  <span>Community Rejection Review Phase</span>
-                </div>
-                <p className="leading-relaxed text-xs sm:text-sm text-orange-900/90 font-medium">
-                  An authority rejected this issue. Citizens vote to either uphold the authority&apos;s rejection or overturn it to reopen the report for investigation.
-                </p>
-              </div>
-            )}
-
-            {/* Description */}
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 mb-4">
-                Detailed Description
-              </h2>
-
-              <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
-                {report.description ??
-                  "No description provided."}
-              </p>
-            </div>
-
-            {/* Evidence */}
-            {report.images && report.images.length > 1 && (
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <ImageIcon className="h-5 w-5 text-slate-500" />
-                  Evidence ({report.images.length} images)
-                </h2>
-
-                <div className="grid grid-cols-2 gap-4">
-
-                  {report.images.map((img, i) => (
-                    <div
-                      key={i}
-                      className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100"
-                    >
-                      <img
-                        src={`data:${
-                          img.mimeType || "image/jpeg"
-                        };base64,${img.data}`}
-                        alt={img.originalName}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* IPFS */}
-            {/* <div className="bg-slate-50 rounded-xl border border-slate-200 px-5 py-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                IPFS Content Identifier
-              </p>
-
-              <p className="text-xs font-mono text-slate-600 break-all">
-                {report.ipfsCid}
-              </p>
-            </div> */}
-
-            {/* Authority Action Log Desktop (No wallet addresses, CIDs, or hashes) */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-2">
-              <h2 className="text-lg font-bold text-slate-900 mb-5">
-                Authority Action Log
-              </h2>
-              {actionsHistory.length === 0 ? (
-                <p className="text-slate-400 italic text-sm text-center py-4">
-                  No authority actions recorded on-chain yet.
-                </p>
-              ) : (
-                <div className="relative border-l border-slate-200 ml-4 pl-6 space-y-8">
+              <div className="relative ml-2">
+                <div className="absolute left-[11px] top-2 bottom-2 w-[2px] bg-slate-100" />
+                <div className="space-y-6 relative">
                   {actionsHistory.map((act, index) => {
                     const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
                       dateStyle: "medium",
                       timeStyle: "short",
                     });
-
                     const statusMeta = getStatusMeta(act.stage);
 
                     return (
-                      <div key={index} className="relative">
-                        {/* Timeline dot */}
-                        <span className={`absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-white ${statusMeta.dot}`} />
+                      <div key={index} className="relative pl-8 group">
+                        <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-[3px] border-white shadow-sm flex items-center justify-center z-10 ${statusMeta.bg} ${statusMeta.text}`}>
+                          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                        </div>
 
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+                        <div className="bg-slate-50 rounded-[16px] p-4 border border-slate-100/60">
+                          <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text}`}>
                               {statusMeta.label}
                             </span>
-                            <span className="text-xs text-slate-400 font-medium">
+                            <span className="text-[10px] text-slate-400 font-medium">
                               {actionDate}
                             </span>
                           </div>
 
-                          {/* Authority Name / Role (No wallet address) */}
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                            <span className="text-slate-800">
-                              {act.profile ? act.profile.name : "Official Representative"}
-                            </span>
-                            {act.profile && (
-                              <span className="text-slate-400 font-medium">
-                                ({act.profile.position} &bull; {act.profile.department})
-                              </span>
-                            )}
+                          <div className="text-xs font-bold text-slate-800 mb-2">
+                            {act.profile ? act.profile.name : "Official"}
                           </div>
 
-                          {/* Comment Content */}
                           {act.commentText && (
-                            <p className="text-sm text-slate-600 bg-slate-50 border border-slate-100/50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-xs text-slate-600 bg-white border border-slate-100 rounded-lg p-3 leading-relaxed whitespace-pre-wrap shadow-sm">
                               {act.commentText}
                             </p>
                           )}
 
-                          {/* Uploaded Evidence Image (No IPFS CID text displayed) */}
                           {act.imageCid && act.imageCid.length > 5 && (
-                            <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-slate-50">
-                              <img
-                                src={`/api/ipfs/image/${act.imageCid}`}
-                                alt="Action Attachment"
-                                className="w-full h-full object-cover"
-                              />
+                            <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white">
+                              <img src={`/api/ipfs/image/${act.imageCid}`} alt="Attachment" className="w-full h-auto object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)} />
                             </div>
                           )}
                         </div>
@@ -1097,96 +898,437 @@ export default function IssueDetailPage({
                     );
                   })}
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* FLOATING VOTE CONTROLS (MOBILE) */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-2xl border-t border-slate-100/50 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] z-50 rounded-t-[32px]">
+           {votePhase ? (
+             <VoteControls
+               phase={votePhase}
+               selectedDecision={selectedDecision}
+               onVote={handleCastVote}
+               isSubmitting={isSubmitting}
+               availableTicketsCount={availableTicketsCount}
+             />
+           ) : (
+             <div className="text-center py-2 flex items-center justify-center gap-2">
+               <Shield className="w-5 h-5 text-slate-300" />
+               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                 Voting Closed
+               </p>
+             </div>
+           )}
+           
+           {voteMessage && (
+             <div className="mt-3 rounded-[16px] border border-blue-100 bg-blue-50/80 px-4 py-2.5 text-xs text-blue-800 flex items-start gap-2">
+               <Info className="h-4 w-4 shrink-0 text-blue-600" />
+               <span className="font-medium">{voteMessage}</span>
+             </div>
+           )}
+        </div>
+      </div>
+      
+      {/* DESKTOP */}
+      <div className="hidden md:flex flex-col w-full min-h-screen bg-[#F9FAFB] pb-20">
+        
+        {/* Top Bar */}
+        {!isEmbed && (
+          <div className="w-full bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-100/50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-slate-700 font-bold text-sm hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Feed
+              </button>
+
+              <div className="flex items-center gap-4 text-slate-500">
+                <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <Bell className="h-5 w-5" />
+                </button>
+                <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* RIGHT */}
-          <div className="flex flex-col gap-5 sticky top-8 self-start">
-
-            {voteControls}
-
-            {voteMessage && (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{voteMessage}</span>
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 flex-1 flex flex-col">
+          
+          {/* IMMERSIVE HERO HEADER */}
+          <div className="relative w-full h-[400px] rounded-[32px] overflow-hidden shadow-sm mb-10 group">
+            {hasImages ? (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-slate-900/10 z-10 transition-opacity duration-500" />
+                <img
+                  src={heroImage!}
+                  alt={`Report ${report.id}`}
+                  className="w-full h-full object-cover absolute inset-0 transition-transform duration-700 group-hover:scale-105"
+                />
+              </>
+            ) : coordinates ? (
+              <div className="absolute inset-0 w-full h-full">
+                <MapPreview
+                  lat={coordinates.lat}
+                  lng={coordinates.lng}
+                  interactive={true}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-slate-900/10 pointer-events-none z-10" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent z-10" />
+                <AlertCircle className="h-32 w-32 text-white/10" />
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            {/* Overlay Content */}
+            <div className="absolute inset-0 z-20 flex flex-col justify-end p-10 md:p-12 text-white">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+                <div className="flex items-center gap-3">
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${status.bg} ${status.text} bg-opacity-90 backdrop-blur-md`}>
+                    {status.label}
+                  </span>
+                  {report.category && (
+                    <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-md border border-white/10 shadow-sm">
+                      {report.category}
+                    </span>
+                  )}
+                  <span className="text-white/60 text-sm font-mono tracking-widest uppercase">
+                    ID: #{report.id}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900">
-                  Community Consensus
-                </h3>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
-                  {phaseVotes.phaseLabel}
-                </span>
+                {(report.status === 0 || report.status === 4 || report.status === 5) && report.phaseDeadline > 0 && (
+                  <div className="flex items-center gap-2 bg-rose-500/90 backdrop-blur-md border border-rose-400/50 px-4 py-2 rounded-full text-white text-xs font-bold shadow-lg">
+                    <Clock className="h-4 w-4 animate-pulse" />
+                    <span className="tracking-wider">VOTING ENDS IN:</span>
+                    <CountdownTimer deadline={report.phaseDeadline} compact={true} />
+                  </div>
+                )}
               </div>
 
-              <div className="mb-4">
+              <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight drop-shadow-md max-w-4xl">
+                {report.category ? `${report.category.replace(/ Issue$/i, '')} Issue Reported` : `Civic Report #${report.id}`}
+              </h1>
 
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {phaseVotes.agreeLabel} rate
+              <div className="flex items-center gap-6 text-white/80 font-medium text-sm">
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Reported {reportedAt}
+                </span>
+                {report.location && (
+                  <span className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {formatLocation(report.location)}
                   </span>
+                )}
+              </div>
+            </div>
+          </div>
 
-                  <span className="text-2xl font-extrabold text-blue-600">
-                    {pct}%
-                  </span>
-                </div>
-
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-600 rounded-full transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                    <ThumbsUp className="h-3 w-3" />
-                    {phaseVotes.agree} {phaseVotes.agreeLabel}
+          {/* GRID LAYOUT */}
+          <div className="grid grid-cols-[1fr_360px] gap-10">
+            
+            {/* LEFT COLUMN */}
+            <div className="flex flex-col gap-8">
+              
+              {/* Voting Phase Explanations */}
+              {report.status === 0 && (
+                <div className="bg-amber-50/70 border border-amber-100/80 rounded-[24px] p-6 text-sm text-amber-900 space-y-2 shadow-sm">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-base">
+                    <Info className="h-5 w-5 text-amber-600 shrink-0" />
+                    <span>Community Validation Phase</span>
+                  </div>
+                  <p className="leading-relaxed text-amber-900/90 font-medium text-base">
+                    Community members vote to confirm if this report is genuine. If validated by votes, it opens for local authorities to take action. If flagged as fake or duplicate, it is rejected.
                   </p>
-                  <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
-                    <ThumbsDown className="h-3 w-3" />
-                    {phaseVotes.disagree} {phaseVotes.disagreeLabel}
+                </div>
+              )}
+
+              {report.status === 5 && (
+                <div className="bg-purple-50/70 border border-purple-100/80 rounded-[24px] p-6 text-sm text-purple-900 space-y-2 shadow-sm">
+                  <div className="flex items-center gap-2 text-purple-900 font-bold text-base">
+                    <Info className="h-5 w-5 text-purple-600 shrink-0" />
+                    <span>Community Verification Phase</span>
+                  </div>
+                  <p className="leading-relaxed text-purple-900/90 font-medium text-base">
+                    An authority has submitted work to solve this issue. Citizens vote to verify if the resolution was completed properly or if further work is required.
                   </p>
                 </div>
+              )}
+
+              {report.status === 4 && (
+                <div className="bg-orange-50/70 border border-orange-100/80 rounded-[24px] p-6 text-sm text-orange-900 space-y-2 shadow-sm">
+                  <div className="flex items-center gap-2 text-orange-900 font-bold text-base">
+                    <Info className="h-5 w-5 text-orange-600 shrink-0" />
+                    <span>Community Rejection Review Phase</span>
+                  </div>
+                  <p className="leading-relaxed text-orange-900/90 font-medium text-base">
+                    An authority rejected this issue. Citizens vote to either uphold the authority's rejection or overturn it to reopen the report for investigation.
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-blue-600 rounded-full inline-block"></span>
+                  Detailed Description
+                </h2>
+                <p className="text-slate-600 text-base leading-relaxed whitespace-pre-wrap font-medium">
+                  {report.description ?? "No description provided."}
+                </p>
+              </div>
+
+              {/* Evidence Gallery */}
+              {report.images && report.images.length > 0 && (
+                <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                  <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-slate-400" />
+                    Evidence Gallery
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    {report.images.map((img, i) => {
+                      const imgSrc = `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedImage(imgSrc)}
+                          className="rounded-[20px] overflow-hidden border border-slate-100 shadow-sm aspect-video bg-slate-100 group cursor-pointer relative"
+                        >
+                          <img
+                            src={imgSrc}
+                            alt={img.originalName || "Evidence Photo"}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors duration-300 flex items-center justify-center pointer-events-none" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Elegant Timeline (Authority Action Log) */}
+              <div className="bg-white rounded-[24px] p-8 shadow-sm border border-slate-100/60">
+                <h2 className="text-xl font-bold text-slate-900 mb-8 flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-slate-400" />
+                  Authority Action Log
+                </h2>
+                
+                {actionsHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-[20px] border border-slate-100 border-dashed">
+                    <Clock className="h-8 w-8 text-slate-300 mb-3" />
+                    <p className="text-slate-500 font-medium text-sm">No official actions recorded yet.</p>
+                  </div>
+                ) : (
+                  <div className="relative ml-4">
+                    {/* Continuous vertical line */}
+                    <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-slate-100" />
+                    
+                    <div className="space-y-8 relative">
+                      {actionsHistory.map((act, index) => {
+                        const actionDate = new Date(act.timestamp * 1000).toLocaleString("en-US", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        });
+                        const statusMeta = getStatusMeta(act.stage);
+
+                        return (
+                          <div key={index} className="relative pl-12 group">
+                            {/* Animated Timeline Node */}
+                            <div className={`absolute left-0 top-1 w-8 h-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center z-10 transition-transform group-hover:scale-110 ${statusMeta.bg} ${statusMeta.text}`}>
+                              <div className="w-2 h-2 rounded-full bg-current" />
+                            </div>
+
+                            <div className="bg-slate-50 rounded-[20px] p-5 border border-slate-100/60 transition-colors group-hover:bg-slate-50/80 group-hover:border-slate-200">
+                              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text}`}>
+                                  {statusMeta.label}
+                                </span>
+                                <span className="text-xs text-slate-400 font-medium tracking-wide">
+                                  {actionDate}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-3">
+                                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
+                                  <Landmark className="w-3.5 h-3.5 text-slate-500" />
+                                </div>
+                                {act.profile ? act.profile.name : "Official Representative"}
+                                {act.profile && (
+                                  <span className="text-slate-400 font-medium text-xs ml-1">
+                                    &bull; {act.profile.position}, {act.profile.department}
+                                  </span>
+                                )}
+                              </div>
+
+                              {act.commentText && (
+                                <p className="text-sm text-slate-600 bg-white border border-slate-100 rounded-xl p-4 leading-relaxed whitespace-pre-wrap shadow-sm">
+                                  {act.commentText}
+                                </p>
+                              )}
+
+                              {act.imageCid && act.imageCid.length > 5 && (
+                                <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 shadow-sm max-w-sm aspect-video bg-white">
+                                  <img
+                                    src={`/api/ipfs/image/${act.imageCid}`}
+                                    alt="Action Attachment"
+                                    className="w-full h-full object-cover cursor-pointer" onClick={() => setSelectedImage(`/api/ipfs/image/${act.imageCid}`)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Authority */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex gap-4">
-
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                <Landmark className="h-5 w-5 text-slate-500" />
-              </div>
-
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
-                  Assigned Authority
-                </p>
-
-                {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
-                  <p className="text-sm font-bold text-slate-950">Not yet assigned</p>
+            {/* RIGHT COLUMN */}
+            <div className="flex flex-col gap-6 sticky top-24 self-start">
+              
+              {/* Glassmorphic Vote Controls */}
+              <div className="bg-white/60 backdrop-blur-xl rounded-[32px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white">
+                {votePhase ? (
+                  <VoteControls
+                    phase={votePhase}
+                    selectedDecision={selectedDecision}
+                    onVote={handleCastVote}
+                    isSubmitting={isSubmitting}
+                    availableTicketsCount={availableTicketsCount}
+                  />
                 ) : (
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-900">
-                      {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                  <div className="text-center py-4">
+                    <Shield className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                      Voting Closed
                     </p>
-                    {report.assignedAuthorityProfile && (
-                      <p className="text-xs text-slate-500 font-medium">
-                        {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
-                      </p>
-                    )}
                   </div>
                 )}
+                
+                {voteMessage && (
+                  <div className="mt-4 rounded-[20px] border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-blue-800 flex items-start gap-2 backdrop-blur-sm">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5 text-blue-600" />
+                    <span className="font-medium">{voteMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Redesigned Consensus Card */}
+              <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/60 p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Live Consensus
+                  </h3>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
+                    {phaseVotes.phaseLabel}
+                  </span>
+                </div>
+
+                <div className="flex items-end justify-between mb-3">
+                  <div className="flex flex-col">
+                    <span className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      {pct}%
+                    </span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {phaseVotes.agreeLabel}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-3xl font-extrabold tracking-tight text-slate-300">
+                      {100 - pct}%
+                    </span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {phaseVotes.disagreeLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out"
+                    style={{ width: `${pct}%` }}
+                  />
+                  <div
+                    className="h-full bg-slate-200 transition-all duration-1000 ease-out"
+                    style={{ width: `${100 - pct}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between mt-4 text-xs font-bold text-slate-500">
+                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    {phaseVotes.agree}
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-slate-50 text-slate-600 px-2.5 py-1 rounded-lg">
+                    <ThumbsDown className="h-3.5 w-3.5" />
+                    {phaseVotes.disagree}
+                  </div>
+                </div>
+              </div>
+
+              {/* Assigned Authority */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[32px] p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="absolute -right-6 -top-6 opacity-10">
+                  <Landmark className="w-32 h-32" />
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 relative z-10">
+                  Assigned Authority
+                </p>
+                <div className="relative z-10">
+                  {report.assignedAuthority === "0x0000000000000000000000000000000000000000" ? (
+                    <p className="text-base font-bold text-white/90">Pending Assignment</p>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-lg font-bold text-white">
+                        {report.assignedAuthorityProfile ? report.assignedAuthorityProfile.name : "Official Representative"}
+                      </p>
+                      {report.assignedAuthorityProfile && (
+                        <p className="text-sm text-blue-300 font-medium">
+                          {report.assignedAuthorityProfile.position} &bull; {report.assignedAuthorityProfile.department}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 cursor-zoom-out transition-all duration-300"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center">
+            <img 
+              src={selectedImage} 
+              alt="Evidence Preview" 
+              className="max-w-full max-h-full object-contain rounded-[24px] shadow-2xl" 
+            />
+            <button 
+              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+              className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 backdrop-blur-md transition-colors border border-white/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

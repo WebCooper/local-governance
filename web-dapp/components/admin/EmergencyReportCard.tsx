@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import {
   MapPin,
   Clock,
@@ -16,6 +17,7 @@ import {
   MessageSquare,
   ImageIcon,
   ShieldAlert,
+  ArrowRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -33,7 +35,7 @@ interface EmergencyReportCardProps {
   onActionSuccess: (reportId: number) => void;
 }
 
-type EmergencyActionType = "startWork" | "resolve" | "reclassify";
+export type EmergencyActionType = "startWork" | "resolve" | "reclassify";
 
 interface ActionModalProps {
   title: string;
@@ -44,7 +46,7 @@ interface ActionModalProps {
   onConfirm: (comment: string, imageFile: File | null) => Promise<void>;
 }
 
-function ActionModal({
+export function ActionModal({
   title,
   description,
   actionType,
@@ -93,11 +95,11 @@ function ActionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150 border border-slate-100">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorStyles.bg}`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95 duration-300 border border-white">
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${colorStyles.bg}`}>
               {actionType === "startWork" && <Play className="w-5 h-5" />}
               {actionType === "resolve" && <CheckCircle2 className="w-5 h-5" />}
               {actionType === "reclassify" && <AlertTriangle className="w-5 h-5" />}
@@ -195,7 +197,7 @@ function ActionModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
@@ -203,7 +205,7 @@ function ActionModal({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-sm ${colorStyles.btn} disabled:opacity-50`}
+            className={`flex-1 px-4 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm ${colorStyles.btn} disabled:opacity-50`}
           >
             {isSubmitting ? (
               <>
@@ -294,19 +296,19 @@ export function EmergencyReportCard({
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-red-200/80 shadow-sm hover:shadow-md transition-all duration-200 p-6 flex flex-col justify-between relative overflow-hidden">
+      <div className="bg-white/80 backdrop-blur-xl rounded-[24px] border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 p-6 flex flex-col justify-between relative overflow-hidden group">
         {/* Top Emergency Indicator Strip */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-rose-500 to-amber-500" />
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 opacity-90 group-hover:opacity-100 transition-opacity" />
 
         {/* Header */}
         <div>
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-red-50 text-red-700 border border-red-100 shadow-sm">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
                 EMERGENCY #{report.id}
               </span>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase border shadow-sm ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
                 {statusMeta.label}
               </span>
@@ -318,8 +320,8 @@ export function EmergencyReportCard({
           </div>
 
           {/* Category & Location */}
-          <div className="mb-3">
-            <h3 className="text-lg font-bold text-slate-900 mb-1">
+          <div className="mb-4">
+            <h3 className="text-xl font-black text-slate-900 mb-1.5 tracking-tight">
               {report.category || "Emergency Incident"}
             </h3>
             {report.location && (
@@ -331,7 +333,7 @@ export function EmergencyReportCard({
           </div>
 
           {/* Description preview */}
-          <p className="text-sm text-slate-600 line-clamp-3 mb-4 bg-red-50/40 p-3 rounded-xl border border-red-100/60">
+          <p className="text-sm text-slate-600 leading-relaxed line-clamp-3 mb-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
             {report.description || (
               <span className="italic text-slate-400">No description available...</span>
             )}
@@ -349,13 +351,13 @@ export function EmergencyReportCard({
                     {report.images.map((img, idx) => (
                       <a
                         key={idx}
-                        href={img.data}
+                        href={`data:${img.mimeType || "image/jpeg"};base64,${img.data}`}
                         target="_blank"
                         rel="noreferrer"
                         className="block rounded-xl overflow-hidden border border-slate-200 hover:opacity-90 transition-opacity bg-slate-100 aspect-video"
                       >
                         <img
-                          src={img.data}
+                          src={`data:${img.mimeType || "image/jpeg"};base64,${img.data}`}
                           alt={img.originalName || `Evidence ${idx + 1}`}
                           className="w-full h-full object-cover"
                         />
@@ -380,80 +382,111 @@ export function EmergencyReportCard({
         </div>
 
         {/* Footer actions */}
-        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-3">
-          {/* Expand Toggle */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              {expanded ? (
-                <>
-                  <ChevronUp className="w-4 h-4" />
-                  Show less details
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="w-4 h-4" />
-                  Show full report &amp; photos
-                </>
+        <div className="mt-4 pt-5 border-t border-slate-100">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Left: Action Buttons */}
+            <div className="flex flex-col gap-3 justify-center">
+              {/* Authority Action Buttons (Actionable for Open or InProgress) */}
+              {report.status === EMERGENCY_STATUS.Open && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setActiveModal("startWork")}
+                    className="px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                  >
+                    <Play className="w-3.5 h-3.5 shrink-0" />
+                    Mark In Progress
+                  </button>
+                  <button
+                    onClick={() => setActiveModal("resolve")}
+                    className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Resolve
+                  </button>
+                  <button
+                    onClick={() => setActiveModal("reclassify")}
+                    className="px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    Reclassify
+                  </button>
+                </div>
               )}
-            </button>
+
+              {report.status === EMERGENCY_STATUS.InProgress && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setActiveModal("resolve")}
+                    className="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Resolve Emergency
+                  </button>
+                  <button
+                    onClick={() => setActiveModal("reclassify")}
+                    className="px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    Reclassify
+                  </button>
+                </div>
+              )}
+
+              {(report.status === EMERGENCY_STATUS.Resolved || report.status === EMERGENCY_STATUS.Reclassified) && (
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-center text-xs font-bold text-slate-500">
+                  {report.status === EMERGENCY_STATUS.Resolved
+                    ? "This emergency has been successfully handled and resolved."
+                    : "This incident was reclassified as a false emergency report."}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Image Preview & Links */}
+            <div className="flex flex-col h-full">
+              {report.images && report.images.length > 0 ? (
+                <div className="flex-1 rounded-xl overflow-hidden bg-slate-100 border border-slate-100 mb-3 relative min-h-[120px]">
+                  <img
+                    src={`data:${report.images[0].mimeType || "image/jpeg"};base64,${report.images[0].data}`}
+                    alt={report.images[0].originalName || "Evidence Image"}
+                    className="w-full h-full object-cover absolute inset-0"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 rounded-xl bg-slate-50 border border-slate-100 border-dashed mb-3 flex items-center justify-center text-slate-400 text-xs min-h-[120px]">
+                  No images provided
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 mt-auto pt-1">
+                {/* Expand / Collapse extra details */}
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                      Hide IPFS details
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      Show IPFS details
+                    </>
+                  )}
+                </button>
+
+                {/* View full detail */}
+                <Link
+                  href={`/admin/emergency/${report.id}`}
+                  className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-bold transition-colors"
+                >
+                  Full Detail
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
           </div>
-
-          {/* Authority Action Buttons (Actionable for Open or InProgress) */}
-          {report.status === EMERGENCY_STATUS.Open && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                onClick={() => setActiveModal("startWork")}
-                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Play className="w-3.5 h-3.5" />
-                Mark In Progress
-              </button>
-              <button
-                onClick={() => setActiveModal("resolve")}
-                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Resolve Emergency
-              </button>
-              <button
-                onClick={() => setActiveModal("reclassify")}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                Reclassify (30d Penalty)
-              </button>
-            </div>
-          )}
-
-          {report.status === EMERGENCY_STATUS.InProgress && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                onClick={() => setActiveModal("resolve")}
-                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Resolve Emergency
-              </button>
-              <button
-                onClick={() => setActiveModal("reclassify")}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                Reclassify (30d Penalty)
-              </button>
-            </div>
-          )}
-
-          {(report.status === EMERGENCY_STATUS.Resolved || report.status === EMERGENCY_STATUS.Reclassified) && (
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs font-medium text-slate-500">
-              {report.status === EMERGENCY_STATUS.Resolved
-                ? "This emergency has been successfully handled and resolved."
-                : "This incident was reclassified as a false emergency report."}
-            </div>
-          )}
         </div>
       </div>
 
