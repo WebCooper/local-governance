@@ -1,10 +1,8 @@
-version: "3.9"
-
 services:
   oracle-safety:
     image: localgovernance-oracle-safety:latest
     build:
-      context: ./oracle-safety
+      context: ./ai-oracle-service/oracle-safety
       dockerfile: Dockerfile
     container_name: oracle-safety
     restart: unless-stopped
@@ -29,7 +27,7 @@ services:
   oracle-spam:
     image: localgovernance-oracle-spam:latest
     build:
-      context: ./oracle-spam
+      context: ./ai-oracle-service/oracle-spam
       dockerfile: Dockerfile
     container_name: oracle-spam
     restart: unless-stopped
@@ -50,7 +48,7 @@ services:
   oracle-civic:
     image: localgovernance-oracle-civic:latest
     build:
-      context: ./oracle-civic
+      context: ./ai-oracle-service/oracle-civic
       dockerfile: Dockerfile
     container_name: oracle-civic
     restart: unless-stopped
@@ -71,7 +69,7 @@ services:
   aggregator:
     image: localgovernance-oracle-aggregator:latest
     build:
-      context: ./aggregator
+      context: ./ai-oracle-service/aggregator
       dockerfile: Dockerfile
     container_name: oracle-aggregator
     restart: unless-stopped
