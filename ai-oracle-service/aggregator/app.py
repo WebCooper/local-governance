@@ -59,9 +59,9 @@ app.add_middleware(
     ],
 )
 
-ORACLE_API_KEY = os.getenv("ORACLE_API_KEY", "change-this-secret")
-AGGREGATOR_PRIVATE_KEY = os.getenv("AGGREGATOR_PRIVATE_KEY")
-TRUSTED_RELAYER_ADDRESS = os.getenv("TRUSTED_RELAYER_ADDRESS", "").lower()
+ORACLE_API_KEY = (os.getenv("ORACLE_API_KEY") or "change-this-secret").strip()
+AGGREGATOR_PRIVATE_KEY = (os.getenv("AGGREGATOR_PRIVATE_KEY") or "").strip() or None
+TRUSTED_RELAYER_ADDRESS = (os.getenv("TRUSTED_RELAYER_ADDRESS") or "").strip().lower()
 
 MAX_REQUEST_AGE_SECONDS = int(os.getenv("MAX_REQUEST_AGE_SECONDS", "300"))
 MAX_FILES = int(os.getenv("MAX_FILES", "3"))

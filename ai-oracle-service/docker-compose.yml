@@ -6,6 +6,13 @@ services:
       dockerfile: Dockerfile
     container_name: oracle-safety
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_AI_MODELS: ${ENABLE_AI_MODELS:-true}
       ENABLE_FACE_BLURRING: ${ENABLE_FACE_BLURRING:-true}
@@ -31,6 +38,13 @@ services:
       dockerfile: Dockerfile
     container_name: oracle-spam
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_SPAM_AI_MODEL: ${ENABLE_SPAM_AI_MODEL:-true}
       AI_STRONG_SPAM_THRESHOLD: ${AI_STRONG_SPAM_THRESHOLD:-0.85}
@@ -52,6 +66,13 @@ services:
       dockerfile: Dockerfile
     container_name: oracle-civic
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_SEMANTIC_TEXT_RELEVANCE: ${ENABLE_SEMANTIC_TEXT_RELEVANCE:-true}
       SEMANTIC_MODEL_NAME: ${SEMANTIC_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
@@ -75,10 +96,14 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
-      ORACLE_API_KEY: ${ORACLE_API_KEY:-}
-      AGGREGATOR_PRIVATE_KEY: ${AGGREGATOR_PRIVATE_KEY:-}
-      TRUSTED_RELAYER_ADDRESS: ${TRUSTED_RELAYER_ADDRESS:-}
       MAX_REQUEST_AGE_SECONDS: ${MAX_REQUEST_AGE_SECONDS:-300}
       MAX_FILES: ${MAX_FILES:-3}
       MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-5}
