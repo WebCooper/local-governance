@@ -27,6 +27,11 @@ export interface SubmitReportPayload {
   isEmergency?: string | boolean;
 }
 
+/** Canonicalize line endings so multipart transport cannot break signature verification. */
+function normalizeDescription(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
 
 
 @Injectable()
@@ -84,6 +89,8 @@ export class ReportingService implements OnModuleInit {
       throw new BadRequestException('Missing required fields in payload');
     }
 
+    const normalizedDescription = normalizeDescription(description);
+
     // STEP 1: Verify Government Ticket
     const recoveredGovAddress = ethers.verifyMessage(ethers.getBytes(zkpTicketId), zkpSignature);
     if (recoveredGovAddress.toLowerCase() !== this.govPublicKey.toLowerCase()) {
@@ -116,7 +123,7 @@ export class ReportingService implements OnModuleInit {
     const combinedImageHashes = parsedImageHashes.join('');
     const messageHash = ethers.solidityPackedKeccak256(
       ['string', 'string', 'string'],
-      [description, zkpTicketId, combinedImageHashes],
+      [normalizedDescription, zkpTicketId, combinedImageHashes],
     );
     const recoveredCitizenAddress = ethers.verifyMessage(ethers.getBytes(messageHash), signature);
     if (recoveredCitizenAddress.toLowerCase() !== citizenPubKey.toLowerCase()) {
@@ -142,7 +149,7 @@ export class ReportingService implements OnModuleInit {
 
     const jobData: ReportJobData = {
       citizenPubKey,
-      description,
+      description: normalizedDescription,
       category,
       location,
       zkpTicketId,
@@ -202,6 +209,8 @@ export class ReportingService implements OnModuleInit {
       throw new BadRequestException('Missing required fields in payload');
     }
 
+    const normalizedDescription = normalizeDescription(description);
+
     try {
       // STEP 1: Verify Government Ticket
       const recoveredGovAddress = ethers.verifyMessage(
@@ -242,7 +251,7 @@ export class ReportingService implements OnModuleInit {
       const combinedImageHashes = parsedImageHashes.join("");
       const messageHash = ethers.solidityPackedKeccak256(
         ['string', 'string', 'string'],
-        [description, zkpTicketId, combinedImageHashes]
+        [normalizedDescription, zkpTicketId, combinedImageHashes]
       );
 
       const recoveredCitizenAddress = ethers.verifyMessage(
@@ -266,7 +275,7 @@ export class ReportingService implements OnModuleInit {
       // STEP 4: AI Moderation
       this.logger.log('Initiating AI moderation...');
       const aiVerdict = await this.aiOracleService.moderateContent(
-        description,
+        normalizedDescription,
         images,
         zkpTicketId,
         signature,
@@ -296,7 +305,7 @@ export class ReportingService implements OnModuleInit {
       // STEP 5: Storage (IPFS)
       this.logger.log('Initiating IPFS storage pipeline...');
       const ipfsStoreResult = await this.ipfsService.uploadComplaint({
-        description,
+        description: normalizedDescription,
         category,
         location,
         images,

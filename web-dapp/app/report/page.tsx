@@ -42,6 +42,10 @@ const CATEGORIES = [
 const MAX_IMAGES = 5;
 const MAX_DESC_LENGTH = 1000;
 
+/** Canonicalize line endings so signed payload matches multipart transport. */
+const normalizeDescription = (text: string): string =>
+  text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
 // ── Utility: Convert File to WebP ────────────────────────────────
 const compressToWebP = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -216,6 +220,8 @@ export default function ReportPage() {
     setIsSubmitting(true);
     
     try {
+      const normalizedDescription = normalizeDescription(description);
+
       // Step 1: Hash all WebP images
       const imageHashes = await Promise.all(images.map(hashFile));
       const combinedImageHashes = imageHashes.join("");
@@ -224,14 +230,14 @@ export default function ReportPage() {
       const ethersWallet = new ethers.Wallet(wallet.privateKey);
       const messageHash = ethers.solidityPackedKeccak256(
         ["string", "string", "string"],
-        [description, currentTicket.ticketId, combinedImageHashes]
+        [normalizedDescription, currentTicket.ticketId, combinedImageHashes]
       );
       const signature = await ethersWallet.signMessage(ethers.getBytes(messageHash));
 
       // Step 3: Prepare FormData
       const formData = new FormData();
       formData.append("category", category);
-      formData.append("description", description);
+      formData.append("description", normalizedDescription);
       formData.append("zkpTicketId", currentTicket.ticketId);
       formData.append("zkpSignature", currentTicket.signature);
       formData.append("citizenPubKey", wallet.publicKey);
