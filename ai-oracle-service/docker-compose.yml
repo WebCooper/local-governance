@@ -1,16 +1,28 @@
-version: "3.9"
-
 services:
   oracle-safety:
     image: localgovernance-oracle-safety:latest
     build:
-      context: ./oracle-safety
+      context: ./ai-oracle-service/oracle-safety
       dockerfile: Dockerfile
     container_name: oracle-safety
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_AI_MODELS: ${ENABLE_AI_MODELS:-true}
       ENABLE_FACE_BLURRING: ${ENABLE_FACE_BLURRING:-true}
+      FACE_DETECTOR_MODEL_PATH: ${FACE_DETECTOR_MODEL_PATH:-/app/models/face_detection_yunet_2023mar.onnx}
+      FACE_DETECTION_SCORE_THRESHOLD: ${FACE_DETECTION_SCORE_THRESHOLD:-0.90}
+      FACE_DETECTION_NMS_THRESHOLD: ${FACE_DETECTION_NMS_THRESHOLD:-0.30}
+      FACE_DETECTION_MAX_DIMENSION: ${FACE_DETECTION_MAX_DIMENSION:-1280}
+      FACE_MIN_SIZE_PX: ${FACE_MIN_SIZE_PX:-20}
+      FACE_BLUR_MARGIN_RATIO: ${FACE_BLUR_MARGIN_RATIO:-0.15}
+      FACE_DETECTION_FAIL_CLOSED: ${FACE_DETECTION_FAIL_CLOSED:-true}
       HF_HOME: /models
     expose:
       - "8001"
@@ -22,10 +34,17 @@ services:
   oracle-spam:
     image: localgovernance-oracle-spam:latest
     build:
-      context: ./oracle-spam
+      context: ./ai-oracle-service/oracle-spam
       dockerfile: Dockerfile
     container_name: oracle-spam
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_SPAM_AI_MODEL: ${ENABLE_SPAM_AI_MODEL:-true}
       AI_STRONG_SPAM_THRESHOLD: ${AI_STRONG_SPAM_THRESHOLD:-0.85}
@@ -43,10 +62,17 @@ services:
   oracle-civic:
     image: localgovernance-oracle-civic:latest
     build:
-      context: ./oracle-civic
+      context: ./ai-oracle-service/oracle-civic
       dockerfile: Dockerfile
     container_name: oracle-civic
     restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
       ENABLE_SEMANTIC_TEXT_RELEVANCE: ${ENABLE_SEMANTIC_TEXT_RELEVANCE:-true}
       SEMANTIC_MODEL_NAME: ${SEMANTIC_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
@@ -64,16 +90,20 @@ services:
   aggregator:
     image: localgovernance-oracle-aggregator:latest
     build:
-      context: ./aggregator
+      context: ./ai-oracle-service/aggregator
       dockerfile: Dockerfile
     container_name: oracle-aggregator
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - path: ../.env
+        required: false
+      - path: .env
+        required: false
+      - path: ./ai-oracle-service/.env
+        required: false
     environment:
-      ORACLE_API_KEY: ${ORACLE_API_KEY}
-      AGGREGATOR_PRIVATE_KEY: ${AGGREGATOR_PRIVATE_KEY}
-      TRUSTED_RELAYER_ADDRESS: ${TRUSTED_RELAYER_ADDRESS}
       MAX_REQUEST_AGE_SECONDS: ${MAX_REQUEST_AGE_SECONDS:-300}
       MAX_FILES: ${MAX_FILES:-3}
       MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-5}

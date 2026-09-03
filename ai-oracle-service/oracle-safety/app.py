@@ -3,6 +3,8 @@ import hashlib
 import io
 import logging
 import os
+import threading
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI
@@ -16,110 +18,185 @@ logger = logging.getLogger("oracle-safety")
 
 ENABLE_AI_MODELS = os.getenv("ENABLE_AI_MODELS", "true").lower() == "true"
 ENABLE_FACE_BLURRING = os.getenv("ENABLE_FACE_BLURRING", "true").lower() == "true"
+FACE_DETECTOR_MODEL_PATH = Path(
+    os.getenv(
+        "FACE_DETECTOR_MODEL_PATH",
+        str(Path(__file__).resolve().parent / "models" / "face_detection_yunet_2023mar.onnx"),
+    )
+)
+FACE_DETECTION_SCORE_THRESHOLD = float(
+    os.getenv("FACE_DETECTION_SCORE_THRESHOLD", "0.90")
+)
+FACE_DETECTION_NMS_THRESHOLD = float(
+    os.getenv("FACE_DETECTION_NMS_THRESHOLD", "0.30")
+)
+FACE_DETECTION_MAX_DIMENSION = int(
+    os.getenv("FACE_DETECTION_MAX_DIMENSION", "1280")
+)
+FACE_MIN_SIZE_PX = int(os.getenv("FACE_MIN_SIZE_PX", "20"))
+FACE_BLUR_MARGIN_RATIO = float(os.getenv("FACE_BLUR_MARGIN_RATIO", "0.15"))
+FACE_DETECTION_FAIL_CLOSED = (
+    os.getenv("FACE_DETECTION_FAIL_CLOSED", "true").lower() == "true"
+)
 
 text_classifier = None
 image_classifier = None
+face_detector = None
+face_detector_lock = threading.Lock()
 
 
-def blur_faces(pil_image: Image.Image) -> Image.Image:
-    try:
-        import cv2
-        import numpy as np
+def load_face_detector():
+    global face_detector
 
-        # Convert PIL Image to OpenCV BGR
-        img = np.array(pil_image.convert("RGB"))
-        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        img_height, img_width = gray.shape
+    if not ENABLE_FACE_BLURRING:
+        return None
+    if not FACE_DETECTOR_MODEL_PATH.is_file():
+        raise FileNotFoundError(
+            f"YuNet face detector model not found: {FACE_DETECTOR_MODEL_PATH}"
+        )
 
-        # Load cascade classifiers (default frontal, alt frontal, alt2 frontal, profile)
-        frontal_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        alt_path = cv2.data.haarcascades + "haarcascade_frontalface_alt.xml"
-        alt2_path = cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml"
-        profile_path = cv2.data.haarcascades + "haarcascade_profileface.xml"
+    import cv2
 
-        frontal_cascade = cv2.CascadeClassifier(frontal_path)
-        alt_cascade = cv2.CascadeClassifier(alt_path)
-        alt2_cascade = cv2.CascadeClassifier(alt2_path)
-        profile_cascade = cv2.CascadeClassifier(profile_path)
+    face_detector = cv2.FaceDetectorYN.create(
+        str(FACE_DETECTOR_MODEL_PATH),
+        "",
+        (320, 320),
+        FACE_DETECTION_SCORE_THRESHOLD,
+        FACE_DETECTION_NMS_THRESHOLD,
+        5000,
+    )
+    return face_detector
 
-        raw_boxes = []
 
-        # 1. Frontal & angled face detection
-        for cascade in [frontal_cascade, alt_cascade, alt2_cascade]:
-            faces = cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
-            if isinstance(faces, np.ndarray) and len(faces) > 0:
-                raw_boxes.extend(faces.tolist())
+def _get_face_detector():
+    if face_detector is None:
+        return load_face_detector()
+    return face_detector
 
-        # 2. Left-profile face detection
-        profiles_left = profile_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
-        if isinstance(profiles_left, np.ndarray) and len(profiles_left) > 0:
-            raw_boxes.extend(profiles_left.tolist())
 
-        # 3. Right-profile face detection (haarcascade_profileface is asymmetric, requires horizontal flip)
-        flipped_gray = cv2.flip(gray, 1)
-        profiles_right = profile_cascade.detectMultiScale(flipped_gray, scaleFactor=1.05, minNeighbors=3, minSize=(20, 20))
-        if isinstance(profiles_right, np.ndarray) and len(profiles_right) > 0:
-            for (fx, fy, fw, fh) in profiles_right:
-                orig_x = img_width - fx - fw
-                raw_boxes.append([orig_x, fy, fw, fh])
+def detect_faces(pil_image: Image.Image) -> List[Dict[str, Any]]:
+    import cv2
+    import numpy as np
 
-        if not raw_boxes:
-            return pil_image
+    image_rgb = np.array(pil_image.convert("RGB"))
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    image_height, image_width = image_bgr.shape[:2]
 
-        # Deduplicate overlapping bounding boxes using Non-Maximum Suppression (NMS)
-        rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in raw_boxes])
-        pick = []
-        x1 = rects[:, 0]
-        y1 = rects[:, 1]
-        x2 = rects[:, 2]
-        y2 = rects[:, 3]
-        area = (x2 - x1 + 1) * (y2 - y1 + 1)
-        idxs = np.argsort(y2)
+    longest_side = max(image_width, image_height)
+    scale = min(1.0, FACE_DETECTION_MAX_DIMENSION / max(longest_side, 1))
+    if scale < 1.0:
+        detection_image = cv2.resize(
+            image_bgr,
+            (
+                max(1, round(image_width * scale)),
+                max(1, round(image_height * scale)),
+            ),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        detection_image = image_bgr
 
-        while len(idxs) > 0:
-            last = len(idxs) - 1
-            i = idxs[last]
-            pick.append(i)
-            xx1 = np.maximum(x1[i], x1[idxs[:last]])
-            yy1 = np.maximum(y1[i], y1[idxs[:last]])
-            xx2 = np.minimum(x2[i], x2[idxs[:last]])
-            yy2 = np.minimum(y2[i], y2[idxs[:last]])
-            w = np.maximum(0, xx2 - xx1 + 1)
-            h = np.maximum(0, yy2 - yy1 + 1)
-            overlap = (w * h) / area[idxs[:last]]
-            idxs = np.delete(idxs, np.concatenate(([last], np.where(overlap > 0.4)[0])))
+    detection_height, detection_width = detection_image.shape[:2]
+    detector = _get_face_detector()
+    with face_detector_lock:
+        detector.setInputSize((detection_width, detection_height))
+        _, rows = detector.detect(detection_image)
 
-        final_boxes = rects[pick]
-        logger.info(f"[Face Blurring] Detected & consolidated {len(final_boxes)} 360° multi-angle faces.")
+    if rows is None:
+        return []
 
-        for (x1_b, y1_b, x2_b, y2_b) in final_boxes:
-            x1_b = max(0, x1_b)
-            y1_b = max(0, y1_b)
-            x2_b = min(img_width, x2_b)
-            y2_b = min(img_height, y2_b)
-            w = x2_b - x1_b
-            h = y2_b - y1_b
+    inverse_scale = 1.0 / scale
+    detections = []
+    for row in rows:
+        x, y, width, height = (
+            float(row[0]) * inverse_scale,
+            float(row[1]) * inverse_scale,
+            float(row[2]) * inverse_scale,
+            float(row[3]) * inverse_scale,
+        )
+        score = float(row[14])
 
-            if w <= 0 or h <= 0:
-                continue
+        x1 = max(0.0, x)
+        y1 = max(0.0, y)
+        x2 = min(float(image_width), x + width)
+        y2 = min(float(image_height), y + height)
+        clipped_width = x2 - x1
+        clipped_height = y2 - y1
 
-            face_roi = img_bgr[y1_b:y2_b, x1_b:x2_b]
+        if clipped_width < FACE_MIN_SIZE_PX or clipped_height < FACE_MIN_SIZE_PX:
+            continue
 
-            ksize_w = int(w / 2.5) | 1
-            ksize_h = int(h / 2.5) | 1
-            ksize_w = max(19, ksize_w)
-            ksize_h = max(19, ksize_h)
+        aspect_ratio = clipped_width / max(clipped_height, 1.0)
+        if not 0.5 <= aspect_ratio <= 1.8:
+            continue
 
-            blurred_face = cv2.GaussianBlur(face_roi, (ksize_w, ksize_h), 0)
-            img_bgr[y1_b:y2_b, x1_b:x2_b] = blurred_face
+        landmarks = [
+            {
+                "x": round(float(row[index]) * inverse_scale, 2),
+                "y": round(float(row[index + 1]) * inverse_scale, 2),
+            }
+            for index in range(4, 14, 2)
+        ]
+        detections.append(
+            {
+                "box": {
+                    "x": round(x1, 2),
+                    "y": round(y1, 2),
+                    "width": round(clipped_width, 2),
+                    "height": round(clipped_height, 2),
+                },
+                "score": round(score, 4),
+                "landmarks": landmarks,
+            }
+        )
 
-        # Convert back to PIL Image
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        return Image.fromarray(img_rgb)
-    except Exception as e:
-        logger.error(f"[Face Blurring] Face blurring failed with error: {e}")
-        return pil_image
+    return detections
+
+
+def blur_faces(
+    pil_image: Image.Image,
+) -> tuple[Image.Image, List[Dict[str, Any]]]:
+    import cv2
+    import numpy as np
+
+    detections = detect_faces(pil_image)
+    if not detections:
+        return pil_image, []
+
+    image_rgb = np.array(pil_image.convert("RGB"))
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+    image_height, image_width = image_bgr.shape[:2]
+
+    for detection in detections:
+        box = detection["box"]
+        x, y, width, height = (
+            int(box["x"]),
+            int(box["y"]),
+            int(box["width"]),
+            int(box["height"]),
+        )
+        margin_x = int(width * FACE_BLUR_MARGIN_RATIO)
+        margin_y = int(height * FACE_BLUR_MARGIN_RATIO)
+        x1 = max(0, x - margin_x)
+        y1 = max(0, y - margin_y)
+        x2 = min(image_width, x + width + margin_x)
+        y2 = min(image_height, y + height + margin_y)
+
+        if x2 <= x1 or y2 <= y1:
+            continue
+
+        face_roi = image_bgr[y1:y2, x1:x2]
+        kernel_width = max(15, int((x2 - x1) / 3) | 1)
+        kernel_height = max(15, int((y2 - y1) / 3) | 1)
+        image_bgr[y1:y2, x1:x2] = cv2.GaussianBlur(
+            face_roi, (kernel_width, kernel_height), 0
+        )
+
+    logger.info(
+        "[Face Blurring] detector=yunet faces_detected=%s blur_applied=true",
+        len(detections),
+    )
+    return Image.fromarray(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)), detections
 
 
 def encode_image(image: Image.Image, mime_type: str) -> Optional[tuple[str, str, int]]:
@@ -190,6 +267,18 @@ def load_models():
 @app.on_event("startup")
 def startup():
     load_models()
+    if ENABLE_FACE_BLURRING:
+        try:
+            load_face_detector()
+            logger.info(
+                "[Face Detection] detector=yunet model=%s score_threshold=%.2f "
+                "nms_threshold=%.2f",
+                FACE_DETECTOR_MODEL_PATH,
+                FACE_DETECTION_SCORE_THRESHOLD,
+                FACE_DETECTION_NMS_THRESHOLD,
+            )
+        except Exception:
+            logger.exception("[Face Detection] YuNet initialization failed")
 
 
 @app.get("/")
@@ -335,7 +424,6 @@ def fallback_text_safety(text: str) -> Dict[str, Any]:
         },
     }
 
-
 def ai_text_safety(text: str) -> Dict[str, Any]:
     if text_classifier is None:
         return fallback_text_safety(text)
@@ -472,25 +560,69 @@ def image_safety(media: List[MediaItem]) -> Dict[str, Any]:
             )
             continue
 
+        face_detections = []
+        blur_applied = False
+        face_detection_error = None
+
         # 3. If safe and face blurring is enabled, detect and blur faces
         if ENABLE_FACE_BLURRING:
-            blurred_image = blur_faces(image)
-            encoded = encode_image(blurred_image, item.mime_type)
-            if encoded:
-                item.base64, item.sha256, item.size_bytes = encoded
-                logger.info(f"[Face Blurring] Image {item.file_name} blurred. New size: {item.size_bytes} bytes.")
+            try:
+                blurred_image, face_detections = blur_faces(image)
+                if face_detections:
+                    encoded = encode_image(blurred_image, item.mime_type)
+                    if encoded:
+                        item.base64, item.sha256, item.size_bytes = encoded
+                        blur_applied = True
+                        logger.info(
+                            "[Face Blurring] file=%s faces_detected=%s "
+                            "new_size_bytes=%s",
+                            item.file_name,
+                            len(face_detections),
+                            item.size_bytes,
+                        )
+                    else:
+                        face_detection_error = "blurred_image_encoding_failed"
+                else:
+                    logger.info(
+                        "[Face Blurring] file=%s faces_detected=0 "
+                        "blur_applied=false",
+                        item.file_name,
+                    )
+            except Exception as e:
+                face_detection_error = str(e)
+                logger.exception(
+                    "[Face Blurring] file=%s detection_failed", item.file_name
+                )
 
         image_results.append(
             {
                 "file_name": item.file_name,
                 "labels": labels,
                 "nsfw_score": nsfw_score,
-                "safe": True,
+                "safe": not (
+                    FACE_DETECTION_FAIL_CLOSED and face_detection_error is not None
+                ),
                 "mode": mode,
+                "face_detection": {
+                    "detector": "yunet",
+                    "faces_detected": len(face_detections),
+                    "blur_applied": blur_applied,
+                    "detections": face_detections,
+                    "error": face_detection_error,
+                },
             }
         )
 
-    unsafe_images = [img for img in image_results if img.get("safe") is False]
+    face_processing_failures = [
+        img
+        for img in image_results
+        if img.get("face_detection", {}).get("error") is not None
+    ]
+    unsafe_images = [
+        img
+        for img in image_results
+        if img.get("safe") is False and img not in face_processing_failures
+    ]
 
     if unsafe_images:
         return {
@@ -498,6 +630,15 @@ def image_safety(media: List[MediaItem]) -> Dict[str, Any]:
             "confidence": round(max_nsfw_score, 4),
             "critical_violation": True,
             "explanation_code": "UNSAFE_IMAGE_DETECTED",
+            "details": {"images": image_results},
+        }
+
+    if face_processing_failures and FACE_DETECTION_FAIL_CLOSED:
+        return {
+            "safe": False,
+            "confidence": 1.0,
+            "critical_violation": False,
+            "explanation_code": "FACE_DETECTION_FAILED",
             "details": {"images": image_results},
         }
 
@@ -544,7 +685,10 @@ def analyze(payload: OracleRequest):
 
     blurred_media_list = []
     if vote == "ACCEPT" and ENABLE_FACE_BLURRING:
-        for item in payload.media:
+        image_details = image_result.get("details", {}).get("images", [])
+        for item, detail in zip(payload.media, image_details):
+            if not detail.get("face_detection", {}).get("blur_applied"):
+                continue
             blurred_media_list.append(
                 {
                     "file_name": item.file_name,
@@ -560,8 +704,11 @@ def analyze(payload: OracleRequest):
         "vote": vote,
         "confidence": round(float(confidence), 4),
         "explanation_code": explanation,
-        "model_name": "unitary/toxic-bert + Falconsai/nsfw_image_detection",
-        "model_version": "1.0.0",
+        "model_name": (
+            "unitary/toxic-bert + Falconsai/nsfw_image_detection + "
+            "OpenCV YuNet face_detection_yunet_2023mar"
+        ),
+        "model_version": "1.1.0",
         "critical_violation": critical,
         "details": {
             "text_result": text_result,

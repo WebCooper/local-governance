@@ -16,6 +16,8 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Body
 from pydantic import BaseModel
+from decision_policy import is_civic_rejection
+from payload_routing import build_oracle_payload
 
 load_dotenv()
 
@@ -25,7 +27,11 @@ app = FastAPI(
     version="2.1.0",
 )
 
-logging.basicConfig(level=logging.WARNING)
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger("ai-oracle-aggregator")
 
 cors_origins_raw = os.getenv(
@@ -53,9 +59,9 @@ app.add_middleware(
     ],
 )
 
-ORACLE_API_KEY = os.getenv("ORACLE_API_KEY", "change-this-secret")
-AGGREGATOR_PRIVATE_KEY = os.getenv("AGGREGATOR_PRIVATE_KEY")
-TRUSTED_RELAYER_ADDRESS = os.getenv("TRUSTED_RELAYER_ADDRESS", "").lower()
+ORACLE_API_KEY = (os.getenv("ORACLE_API_KEY") or "change-this-secret").strip()
+AGGREGATOR_PRIVATE_KEY = (os.getenv("AGGREGATOR_PRIVATE_KEY") or "").strip() or None
+TRUSTED_RELAYER_ADDRESS = (os.getenv("TRUSTED_RELAYER_ADDRESS") or "").strip().lower()
 
 MAX_REQUEST_AGE_SECONDS = int(os.getenv("MAX_REQUEST_AGE_SECONDS", "300"))
 MAX_FILES = int(os.getenv("MAX_FILES", "3"))
@@ -115,6 +121,20 @@ def init_db() -> None:
 @app.on_event("startup")
 def startup() -> None:
     init_db()
+    logger.info("=" * 60)
+    logger.info("AI Oracle Aggregator starting up...")
+    logger.info("ORACLE_API_KEY: %s", ORACLE_API_KEY)
+    logger.info("TRUSTED_RELAYER_ADDRESS: %s", TRUSTED_RELAYER_ADDRESS or "(not set)")
+    if AGGREGATOR_PRIVATE_KEY:
+        try:
+            account = Account.from_key(AGGREGATOR_PRIVATE_KEY)
+            logger.info("AGGREGATOR WALLET ADDRESS: %s", account.address)
+        except Exception as e:
+            logger.warning("AGGREGATOR_PRIVATE_KEY is set but invalid: %s", e)
+    else:
+        logger.warning("AGGREGATOR_PRIVATE_KEY is NOT set!")
+    logger.info("=" * 60)
+    print(f"[STARTUP] AI Oracle Aggregator started. ORACLE_API_KEY: {ORACLE_API_KEY}", flush=True)
 
 
 def canonical_json(data: Dict[str, Any]) -> str:
@@ -367,22 +387,18 @@ def aggregate_votes(oracle_votes: List[Dict[str, Any]]) -> Dict[str, Any]:
     critical_violation = any(vote.get("critical_violation") is True for vote in oracle_votes)
 
     safety_rejection = any(
-        vote.get("oracle_id") == "ORACLE_1_SAFETY"
-        and vote.get("vote") == "REJECT"
-        for vote in oracle_votes
-    )
-
-    civic_rejection = any(
-        vote.get("oracle_id") == "ORACLE_3_CIVIC_RELEVANCE"
+        vote.get("oracle_id") in ["ORACLE_1_SAFETY", "ORACLE_SAFETY"]
         and vote.get("vote") == "REJECT"
         for vote in oracle_votes
     )
 
     spam_rejection = any(
-        vote.get("oracle_id") == "ORACLE_2_SPAM_ABUSE"
+        vote.get("oracle_id") in ["ORACLE_2_SPAM_ABUSE", "ORACLE_SPAM", "ORACLE_2_SPAM"]
         and vote.get("vote") == "REJECT"
         for vote in oracle_votes
     )
+
+    civic_rejection = any(is_civic_rejection(vote) for vote in oracle_votes)
 
     if critical_violation or safety_rejection:
         final_decision = "REJECT"
@@ -520,7 +536,11 @@ async def moderate_report(
     oracle_votes = []
 
     for oracle_name, oracle_url in ORACLE_URLS.items():
-        vote = call_oracle(oracle_name, oracle_url, oracle_payload)
+        vote = call_oracle(
+            oracle_name,
+            oracle_url,
+            build_oracle_payload(oracle_name, oracle_payload),
+        )
         oracle_votes.append(vote)
     
     aggregation = aggregate_votes(oracle_votes)
@@ -656,7 +676,11 @@ async def moderate_poll(
     # 5. Execute AI Microservices
     oracle_votes = []
     for oracle_name, oracle_url in ORACLE_URLS.items():
-        vote = call_oracle(oracle_name, oracle_url, oracle_payload)
+        vote = call_oracle(
+            oracle_name,
+            oracle_url,
+            build_oracle_payload(oracle_name, oracle_payload),
+        )
         oracle_votes.append(vote)
     
     aggregation = aggregate_votes(oracle_votes)

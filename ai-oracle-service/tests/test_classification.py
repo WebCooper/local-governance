@@ -166,6 +166,36 @@ class TestClassificationAccuracy:
             f"Reason: {body.get('summary_explanation')}"
         )
 
+    def test_T3_2_5b_university_facility_infrastructure_is_accepted(self, http_client, relayer_wallet, api_key):
+        """T3.2.5b — University facility and gym equipment infrastructure report is ACCEPTED."""
+        description = (
+            "The equipments in the university gym are broken, not safe to use. "
+            "The items are corroded and very dangerous."
+        )
+        response = post_report_text(http_client, relayer_wallet, api_key, description)
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("final_decision") == "ACCEPT", (
+            f"Expected ACCEPT for university gym damage report. Got: {body.get('final_decision')}. "
+            f"Reason: {body.get('summary_explanation')}"
+        )
+
+    def test_T3_2_5c_public_washroom_report_is_accepted(self, http_client, relayer_wallet, api_key):
+        """T3.2.5c — Public washroom and sanitation complaint is ACCEPTED."""
+        description = (
+            "The public washrooms in the park are completely unhygienic with broken flush systems, "
+            "clogged toilets, and foul odors creating a public health hazard."
+        )
+        response = post_report_text(http_client, relayer_wallet, api_key, description)
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("final_decision") == "ACCEPT", (
+            f"Expected ACCEPT for public washroom issue. Got: {body.get('final_decision')}. "
+            f"Reason: {body.get('summary_explanation')}"
+        )
+
+
+
 
 # ─── T3.4 — Response Auditability ─────────────────────────────────────────────
 
