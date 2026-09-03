@@ -19,9 +19,11 @@ import {
   Share2,
   Globe,
   Camera,
+  AlertTriangle,
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { useEmergencyPenalty } from "@/lib/useEmergencyPenalty";
 import Link from "next/link";
 import type { PickedLocation } from "@/components/LocationPicker";
 import { useDuplicateChecker, type DuplicateReport } from "@/lib/hooks/useDuplicateChecker";
@@ -107,6 +109,7 @@ export default function ReportPage() {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [isEmergency, setIsEmergency] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const penalty = useEmergencyPenalty();
   const { duplicates, setDuplicates, isChecking } = useDuplicateChecker(category, location);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [previewReport, setPreviewReport] = useState<DuplicateReport | null>(null);
@@ -193,6 +196,12 @@ export default function ReportPage() {
       } catch (err) {
         console.error("Live duplicate check error:", err);
       }
+    }
+
+    if (isEmergency && penalty.isPenalized) {
+      toast.error(`Emergency reporting is locked until ${penalty.penaltyUntilDate?.toLocaleDateString()} due to a false alarm penalty.`);
+      setIsEmergency(false);
+      return;
     }
 
     if (isEmergency && !showEmergencyModal) {
@@ -452,30 +461,60 @@ export default function ReportPage() {
               <LocationPicker value={location} onChange={setLocation} />
             </div>
 
-            {/* ── Emergency Toggle ── */}
-            <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
-              <div className="flex-1">
-                <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 shrink-0" /> Urgent / Emergency Report
-                </h3>
-                <p className="text-red-600 text-xs leading-relaxed">
-                  Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
-                </p>
+            {/* ── Emergency Toggle (Mobile) ── */}
+            {penalty.isPenalized ? (
+              <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 mt-2">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-amber-900 font-bold text-sm">Emergency Reporting Suspended</h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                        {penalty.daysRemaining} days left
+                      </span>
+                    </div>
+                    <p className="text-amber-800 text-xs mt-1 leading-relaxed">
+                      Your ID is restricted from submitting emergency reports until{" "}
+                      <strong>{penalty.penaltyUntilDate?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</strong>.
+                    </p>
+                    {penalty.reason && (
+                      <div className="mt-2 p-2 bg-white/90 rounded-xl border border-amber-200 text-xs text-amber-900">
+                        <span className="font-bold text-amber-950">Authority Reason (Report #{penalty.reclassifiedReportId}): </span>
+                        &ldquo;{penalty.reason}&rdquo;
+                      </div>
+                    )}
+                    <p className="text-amber-700 text-xs mt-1.5 flex items-center gap-1.5 font-medium">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span>Standard civic reporting is unaffected and open.</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEmergency(!isEmergency)}
-                className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner self-end sm:self-auto ${
-                  isEmergency ? 'bg-red-600' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
-                    isEmergency ? 'translate-x-7' : 'translate-x-1'
+            ) : (
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+                <div className="flex-1">
+                  <h3 className="text-red-800 font-bold text-lg mb-1 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 shrink-0" /> Urgent / Emergency Report
+                  </h3>
+                  <p className="text-red-600 text-xs leading-relaxed">
+                    Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEmergency(!isEmergency)}
+                  className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner self-end sm:self-auto ${
+                    isEmergency ? 'bg-red-600' : 'bg-slate-300'
                   }`}
-                />
-              </button>
-            </div>
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                      isEmergency ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -678,30 +717,62 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* ── Emergency Toggle ── */}
-            <div className="bg-red-50/80 border border-red-100/90 rounded-[24px] p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex-1">
-                <h3 className="text-red-800 font-bold text-base mb-1 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" /> Urgent / Emergency Report
-                </h3>
-                <p className="text-red-600 text-xs sm:text-sm leading-relaxed">
-                  Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
-                </p>
+            {/* ── Emergency Toggle (Desktop) ── */}
+            {penalty.isPenalized ? (
+              <div className="bg-amber-50/90 border border-amber-200 rounded-[24px] p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-amber-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap mb-1">
+                      <h3 className="text-amber-950 font-bold text-base">Emergency Reporting Suspended</h3>
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                        30-Day Penalty Active ({penalty.daysRemaining} days remaining)
+                      </span>
+                    </div>
+                    <p className="text-amber-800 text-sm leading-relaxed">
+                      Your identity pseudonym is temporarily restricted from submitting emergency fast-track reports until{" "}
+                      <strong>{penalty.penaltyUntilDate?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</strong>.
+                    </p>
+                    {penalty.reason && (
+                      <div className="mt-3 p-3 bg-white/90 rounded-xl border border-amber-200 text-xs text-amber-950">
+                        <span className="font-bold">Authority Reclassification Notice (Report #{penalty.reclassifiedReportId}): </span>
+                        &ldquo;{penalty.reason}&rdquo;
+                      </div>
+                    )}
+                    <p className="text-emerald-700 text-xs mt-3 flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>Standard civic reporting remains fully functional. You can still submit this report below.</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsEmergency(!isEmergency)}
-                className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner cursor-pointer ${
-                  isEmergency ? 'bg-red-600' : 'bg-slate-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
-                    isEmergency ? 'translate-x-7' : 'translate-x-1'
+            ) : (
+              <div className="bg-red-50/80 border border-red-100/90 rounded-[24px] p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex-1">
+                  <h3 className="text-red-800 font-bold text-base mb-1 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-600 shrink-0" /> Urgent / Emergency Report
+                  </h3>
+                  <p className="text-red-600 text-xs sm:text-sm leading-relaxed">
+                    Marking this as an emergency will immediately alert authorities bypassing standard triage. False emergency reports carry a strict 30-day cryptographic penalty lock on your ID.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEmergency(!isEmergency)}
+                  className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors focus:outline-none shadow-inner cursor-pointer ${
+                    isEmergency ? 'bg-red-600' : 'bg-slate-300'
                   }`}
-                />
-              </button>
-            </div>
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform ${
+                      isEmergency ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ── Sticky Bottom Action Bar (Floating Island) ── */}

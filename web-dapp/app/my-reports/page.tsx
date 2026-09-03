@@ -23,7 +23,11 @@ import {
   RefreshCw,
   AlertTriangle,
   MapPin,
+  Flame,
 } from "lucide-react";
+import { EMERGENCY_REPORTING_ADDRESS } from "@/context/AdminContext";
+import EmergencyReportingArtifact from "@/lib/contracts/EmergencyReporting.json";
+import { useEmergencyPenalty } from "@/lib/useEmergencyPenalty";
 
 const MapPreview = dynamic(() => import("@/components/MapPreview"), {
   ssr: false,
@@ -36,9 +40,14 @@ const REPORTING_ABI = [
 
 export interface FetchedReport {
   id: string;
+  rawId?: string;
   ipfsCid: string;
   status: number;
   timestamp: number;
+  isEmergency?: boolean;
+  isReclassified?: boolean;
+  authorityComment?: string;
+  authorityCommentText?: string;
 
   description?: string;
   category?: string;
@@ -123,14 +132,67 @@ const STATUS_CONFIG: Record<
 
 const FILTER_TABS = ["All", "In Progress", "Resolved"];
 
-function getStatusConfig(status: number) {
-  return STATUS_CONFIG[status] ?? {
-    label: "Unknown",
-    color: "text-slate-600",
-    bgColor: "bg-slate-100",
-    dot: "bg-slate-400",
-    icon: <FileText className="h-3.5 w-3.5" />,
-  };
+function getStatusConfig(report: FetchedReport | number): {
+  label: string;
+  color: string;
+  bgColor: string;
+  dot: string;
+  icon: React.ReactNode;
+  progress?: number;
+} {
+  const isObj = typeof report === "object";
+  const status = isObj ? report.status : report;
+
+  if (isObj && report.isEmergency) {
+    if (report.isReclassified || status === 3) {
+      return {
+        label: "Reclassified (False Alarm)",
+        color: "text-amber-800",
+        bgColor: "bg-amber-100 border border-amber-200",
+        dot: "bg-amber-600",
+        icon: <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />,
+        progress: undefined,
+      };
+    }
+    if (status === 2) {
+      return {
+        label: "Emergency Resolved",
+        color: "text-emerald-800",
+        bgColor: "bg-emerald-100",
+        dot: "bg-emerald-600",
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+        progress: 100,
+      };
+    }
+    if (status === 1) {
+      return {
+        label: "Emergency In Progress",
+        color: "text-blue-800",
+        bgColor: "bg-blue-100",
+        dot: "bg-blue-600",
+        icon: <RefreshCw className="h-3.5 w-3.5" />,
+        progress: 60,
+      };
+    }
+    return {
+      label: "Emergency Alert",
+      color: "text-red-800",
+      bgColor: "bg-red-100",
+      dot: "bg-red-600",
+      icon: <Flame className="h-3.5 w-3.5 text-red-600" />,
+      progress: 20,
+    };
+  }
+
+  return (
+    STATUS_CONFIG[status as number] ?? {
+      label: "Unknown",
+      color: "text-slate-600",
+      bgColor: "bg-slate-100",
+      dot: "bg-slate-400",
+      icon: <FileText className="h-3.5 w-3.5" />,
+    }
+  );
 }
 
 function formatDate(ts: number) {
@@ -180,8 +242,7 @@ async function fetchIpfsMetadata(
     if (!data.success) return { ipfsLoaded: true };
 
     const firstImg = data.images?.[0];
-
-    return {
+    const extra: Partial<FetchedReport> = {
       description: data.description ?? "No description",
       category: data.category ?? "GENERAL",
       location: data.location,
@@ -191,6 +252,23 @@ async function fetchIpfsMetadata(
         : undefined,
       ipfsLoaded: true,
     };
+
+    if (report.authorityComment) {
+      const clean = report.authorityComment.replace("ipfs://", "").trim();
+      if (clean) {
+        try {
+          const cRes = await fetch(`/api/ipfs/text/${clean}`);
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            if (cData.content) {
+              extra.authorityCommentText = cData.content;
+            }
+          }
+        } catch {}
+      }
+    }
+
+    return extra;
   } catch {
     return { ipfsLoaded: true };
   }
@@ -202,6 +280,7 @@ export default function MyReportsPage() {
   const [reports, setReports] = useState<FetchedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const penalty = useEmergencyPenalty();
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
 
@@ -266,17 +345,42 @@ export default function MyReportsPage() {
 
       const baseReports: FetchedReport[] = reportsArray.map((r: any) => ({
         id: r.id.toString(),
+        rawId: r.id.toString(),
         ipfsCid: r.ipfsCid,
         status: Number(r.status),
         timestamp: Number(r.createdAt) * 1000,
+        isEmergency: false,
         ipfsLoaded: false,
       }));
 
-      const reversedBase = baseReports.reverse();
-      setReports(reversedBase);
+      // Also query emergency reports
+      try {
+        const emAddress = EMERGENCY_REPORTING_ADDRESS || "0x43491d6850cef4B2E2D0d5CaCdF59B014B4A49ba";
+        const emContract = new ethers.Contract(emAddress, EmergencyReportingArtifact.abi, provider);
+        const [emArr] = await emContract.getReportsByCitizen(resolvedPseudonym, 0, 50);
+        if (emArr && emArr.length > 0) {
+          const emList: FetchedReport[] = emArr.map((r: any) => ({
+            id: `EMG-${r.id.toString()}`,
+            rawId: r.id.toString(),
+            ipfsCid: r.ipfsCid,
+            status: Number(r.status),
+            timestamp: Number(r.createdAt) * 1000,
+            isEmergency: true,
+            isReclassified: Boolean(r.isReclassified || Number(r.status) === 3),
+            authorityComment: r.authorityComment,
+            ipfsLoaded: false,
+          }));
+          baseReports.push(...emList);
+        }
+      } catch (emErr) {
+        console.warn("Could not query citizen emergency reports:", emErr);
+      }
+
+      baseReports.sort((a, b) => b.timestamp - a.timestamp);
+      setReports(baseReports);
 
       const enriched = await Promise.all(
-        reversedBase.map(async (r) => ({
+        baseReports.map(async (r) => ({
           ...r,
           ...(await fetchIpfsMetadata(r)),
         }))
@@ -399,6 +503,30 @@ export default function MyReportsPage() {
           </p>
         </div>
 
+        {/* Penalty Banner (Mobile) */}
+        {penalty.isPenalized && (
+          <div className="mx-4 mb-4 p-4 bg-amber-50/95 border border-amber-200 rounded-2xl flex items-start gap-3 shadow-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <p className="text-xs font-bold text-amber-950">Emergency Submissions Restricted</p>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                  {penalty.daysRemaining}d left
+                </span>
+              </div>
+              <p className="text-amber-800 text-xs leading-relaxed">
+                Your ID has an active 30-day penalty lock until {penalty.penaltyUntilDate?.toLocaleDateString()} because a previous emergency report was deemed non-emergency.
+              </p>
+              {penalty.reason && (
+                <div className="mt-2 p-2 bg-white/90 rounded-xl border border-amber-200/70 text-xs text-amber-950">
+                  <span className="font-bold">Authority Feedback: </span>
+                  &ldquo;{penalty.reason}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Filter pills */}
         <div className="flex gap-2 px-4 pb-4 overflow-x-auto scrollbar-hide">
           {FILTER_TABS.map((tab) => (
@@ -420,7 +548,7 @@ export default function MyReportsPage() {
         {renderState() ?? (
           <div className="px-4 space-y-4">
             {filtered.map((report) => {
-              const s = getStatusConfig(report.status);
+              const s = getStatusConfig(report);
               return (
                 <div
                   key={report.id}
@@ -454,6 +582,7 @@ export default function MyReportsPage() {
                     <span
                       className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${s.bgColor} ${s.color} z-[1200]`}
                     >
+                      {s.icon}
                       {s.label}
                     </span>
                   </div>
@@ -479,6 +608,24 @@ export default function MyReportsPage() {
                     <p className="text-sm text-slate-500 line-clamp-2 mb-3">
                       {report.description || "Loading..."}
                     </p>
+
+                    {/* Reclassification Notice in Card */}
+                    {report.isReclassified && (
+                      <div className="mb-3 p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900">
+                        <div className="flex items-center gap-1.5 font-bold mb-1">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Reclassified: False Alarm</span>
+                        </div>
+                        {report.authorityCommentText && (
+                          <p className="text-amber-800 text-[11px] leading-snug">
+                            &ldquo;{report.authorityCommentText}&rdquo;
+                          </p>
+                        )}
+                        <p className="text-[10px] text-amber-700 mt-1 font-semibold">
+                          30-day emergency reporting restriction applied.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Progress bar (for statuses with progress) */}
                     {s.progress !== undefined && (
@@ -527,13 +674,13 @@ export default function MyReportsPage() {
       ══════════════════════════════════════════════ */}
       <div className="hidden md:flex flex-col w-full min-h-screen">
         {/* ── Page Header ── */}
-        <div className="px-8 pt-6 pb-4 flex items-start justify-between">
+        <div className="px-8 pt-8 pb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-1">
+            <h1 className="text-3xl font-extrabold text-slate-900">
               My Reports
             </h1>
-            <p className="text-slate-500 text-sm">
-              Track and manage your community governance contributions.
+            <p className="text-slate-500 text-sm mt-1">
+              Manage and track the progress of your submitted governance reports.
               {pseudonym && (
                 <span className="ml-2 font-mono text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-500">
                   ZK ID: {pseudonym.slice(0, 10)}…{pseudonym.slice(-6)}
@@ -541,23 +688,42 @@ export default function MyReportsPage() {
               )}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchCitizenReports}
-              className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-colors text-sm"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
-            <Link
-              href="/report"
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              New Report
-            </Link>
-          </div>
+          <Link
+            href="/report"
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Submit New Report
+          </Link>
         </div>
+
+        {/* Penalty Banner (Desktop) */}
+        {penalty.isPenalized && (
+          <div className="mx-8 mb-6 p-5 bg-amber-50/95 border border-amber-200 rounded-2xl flex items-start gap-4 shadow-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h3 className="font-bold text-amber-950 text-base">
+                  Emergency Reporting Restricted (30-Day Penalty Active)
+                </h3>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                  {penalty.daysRemaining} days remaining
+                </span>
+              </div>
+              <p className="text-amber-800 text-xs sm:text-sm leading-relaxed">
+                Your ID is currently restricted from submitting emergency reports until{" "}
+                <strong>{penalty.penaltyUntilDate?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</strong>{" "}
+                because a previous emergency alert was reclassified as a false alarm / non-emergency.
+              </p>
+              {penalty.reason && (
+                <div className="mt-2.5 p-3 bg-white/90 rounded-xl border border-amber-200/80 text-xs text-amber-950">
+                  <span className="font-bold">Authority Reclassification Notice: </span>
+                  &ldquo;{penalty.reason}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-3 gap-4 px-8 mb-6">
@@ -646,7 +812,7 @@ export default function MyReportsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((report) => {
-                    const s = getStatusConfig(report.status);
+                    const s = getStatusConfig(report);
                     return (
                       <tr
                         key={report.id}
@@ -654,14 +820,26 @@ export default function MyReportsPage() {
                       >
                         {/* Title + ID */}
                         <td className="px-6 py-4">
-                          <p className="font-semibold text-slate-900 line-clamp-1 mb-0.5">
-                            {(report.description || "").length > 60
-                              ? (report.description || "").slice(0, 60) + "…"
-                              : (report.description || "Loading...")}
-                          </p>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            {report.isEmergency && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                                EMERGENCY
+                              </span>
+                            )}
+                            <p className="font-semibold text-slate-900 line-clamp-1">
+                              {(report.description || "").length > 60
+                                ? (report.description || "").slice(0, 60) + "…"
+                                : (report.description || "Loading...")}
+                            </p>
+                          </div>
                           <p className="text-[11px] text-slate-400 font-mono">
-                            ID: AC-{report.id.padStart(4, "0")}
+                            ID: AC-{report.id.replace("EMG-", "E").padStart(4, "0")}
                           </p>
+                          {report.isReclassified && report.authorityCommentText && (
+                            <p className="text-xs text-amber-800 bg-amber-50 p-1.5 rounded-lg border border-amber-200 mt-1">
+                              <strong>Notice:</strong> &ldquo;{report.authorityCommentText}&rdquo;
+                            </p>
+                          )}
                         </td>
 
                         {/* Category */}

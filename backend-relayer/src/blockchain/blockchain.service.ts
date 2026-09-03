@@ -95,6 +95,17 @@ export class BlockchainService implements OnModuleInit {
     return this.emergencyReportingContract || null;
   }
 
+  async getEmergencyPenaltyBox(citizenPseudonym: string): Promise<bigint> {
+    if (!this.emergencyReportingContract) return 0n;
+    try {
+      const penaltyUntil = await this.emergencyReportingContract.emergencyPenaltyBox(citizenPseudonym);
+      return BigInt(penaltyUntil);
+    } catch (err) {
+      this.logger.warn(`Failed to query emergencyPenaltyBox for pseudonym ${citizenPseudonym}: ${err}`);
+      return 0n;
+    }
+  }
+
 
   /**
    * Submits a validated report to the private blockchain.
@@ -153,7 +164,14 @@ export class BlockchainService implements OnModuleInit {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Blockchain submission failed: ${message}`);
-      throw new InternalServerErrorException('Failed to record report on-chain.');
+      if (
+        message.includes('EmergencyReportingLocked') ||
+        message.includes('0x0cc4f7a8') ||
+        message.toLowerCase().includes('emergencyreportinglocked')
+      ) {
+        throw new Error('EMERGENCY_REPORTING_LOCKED: Citizen is currently locked in a 30-day penalty box for false emergency reporting.');
+      }
+      throw new InternalServerErrorException('Failed to record report on-chain: ' + message);
     }
   }
 
