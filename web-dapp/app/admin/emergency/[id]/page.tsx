@@ -95,27 +95,32 @@ export default function AdminEmergencyDetailPage({
       let imageCid = "";
       if (imageFile) {
         const formData = new FormData();
-        formData.append("file", imageFile);
+        formData.append("image", imageFile);
         const uploadRes = await fetch("/api/ipfs/upload", {
           method: "POST",
           body: formData,
         });
-        if (!uploadRes.ok) throw new Error("Failed to upload image to IPFS");
         const uploadData = await uploadRes.json();
-        if (!uploadData.success) throw new Error(uploadData.error);
+        if (!uploadRes.ok || !uploadData.success) {
+          throw new Error(uploadData.error || "Failed to upload image to IPFS");
+        }
         imageCid = uploadData.cid;
       }
 
       let commentCid = "";
       if (comment.trim()) {
-        const textRes = await fetch("/api/ipfs/upload-text", {
+        const textRes = await fetch("/api/ipfs/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: comment }),
+          body: JSON.stringify({
+            content: comment.trim(),
+            title: `Authority emergency comment for report #${report.id}`,
+          }),
         });
-        if (!textRes.ok) throw new Error("Failed to upload comment to IPFS");
         const textData = await textRes.json();
-        if (!textData.success) throw new Error(textData.error);
+        if (!textRes.ok || !textData.success) {
+          throw new Error(textData.error || "Failed to upload comment to IPFS");
+        }
         commentCid = textData.cid;
       }
 

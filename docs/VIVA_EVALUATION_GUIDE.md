@@ -434,3 +434,45 @@ Follow this protocol during your **20-Minute Practical Demonstration**:
 2. Show status transition from `PendingValidation` -> `Open`.
 3. Log in as Authority (`/admin`). Claim the issue, mark `InProgress`, upload resolution photo evidence, and click `Mark Solved`. Status changes to `PendingVerification`.
 4. Return as Citizen (`/my-reports`), cast positive verification vote -> Status transitions to `Closed`.
+
+---
+
+## 📸 Section 7: Complete Screenshots Checklist (What to Capture for Viva Backup Slides)
+
+Here is the master list of **25 Screenshots** categorized by system function. Keep these image files in your backup slides folder (`backup_slides_assets/`) so you can show them immediately if examiners ask about specific UI states, security features, or terminal execution:
+
+### 📱 1. Citizen Interface & Authentication Flow
+- [ ] **SS-01: Citizen GovID Login & Ticket Issue Screen**: Showing successful authentication in `zkp-govid-simulator` and ticket batch issuance.
+- [ ] **SS-02: Citizen PIN Creation & Lock Screen**: Initial PIN setup for local storage encryption.
+- [ ] **SS-03: Standard Report Submission Form (`/report`)**: Showing title, category dropdown, Leaflet location map picker, and image uploader.
+- [ ] **SS-04: Real-Time SSE Progress Bar Modal**: Showing real-time status updates (*Step 1: AI Moderation -> Step 2: IPFS Upload -> Step 3: Blockchain Anchored*).
+- [ ] **SS-05: Citizen Feed Page (`/all-reports`)**: Showing list of submitted reports with FSM status badges (`PendingValidation`, `Open`, `InProgress`, `Closed`).
+- [ ] **SS-06: Issue Detail Page (`/issues/[id]`)**: Showing full report details, IPFS image preview, status timeline, and community upvote/downvote controls.
+- [ ] **SS-07: Citizen Profile & My Reports (`/my-reports`)**: Showing reports authored by the citizen's pseudonym (`keccak256(address || salt)`).
+
+### 🛡️ 2. Security, Privacy & Moderation Screenshots (Crucial for Viva Questions)
+- [ ] **SS-08: AI Oracle Toxicity Rejection Modal**: Screenshot showing a report rejected due to toxic text (`toxic-bert` score > 0.50) with explanation message.
+- [ ] **SS-09: AI Oracle Spam Rejection Modal**: Showing a submission blocked by BERT-tiny / heuristic rules engine (excessive URLs or repetitive symbols).
+- [ ] **SS-10: OpenCV Face Blurring Demonstration**: Side-by-side screenshot of original uploaded photo vs. OpenCV Haar Cascade Gaussian-blurred image stored on IPFS.
+- [ ] **SS-11: Similar Report / Duplicate Warning Modal**: Showing duplicate detection trigger when submitting a report near an existing issue location.
+- [ ] **SS-12: Double-Vote / Replay Attack Prevention Error**: Revert toast or error message when trying to vote twice with the same ticket (`NullifierAlreadyUsed`).
+- [ ] **SS-13: Access Denied / Guarded Route Error**: Screen showing access blocked when an unauthenticated user or unauthorized citizen attempts to access `/admin` or `/super-admin`.
+
+### 🏛️ 3. Authority & Governance Dashboard Screenshots
+- [ ] **SS-14: Authority Dashboard (`/admin`)**: Showing tabs for *Actionable Reports*, *In Progress*, *Pending Verification*, and *Analytics Header*.
+- [ ] **SS-15: Authority Claim & Start Work**: Showing an authority officer claiming an `Open` issue and transitioning state to `InProgress`.
+- [ ] **SS-16: Authority Resolution Modal**: Form where authority worker uploads fix photo evidence to IPFS and marks issue as `PendingVerification`.
+- [ ] **SS-17: Community Post-Resolution Verification**: Citizen view of authority's evidence and option to vote *Accept (Close)* or *Reject (Reopen)*.
+- [ ] **SS-18: Authority Rejection Safeguard (`PendingRejectionReview`)**: View showing authority rejecting a complaint and the community appeal/uphold voting panel.
+
+### 🚨 4. Emergency Reporting & Opinion Polling Screenshots
+- [ ] **SS-19: Emergency Report Submission Page (`/emergency`)**: Showing fast-track consent modal and high-priority hazard reporting form.
+- [ ] **SS-20: Fast-Track Direct Dispatch to `Open`**: Showing emergency report bypassing community validation window.
+- [ ] **SS-21: Opinion Polling Hub (`/polls`)**: Citizen voting view for municipal budget/policy proposals using poll nullifiers.
+- [ ] **SS-22: Polling Creation Form (Authority Dashboard)**: Authority view creating a new community poll with options and voting deadline.
+- [ ] **SS-23: Super Admin Multisig Proposal Board (`/super-admin`)**: View showing 2-of-3 multisig proposals for adding/removing authority workers.
+
+### 💻 5. Backend Terminal & Blockchain Execution Screenshots
+- [ ] **SS-24: Terminal Logs (NestJS Relayer & BullMQ)**: Terminal output showing Gov Ticket signature check `[PASSED]`, Keccak-256 composite hash match `[PASSED]`, and BullMQ job completion.
+- [ ] **SS-25: Terminal Logs (Python AI Oracle & Geth PoA Node)**: FastAPI logs showing Toxic-BERT, NSFW, MiniLM scores, and Geth Clique node sealing blocks every 5 seconds.
+

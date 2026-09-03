@@ -8,12 +8,22 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes("multipart/form-data")) {
       // Image upload: Forward the multipart/form-data directly
-      const formData = await req.formData();
+      const incomingFormData = await req.formData();
+      const outgoingFormData = new FormData();
+
+      for (const [key, value] of incomingFormData.entries()) {
+        if (key === "file" && !incomingFormData.has("image")) {
+          outgoingFormData.append("image", value);
+        } else {
+          outgoingFormData.append(key, value);
+        }
+      }
+
       const ipfsUrl = `${IPFS_BASE_URL}/api/ipfs/image/store`;
 
       const response = await fetch(ipfsUrl, {
         method: "POST",
-        body: formData,
+        body: outgoingFormData,
       });
 
       const data = await response.json();
@@ -29,7 +39,7 @@ export async function POST(req: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: body.content,
+          content: body.content || body.text || "",
           title: body.title || "Authority Comment",
           encoding: "utf-8",
         }),
@@ -38,10 +48,11 @@ export async function POST(req: NextRequest) {
       const data = await response.json();
       return NextResponse.json(data, { status: response.status });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "IPFS proxy failure";
     console.error("IPFS upload proxy failed:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "IPFS proxy failure" },
+      { success: false, error: errorMsg },
       { status: 500 }
     );
   }
