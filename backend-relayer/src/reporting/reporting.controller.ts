@@ -59,6 +59,15 @@ export class ReportingController {
     return this.reportingService.getPseudonym(req.citizen.address);
   }
 
+  @Get('penalty-status')
+  @UseGuards(CitizenAuthGuard)
+  getPenaltyStatus(@Req() req: AuthenticatedRequest) {
+    this.logger.log(
+      `Penalty status requested by authenticated citizen: ${req.citizen.address}`,
+    );
+    return this.reportingService.getPenaltyStatus(req.citizen.address);
+  }
+
   @Post('vote')
   @HttpCode(HttpStatus.ACCEPTED) // 202 — accepted for background processing
   async castVote(@Body() payload: CastVoteDto) {

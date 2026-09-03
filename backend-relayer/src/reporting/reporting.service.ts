@@ -3,6 +3,7 @@ import {
   Logger,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
   OnModuleInit,
   InternalServerErrorException
 } from '@nestjs/common';
@@ -129,6 +130,19 @@ export class ReportingService implements OnModuleInit {
         [citizenPubKey, process.env.PSEUDONYM_DOMAIN_SALT],
       ),
     );
+
+    const isEmergencyBool = isEmergency === 'true' || isEmergency === true;
+    if (isEmergencyBool) {
+      const penaltyUntil = await this.blockchainService.getEmergencyPenaltyBox(citizenPseudonym);
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      if (penaltyUntil > now) {
+        const unlockDate = new Date(Number(penaltyUntil) * 1000).toLocaleString();
+        this.logger.warn(`Rejected emergency report for penalized citizen ${citizenPseudonym} (penalty until ${unlockDate})`);
+        throw new ForbiddenException(
+          `Emergency reporting suspended until ${unlockDate} because a previous emergency alert was reclassified as non-emergency. Please submit as a standard civic report.`
+        );
+      }
+    }
 
     this.logger.log('✅ Cryptographic verification passed. Enqueueing background job…');
 
@@ -348,6 +362,19 @@ export class ReportingService implements OnModuleInit {
     this.logger.log(`Pseudonym derived for ${citizenAddress}: ${pseudonym}`);
 
     return { pseudonym };
+  }
+
+  async getPenaltyStatus(citizenAddress: string) {
+    const { pseudonym } = this.getPseudonym(citizenAddress);
+    const penaltyUntil = await this.blockchainService.getEmergencyPenaltyBox(pseudonym);
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    const isPenalized = penaltyUntil > now;
+    return {
+      isPenalized,
+      penaltyUntil: Number(penaltyUntil),
+      penaltyDate: isPenalized ? new Date(Number(penaltyUntil) * 1000).toISOString() : null,
+      pseudonym,
+    };
   }
 
 

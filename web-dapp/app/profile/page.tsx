@@ -6,8 +6,9 @@ import { ethers } from "ethers";
 import { useCitizen } from "@/context/CitizenContext";
 import {
   Shield, FileText, RotateCw, AlertCircle, ChevronRight,
-  Bell, LogOut, MapPin, Calendar, Plus, Lock, CheckCircle2, RefreshCw,
+  Bell, LogOut, MapPin, Calendar, Plus, Lock, CheckCircle2, RefreshCw, AlertTriangle,
 } from "lucide-react";
+import { useEmergencyPenalty } from "@/lib/useEmergencyPenalty";
 
 const REPORTING_ABI = [
   "function getReportsByCitizen(bytes32 citizenPseudonym, uint256 offset, uint256 limit) view returns (tuple(uint256 id, string ipfsCid, bytes32 reportHash, bytes32 submissionNullifier, bytes32 citizenPseudonym, address submittedByRelayer, uint8 status, uint256 createdAt, uint256 updatedAt, uint256 phaseDeadline, address assignedAuthority, tuple(uint256 validationUpvotes, uint256 validationDownvotes, uint256 verificationAcceptVotes, uint256 verificationRejectVotes, uint256 rejectionUpholdVotes, uint256 rejectionAppealVotes) votes)[] page, uint256 total)",
@@ -91,6 +92,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [avatarStyle, setAvatarStyle] = useState<string>("bottts");
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const penalty = useEmergencyPenalty();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -299,6 +301,30 @@ export default function ProfilePage() {
               <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase">● Active</span>
             </div>
 
+            {/* Emergency Standing */}
+            <div className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 text-left">
+              <div className={`w-10 h-10 ${penalty.isPenalized ? "bg-amber-50" : "bg-emerald-50"} rounded-xl flex items-center justify-center shrink-0`}>
+                <AlertTriangle className={`h-5 w-5 ${penalty.isPenalized ? "text-amber-600" : "text-emerald-600"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-900 text-sm">Emergency Fast-Track Standing</p>
+                <p className="text-xs text-slate-400 leading-relaxed mt-0.5 line-clamp-1">
+                  {penalty.isPenalized 
+                    ? `Suspended until ${penalty.penaltyUntilDate?.toLocaleDateString()} (${penalty.daysRemaining}d left)`
+                    : "Standard & emergency privileges active"}
+                </p>
+              </div>
+              {penalty.isPenalized ? (
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold rounded-full uppercase">
+                  ⚠️ Restricted
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase">
+                  ● Good
+                </span>
+              )}
+            </div>
+
             {/* Logout */}
             <button
               onClick={logout}
@@ -347,6 +373,36 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="space-y-6">
+              {/* Penalty Banner (Desktop) */}
+              {penalty.isPenalized && (
+                <div className="p-5 bg-amber-50/90 border border-amber-200 rounded-[24px] flex items-start gap-4 shadow-sm">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-amber-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h4 className="font-bold text-amber-950 text-base">Emergency Reporting Penalty Active</h4>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                        {penalty.daysRemaining} days remaining
+                      </span>
+                    </div>
+                    <p className="text-amber-800 text-xs sm:text-sm leading-relaxed">
+                      Your ID is temporarily suspended from filing emergency alerts until{" "}
+                      <strong>{penalty.penaltyUntilDate?.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</strong>.
+                    </p>
+                    {penalty.reason && (
+                      <div className="mt-2.5 p-3 bg-white/90 rounded-2xl border border-amber-200/80 text-xs text-amber-950">
+                        <span className="font-bold">Authority Reclassification Notice: </span>
+                        &ldquo;{penalty.reason}&rdquo;
+                      </div>
+                    )}
+                    <p className="text-emerald-700 text-xs mt-2.5 font-medium flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>Your standard civic reporting and voting privileges remain active and unaffected.</span>
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* ── Profile Header Card ── */}
               <div className="bg-white rounded-[24px] border border-slate-100/60 shadow-sm hover:shadow-md transition-shadow p-6 flex items-center gap-6">
@@ -490,13 +546,13 @@ export default function ProfilePage() {
                     <LogOut className="h-4 w-4" /> Sign Out
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-[16px] border border-slate-100/60">
                     <div className="flex items-center gap-3">
                       <Shield className="h-5 w-5 text-blue-600 shrink-0" />
                       <div>
                         <p className="text-sm font-semibold text-slate-900">ZKP Verification Status</p>
-                        <p className="text-xs text-slate-400">Zero-Knowledge Proof active for all interactions</p>
+                        <p className="text-xs text-slate-400">Zero-Knowledge Proof active</p>
                       </div>
                     </div>
                     <span className="px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Encrypted</span>
@@ -505,11 +561,29 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-3">
                       <RefreshCw className="h-5 w-5 text-blue-600 shrink-0" />
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">Anonymous Citizen Proxy</p>
+                        <p className="text-sm font-semibold text-slate-900">Anonymous Proxy</p>
                         <p className="text-xs text-slate-400">{shortPseud}</p>
                       </div>
                     </div>
                     <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase tracking-wide">ZK Active</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-[16px] border border-slate-100/60">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className={`h-5 w-5 shrink-0 ${penalty.isPenalized ? "text-amber-600" : "text-emerald-600"}`} />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Emergency Standing</p>
+                        <p className="text-xs text-slate-400">
+                          {penalty.isPenalized
+                            ? `Locked (${penalty.daysRemaining}d left)`
+                            : "Full access"}
+                        </p>
+                      </div>
+                    </div>
+                    {penalty.isPenalized ? (
+                      <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full uppercase tracking-wide">⚠️ Restricted</span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full uppercase tracking-wide">● Good</span>
+                    )}
                   </div>
                 </div>
               </div>

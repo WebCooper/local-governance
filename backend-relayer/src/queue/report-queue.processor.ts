@@ -28,8 +28,11 @@ async function withRetry<T>(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
-    } catch (err) {
+    } catch (err: any) {
       lastError = err;
+      if (err?.message?.includes('EMERGENCY_REPORTING_LOCKED')) {
+        break;
+      }
       if (attempt < maxAttempts) {
         const delay = baseDelayMs * Math.pow(4, attempt - 1); // 2s, 8s, 32s
         await new Promise((r) => setTimeout(r, delay));
@@ -275,16 +278,25 @@ export class ReportQueueProcessor extends WorkerHost {
         2_000,
       );
     } catch (err: any) {
+      const isPenalty =
+        err?.message?.includes('EMERGENCY_REPORTING_LOCKED') ||
+        err?.message?.includes('EmergencyReportingLocked') ||
+        err?.message?.includes('penalty');
+
+      const userMessage = isPenalty
+        ? 'Emergency reporting blocked: Account is currently in a 30-day penalty box for false emergency reporting.'
+        : 'Failed to submit to blockchain after 3 retries.';
+
       this.logger.error(
-        `Blockchain submission failed after 3 retries for job ${job.id}: ${err.message}`,
+        `Blockchain submission failed for job ${job.id}: ${err.message}`,
       );
       await emit(
         'blockchain_failed',
         90,
-        'Failed to submit to blockchain after 3 retries.',
-        { error: err.message },
+        userMessage,
+        { error: err.message, isPenalty: Boolean(isPenalty) },
       );
-      throw new Error(`BLOCKCHAIN_FAILED: ${err.message}`);
+      throw new Error(`BLOCKCHAIN_FAILED: ${userMessage}`);
     }
 
     await emit(

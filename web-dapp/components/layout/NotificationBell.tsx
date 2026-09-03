@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Bell, CheckCircle2, AlertCircle, Clock, Loader2, X, CheckCheck } from "lucide-react";
+import { Bell, CheckCircle2, AlertCircle, Clock, Loader2, X, CheckCheck, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useNotifications, ReportNotification } from "@/context/NotificationContext";
 import { ReportJobStatus } from "@/lib/useReportStatus";
+import { useEmergencyPenalty } from "@/lib/useEmergencyPenalty";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -68,6 +69,12 @@ function NotificationCard({
 }) {
   const config = STATUS_CONFIG[n.status] ?? STATUS_CONFIG.pending;
   const current = stepIndex(n.status);
+  const isPenaltyFailed =
+    n.status === "blockchain_failed" &&
+    (n.data?.isPenalty ||
+      n.message.toLowerCase().includes("penalty") ||
+      n.message.toLowerCase().includes("locked") ||
+      (n.message.includes("3 retries") && (n.category === "Emergency" || n.data?.isEmergency)));
   const isFailed = n.status.includes("failed");
   const isDone = n.status === "completed";
   const isVote = n.category === "Vote";
@@ -93,12 +100,19 @@ function NotificationCard({
           <p className="text-sm font-semibold text-slate-800 truncate">{n.category}</p>
           <p className="text-xs text-slate-500 mt-0.5">{formatTime(n.timestamp)}</p>
         </div>
-        <span
-          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${config.color}`}
-        >
-          {config.icon}
-          {config.label}
-        </span>
+        {isPenaltyFailed ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 text-amber-700 bg-amber-100 border border-amber-200">
+            <AlertTriangle className="h-3 w-3 text-amber-600" />
+            Penalty Blocked
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${config.color}`}
+          >
+            {config.icon}
+            {config.label}
+          </span>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -145,7 +159,18 @@ function NotificationCard({
       )}
 
       {/* Status message */}
-      <p className="text-xs text-slate-500 leading-relaxed">{n.message}</p>
+      {isPenaltyFailed ? (
+        <div className="space-y-1">
+          <p className="text-xs text-amber-900 font-semibold leading-relaxed">
+            Emergency submission rejected by network safeguard.
+          </p>
+          <p className="text-[11px] text-amber-700 leading-relaxed bg-amber-50 p-2 rounded-lg border border-amber-100">
+            Your ID is currently in a 30-day penalty lock because a previous report was marked as a false alarm / non-emergency. Standard community reports remain available.
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500 leading-relaxed">{n.message}</p>
+      )}
 
       {/* Extra data: tx hash */}
       {n.data?.transactionHash && (
@@ -170,10 +195,11 @@ function NotificationCard({
 // ── Main bell component ────────────────────────────────────────────────────────
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } =
+  const { notifications, unreadCount, markAllAsRead, markAsRead, clearAll } =
     useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const penalty = useEmergencyPenalty();
 
   // Close on outside click
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
@@ -227,6 +253,29 @@ export function NotificationBell() {
               )}
             </div>
           </div>
+
+          {/* Active Penalty Banner if user is in penalty box */}
+          {penalty.isPenalized && (
+            <div className="p-3 bg-amber-50 border-b border-amber-200/80 flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-xs font-bold text-amber-950">30-Day Penalty Active</p>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                    {penalty.daysRemaining}d left
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-800 mt-0.5 leading-snug">
+                  Emergency reporting locked until {penalty.penaltyUntilDate?.toLocaleDateString()} due to a false alarm.
+                </p>
+                {penalty.reason && (
+                  <p className="text-[10px] text-amber-900 font-medium mt-1 bg-white/80 p-1.5 rounded border border-amber-200/60 line-clamp-2">
+                    &ldquo;{penalty.reason}&rdquo;
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* List */}
           <div className="max-h-[420px] overflow-y-auto">
